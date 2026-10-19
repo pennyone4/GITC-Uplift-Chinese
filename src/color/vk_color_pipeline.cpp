@@ -217,8 +217,8 @@ bool VkColorPipeline::Initialize(const vk::NrFunctions& functions, VkDevice devi
   device_ = device;
   memory_ = memory;
   const auto fail = [&](const char* what, VkResult result) {
-    *error = std::format("could not create the Vulkan colour pipeline's {}", what);
-    nr::Logf(nr::LogLevel::ERR, "{} failed: VkResult {}", what, static_cast<int>(result));
+    *error = std::format("无法创建 Vulkan 颜色处理管线的{}", what);
+    nr::Logf(nr::LogLevel::ERR, "{}调用失败：VkResult {}", what, static_cast<int>(result));
     Destroy();
     return false;
   };
@@ -239,7 +239,7 @@ bool VkColorPipeline::Initialize(const vk::NrFunctions& functions, VkDevice devi
       .pBindings = bindings.data(),
   };
   if (const VkResult result = functions_.vkCreateDescriptorSetLayout(device_, &set_layout, nullptr, &set_layout_); result != VK_SUCCESS) {
-    return fail("descriptor set layout", result);
+    return fail("描述符集布局", result);
   }
   const VkPipelineLayoutCreateInfo pipeline_layout = {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -247,7 +247,7 @@ bool VkColorPipeline::Initialize(const vk::NrFunctions& functions, VkDevice devi
       .pSetLayouts = &set_layout_,
   };
   if (const VkResult result = functions_.vkCreatePipelineLayout(device_, &pipeline_layout, nullptr, &pipeline_layout_); result != VK_SUCCESS) {
-    return fail("pipeline layout", result);
+    return fail("管线布局", result);
   }
 
   // The constants ring: host-visible and coherent, mapped for good.
@@ -258,29 +258,29 @@ bool VkColorPipeline::Initialize(const vk::NrFunctions& functions, VkDevice devi
       .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
   };
   if (const VkResult result = functions_.vkCreateBuffer(device_, &ring, nullptr, &ring_buffer_); result != VK_SUCCESS) {
-    return fail("constants buffer", result);
+    return fail("常量缓冲区", result);
   }
   VkMemoryRequirements requirements = {};
   functions_.vkGetBufferMemoryRequirements(device_, ring_buffer_, &requirements);
   const uint32_t type = vk::FindMemoryType(memory_, requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  if (type == UINT32_MAX) return fail("constants memory type", VK_ERROR_FEATURE_NOT_PRESENT);
+  if (type == UINT32_MAX) return fail("常量内存类型", VK_ERROR_FEATURE_NOT_PRESENT);
   const VkMemoryAllocateInfo allocate = {.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, .allocationSize = requirements.size, .memoryTypeIndex = type};
   void* mapped = nullptr;
   if (const VkResult result = functions_.vkAllocateMemory(device_, &allocate, nullptr, &ring_memory_); result != VK_SUCCESS) {
-    return fail("constants memory", result);
+    return fail("常量内存", result);
   }
   if (const VkResult result = functions_.vkBindBufferMemory(device_, ring_buffer_, ring_memory_, 0u); result != VK_SUCCESS) {
-    return fail("constants binding", result);
+    return fail("常量绑定", result);
   }
   if (const VkResult result = functions_.vkMapMemory(device_, ring_memory_, 0u, VK_WHOLE_SIZE, 0u, &mapped); result != VK_SUCCESS) {
-    return fail("constants mapping", result);
+    return fail("常量映射", result);
   }
   ring_ = static_cast<std::byte*>(mapped);
 
   if (!vk::CreateNrImage(functions_, device_, memory_, VK_FORMAT_R16G16B16A16_SFLOAT, 1u, 1u,
                          VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, false, &placeholder_color_)
       || !vk::CreateNrImage(functions_, device_, memory_, VK_FORMAT_R16G16_SFLOAT, 1u, 1u, VK_IMAGE_USAGE_STORAGE_BIT, false, &placeholder_motion_)) {
-    return fail("placeholder images", VK_ERROR_OUT_OF_DEVICE_MEMORY);
+    return fail("占位图像", VK_ERROR_OUT_OF_DEVICE_MEMORY);
   }
   return true;
 }
@@ -346,7 +346,7 @@ bool VkColorPipeline::PrepareLook() {
   // Keep faces: built here too, outside the hooked evaluate. A failure only keeps Keep faces from running (FacesReady), never NR; fix round 1 (M3): it is
   // said once, as a warning.
   if (pipelines_[FACES] == VK_NULL_HANDLE && !failed_[FACES] && PipelineFor(FACES) == VK_NULL_HANDLE) {
-    nr::Log(nr::LogLevel::WARN, "Keep faces is unavailable on this device: its Vulkan pipeline could not be built");
+    nr::Log(nr::LogLevel::WARN, "此设备无法使用保护面部：无法构建对应的 Vulkan 管线");
   }
   return pyramid && stabilize && shape && PipelineFor(RESOLVE) != VK_NULL_HANDLE;
 }
@@ -383,7 +383,7 @@ bool VkColorPipeline::PrepareMotion() {
 
 bool VkColorPipeline::SlotInRange(uint32_t slot, const char* pass) const {
   if (slot < RING_SLOTS) return true;
-  nr::Logf(nr::LogLevel::ERR, "{}: slot {} is out of range (RING_SLOTS = {})", pass, slot, RING_SLOTS);
+  nr::Logf(nr::LogLevel::ERR, "{}：槽位 {} 超出有效范围（RING_SLOTS = {}）", pass, slot, RING_SLOTS);
   return false;
 }
 
@@ -426,7 +426,7 @@ VkPipeline VkColorPipeline::PipelineFor(uint32_t index) {
   };
   VkShaderModule module = VK_NULL_HANDLE;
   if (const VkResult result = functions_.vkCreateShaderModule(device_, &module_info, nullptr, &module); result != VK_SUCCESS) {
-    nr::Logf(failure_level, "vkCreateShaderModule (variant {}) failed: VkResult {}", index, static_cast<int>(result));
+    nr::Logf(failure_level, "vkCreateShaderModule（变体 {}）调用失败：VkResult {}", index, static_cast<int>(result));
     return VK_NULL_HANDLE;
   }
   const VkComputePipelineCreateInfo pipeline_info = {
@@ -438,7 +438,7 @@ VkPipeline VkColorPipeline::PipelineFor(uint32_t index) {
   functions_.vkDestroyShaderModule(device_, module, nullptr);
   if (result != VK_SUCCESS) {
     pipelines_[index] = VK_NULL_HANDLE;
-    nr::Logf(failure_level, "vkCreateComputePipelines (variant {}) failed: VkResult {}", index, static_cast<int>(result));
+    nr::Logf(failure_level, "vkCreateComputePipelines（变体 {}）调用失败：VkResult {}", index, static_cast<int>(result));
     return VK_NULL_HANDLE;
   }
   failed_[index] = false;

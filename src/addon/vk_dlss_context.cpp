@@ -19,13 +19,13 @@ namespace {
 template <typename Bound>
 std::string_view BoundMotionName(Bound bound) {
   switch (bound) {
-    case Bound::NONE:       return "none";
-    case Bound::LAUNCHPAD:  return "Launchpad's UPLIFT_MV";
-    case Bound::OWN_COPY:   return "DLSS's vectors (this frame's copy)";
-    case Bound::OLDER_COPY: return "DLSS's vectors (an older copy)";
-    case Bound::NO_COPY:    return "no copy of DLSS's vectors";
+    case Bound::NONE:       return "无";
+    case Bound::LAUNCHPAD:  return "LaunchPad 的 UPLIFT_MV";
+    case Bound::OWN_COPY:   return "DLSS 运动矢量（本帧副本）";
+    case Bound::OLDER_COPY: return "DLSS 运动矢量（较早帧的副本）";
+    case Bound::NO_COPY:    return "无 DLSS 运动矢量副本";
   }
-  return "none";
+  return "无";
 }
 
 constexpr uint32_t TRACE_FRAMES = 8u;  // spec §13: per-frame traces for 8 frames after a state change
@@ -63,27 +63,27 @@ VkMotionShape MotionShapeOf(const nr::FrameInputs& inputs, nr::Size canvas, bool
 
 std::string_view MotionKindName(VkMotionKind kind) {
   switch (kind) {
-    case VkMotionKind::NONE:         return "none";
-    case VkMotionKind::GAME_VECTORS: return "the game's vectors";
-    case VkMotionKind::PRESENT_COPY: return "DLSS's vectors copied for Present";
-    case VkMotionKind::LAUNCHPAD:    return "Launchpad's UPLIFT_MV";
+    case VkMotionKind::NONE:         return "无";
+    case VkMotionKind::GAME_VECTORS: return "游戏提供的运动矢量";
+    case VkMotionKind::PRESENT_COPY: return "为后处理阶段复制的 DLSS 运动矢量";
+    case VkMotionKind::LAUNCHPAD:    return "LaunchPad 的 UPLIFT_MV";
   }
-  return "none";
+  return "无";
 }
 
 std::string DescribeMotion(const VkMotionShape& shape) {
   if (shape.kind == VkMotionKind::NONE) return std::string(MotionKindName(shape.kind));
-  return std::format("{} (VkFormat {}, {})", MotionKindName(shape.kind), shape.format, (shape.low_res ? "low-res" : "full-res"));
+  return std::format("{}（VkFormat {}，{}）", MotionKindName(shape.kind), shape.format, (shape.low_res ? "低分辨率" : "原分辨率"));
 }
 
 std::string_view StreamName(VkNrStream stream) {
   switch (stream) {
-    case VkNrStream::OWN_BUFFERS:      return "Present (Uplift's own command buffers)";
-    case VkNrStream::AFTER_DLSS:       return "After DLSS (the game's command buffers)";
-    case VkNrStream::BEFORE_UPSCALING: return "Before upscaling (the game's command buffers)";
+    case VkNrStream::OWN_BUFFERS:      return "后处理（Uplift 自己的命令缓冲区）";
+    case VkNrStream::AFTER_DLSS:       return "DLSS 后（游戏的命令缓冲区）";
+    case VkNrStream::BEFORE_UPSCALING: return "DLSS 前（游戏的命令缓冲区）";
     case VkNrStream::NONE:             break;
   }
-  return "no placement";
+  return "未设置处理阶段";
 }
 
 // Split chain (Task 5): a set of streams in chain order, "Before upscaling (the game's command buffers) + Present (Uplift's own command buffers)"; a set of
@@ -100,9 +100,9 @@ std::string StreamsName(VkStreamSet streams) {
 
 // Split chain (fix round 1, I1, as Direct3D 12's): why a later group cannot run at Present while the game's DLSS-stage NR goes to another queue than the
 // effect queue's.
-constexpr std::string_view OTHER_QUEUE_REASON = "the game's DLSS runs on another queue";
+constexpr std::string_view OTHER_QUEUE_REASON = "游戏的 DLSS 在另一个队列上运行";
 // Decision Q6: native NR at Present fell back off Native (to the private Direct3D 12 device or the helper), which hold one stage only.
-constexpr std::string_view NOT_NATIVE_PRESENT_REASON = "NR at Present does not run natively on this device now";
+constexpr std::string_view NOT_NATIVE_PRESENT_REASON = "当前设备无法在后处理阶段原生运行 NR";
 
 // T6 (M-2): the format the swap-chain image's bits are copied raw into: the bridge's shared format, with an sRGB one (a swap chain ReShade did not make
 // mutable reports its own sRGB format) taken to its UNORM sibling, so the RGBA16F blit never linearises the stored values.
@@ -129,12 +129,12 @@ VkImageLayout LayoutOf(vk::Usage usage) {
 std::unique_ptr<VkDlssContext> VkDlssContext::Create(VkContextSetup setup, std::string* error) {
   const vk::Loader* const loader = vk::Loader::Get();
   if (loader == nullptr || setup.binding.device == VK_NULL_HANDLE || setup.binding.physical == VK_NULL_HANDLE || !setup.signal) {
-    *error = "the Vulkan loader, the game's device or the present signal is missing";
+    *error = "Vulkan 加载器、游戏设备或呈现信号缺失";
     return nullptr;
   }
   std::optional<vk::NrFunctions> functions = vk::NrFunctions::Open(setup.binding.device);
   if (!functions) {
-    *error = "the game's device lacks a function native NR needs (VK_KHR_push_descriptor, events, timeline semaphores)";
+    *error = "游戏设备缺少原生 Vulkan NR 所需的函数（VK_KHR_push_descriptor、事件和时间线信号量）";
     return nullptr;
   }
   // Batch 2 review (minor 2): NR's own images are RGBA16F and RG16F storage images, and DLSS's output is written in place as one of the variants'
@@ -147,7 +147,7 @@ std::unique_ptr<VkDlssContext> VkDlssContext::Create(VkContextSetup setup, std::
     return (properties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) != 0u;
   };
   if (!storage(VK_FORMAT_R16G16B16A16_SFLOAT) || !storage(VK_FORMAT_R16G16_SFLOAT)) {
-    *error = "this GPU's Vulkan driver cannot write RGBA16F and RG16F storage images, which native NR's shaders need";
+    *error = "此 GPU 的 Vulkan 驱动不支持原生 NR 着色器所需的 RGBA16F 和 RG16F 存储图像";
     return nullptr;
   }
   std::array<bool, color::VkColorPipeline::OUTPUT_VARIANTS> storage_formats = {};
@@ -208,7 +208,7 @@ VkDlssContext::~VkDlssContext() {
 void VkDlssContext::SetBlockedReason(std::string reason) {
   if (reason == blocked_reason_) return;
   if (!reason.empty()) {
-    nr::Logf(nr::LogLevel::WARN, "NR blocked: {}", reason);
+    nr::Logf(nr::LogLevel::WARN, "NR 已阻止：{}", reason);
   }
   blocked_reason_ = std::move(reason);
 }
@@ -216,7 +216,7 @@ void VkDlssContext::SetBlockedReason(std::string reason) {
 void VkDlssContext::SetDlssUnavailableReason(std::string reason) {
   if (reason == dlss_unavailable_reason_) return;
   if (!reason.empty()) {
-    nr::Logf(nr::LogLevel::INFO, "DLSS placements unavailable: {}", reason);
+    nr::Logf(nr::LogLevel::INFO, "DLSS 阶段不可用：{}", reason);
   }
   dlss_unavailable_reason_ = std::move(reason);
 }
@@ -260,7 +260,7 @@ TriggerPoint VkDlssContext::BeginFrame(void* present_queue, const FrameConfig& c
   // that shut NGX down to exit reaches vkDestroyDevice first. Until then nothing runs and the route stays native.
   if (pending_stop_since_ && present_stopped_.empty() && !torn_down_ && !dropped_
       && CoreShutdownStopDue(++pending_stop_presents_, now - *pending_stop_since_)) {
-    present_stopped_ = "the game shut NVIDIA's NGX down on its device";
+    present_stopped_ = "游戏已在其设备上关闭 NVIDIA NGX";
   }
   if (torn_down_ || dropped_ || core_shut_down_) {
     ResetFrameStatus();
@@ -322,7 +322,7 @@ TriggerPoint VkDlssContext::BeginFrame(void* present_queue, const FrameConfig& c
     ring_ = vk::CommandRing::Create(functions_, device_, queue_family_, &error);
     if (!ring_) {
       ring_failed_ = true;
-      nr::Logf(nr::LogLevel::ERR, "Vulkan: {}; NR at Present cannot run natively here", error);
+      nr::Logf(nr::LogLevel::ERR, "Vulkan：{}；无法在此原生运行后处理阶段的 NR", error);
     }
   }
   if (PresentGroupNative() && present_encoding_.has_value()) {
@@ -391,13 +391,14 @@ void VkDlssContext::ResolvePresentFrame() {
   const DXGI_FORMAT copy_format = PresentCopyFormat(image.format);
   copy_format_ = vk::VkFormatOf(copy_format);
   if (problem.empty() && !Blittable(copy_format_)) {
-    problem = std::format("This GPU's Vulkan driver cannot convert the back buffer's format (VkFormat {}) for NR at Present", static_cast<int>(copy_format_));
+    problem = std::format("此 GPU 的 Vulkan 驱动无法将后备缓冲区格式（VkFormat {}）转换为后处理阶段 NR 所需的格式",
+                          static_cast<int>(copy_format_));
   }
   if (problem.empty()) {
     // The copy keeps the image's stored values (an sRGB-created image's included), so the encoding is the one the bridge resolves for its shared copy.
     present_encoding_ = color::ResolveEncoding(config_.encoding, present_frame_.color_space, copy_format);
     if (!present_encoding_) {
-      problem = "HDR10 HLG output is not supported";
+      problem = "不支持 HDR10 HLG 输出";
     }
   }
   SetPresentProblem(std::move(problem));
@@ -440,13 +441,13 @@ std::string_view VkDlssContext::CheckMotion(Stage stage, const VkMotionShape& sh
       return {};
     case VkMotionVerdict::SKIP:
       ++state.motion_mismatches;
-      return "the motion vectors changed (NR reloads if that lasts)";
+      return "运动矢量已更改（若持续变化，NR 将重新加载）";
     case VkMotionVerdict::RELOAD:
       ++state.motion_mismatches;
       if (input_reload_reason_.empty()) {
-        input_reload_reason_ = std::format("its motion vectors changed from {} to {}", DescribeMotion(*state.motion), DescribeMotion(shape));
+        input_reload_reason_ = std::format("运动矢量已从 {} 更改为 {}", DescribeMotion(*state.motion), DescribeMotion(shape));
       }
-      return "the motion vectors changed: NR reloads";
+      return "运动矢量已更改：NR 正在重新加载";
   }
   return {};
 }
@@ -476,7 +477,7 @@ sources::PipelineResult VkDlssContext::RunPresent(TriggerPoint point, vk::Usage 
   // Split chain (Task 5): the Present group is pass 1's (group 0, the single chain of before) or a later one, whose result only Status's groups report.
   const uint32_t group = GroupAt(Stage::PRESENT).value_or(0u);
   // Spec §11: on the Present path NR would also run on generated frames.
-  if (config_.ngx_frame_generation > 0u && !config_.present_with_frame_gen) return SkipPresent("frame generation is on", group);
+  if (config_.ngx_frame_generation > 0u && !config_.present_with_frame_gen) return SkipPresent("帧生成已开启", group);
   // Split chain: a later group the budget cut to no pass (or the Defaults view hides) skips before anything is recorded. No GPU waits (fix round 1, I1):
   // DLSS-stage NR on another queue keeps Present off for later groups (UpdateChain); until that shows, a later Present group runs only once every earlier
   // DLSS-stage recording off the effect queue has completed, else it skips this frame. On the effect queue itself the queue's order keeps them apart.
@@ -484,7 +485,7 @@ sources::PipelineResult VkDlssContext::RunPresent(TriggerPoint point, vk::Usage 
   if (group > 0u && !StageWorkDone()) return SkipPresent("waiting for the earlier stages' NR", group);
   const auto log_failure = [this](std::string_view what) {
     if (!std::exchange(present_failure_logged_, true)) {
-      nr::Logf(nr::LogLevel::WARN, "Vulkan: {}; NR skips such frames at Present", what);
+      nr::Logf(nr::LogLevel::WARN, "Vulkan：{}；此类帧将跳过后处理阶段的 NR", what);
     }
   };
   if (queues.flush_present_queue) {
@@ -497,17 +498,17 @@ sources::PipelineResult VkDlssContext::RunPresent(TriggerPoint point, vk::Usage 
         break;
       case vk::CommandRing::Status::BUSY: return SkipPresent("the game's present queue is still busy", group);  // the last timeout's fence is still pending
       case vk::CommandRing::Status::TIMEOUT:
-        log_failure("the game's present queue did not finish within 2 s");
+        log_failure("游戏的呈现队列在 2 秒内未完成");
         // T6 (I-2): three in a row, as the bridge latches: no more waits here; the add-on moves NR at Present along the chain (PresentStopped).
         if (++present_queue_timeouts_ >= PRESENT_QUEUE_TIMEOUT_LIMIT && present_stopped_.empty()) {
-          present_stopped_ = "the game's present queue did not finish within 2 s three times in a row";
+          present_stopped_ = "游戏的呈现队列连续 3 次未能在 2 秒内完成";
         }
         return SkipPresent("the game's present queue is still busy", group);
       case vk::CommandRing::Status::LOST:
         NoteDeviceLost(now);
         return {};
       case vk::CommandRing::Status::FAILED:
-        log_failure("a submission on the game's present queue failed");
+        log_failure("向游戏的呈现队列提交命令失败");
         return SkipPresent("a submission on the game's present queue failed", group);
     }
   }
@@ -517,14 +518,14 @@ sources::PipelineResult VkDlssContext::RunPresent(TriggerPoint point, vk::Usage 
     case vk::CommandRing::Status::BUSY:
     case vk::CommandRing::Status::TIMEOUT:
       if (busy_skips_++ == 0u) {
-        nr::Log(nr::LogLevel::INFO, "Vulkan: a frame went without NR at Present: Uplift's command buffers were all still on the GPU (counted in Details)");
+        nr::Log(nr::LogLevel::INFO, "Vulkan：本帧未运行后处理阶段的 NR：Uplift 的命令缓冲区仍在 GPU 上执行（计数见“详细信息”）");
       }
       return SkipPresent("Uplift's command buffers are busy", group);
     case vk::CommandRing::Status::LOST:
       NoteDeviceLost(now);
       return {};
     case vk::CommandRing::Status::FAILED:
-      log_failure("Uplift's command buffer could not be begun");
+      log_failure("无法开始记录 Uplift 的命令缓冲区");
       return SkipPresent("Uplift's command buffer could not be begun", group);
   }
   ApplyLookConfig(now, group);
@@ -585,7 +586,7 @@ sources::PipelineResult VkDlssContext::RunPresent(TriggerPoint point, vk::Usage 
         NoteDeviceLost(now);
         return {};
       }
-      log_failure(std::format("Uplift's command buffer could not be submitted (VkResult {})", static_cast<int>(submitted)));
+      log_failure(std::format("无法提交 Uplift 的命令缓冲区（VkResult {}）", static_cast<int>(submitted)));
       return SkipPresent("Uplift's command buffer could not be submitted", group);
     }
     last_present_submission_ = now;  // T6 (I-4): a device loss soon after this latches native NR off
@@ -607,14 +608,14 @@ sources::PipelineResult VkDlssContext::RunPresent(TriggerPoint point, vk::Usage 
     trigger_used_ = point;
     if (point != logged_trigger_) {
       logged_trigger_ = point;
-      nr::Logf(nr::LogLevel::INFO, "NR trigger: {} (Vulkan, native)", TriggerPointName(point));
+      nr::Logf(nr::LogLevel::INFO, "NR 触发阶段：{}（Vulkan 原生）", TriggerPointName(point));
     }
   }
   if (trace_frames_ > 0u) {
     --trace_frames_;
-    nr::Logf(nr::LogLevel::TRACE, "frame {}: NR {} at {} (Vulkan, native), {} pass(es) {}; motion: {}", completion_->Timeline().CurrentFrame(),
-             (result.nr_applied ? "applied" : "skipped"), TriggerPointName(point), result.passes_run, result.reason,
-             (present_motion_bound_ == BoundMotion::OLDER_COPY ? std::format("DLSS's vectors (the copy {} frame(s) older)", present_motion_age_)
+    nr::Logf(nr::LogLevel::TRACE, "第 {} 帧：NR {} 于 {} 触发（Vulkan 原生），运行 {} 层；{}；运动矢量：{}", completion_->Timeline().CurrentFrame(),
+             (result.nr_applied ? "已处理" : "已跳过"), TriggerPointName(point), result.passes_run, result.reason,
+             (present_motion_bound_ == BoundMotion::OLDER_COPY ? std::format("DLSS 运动矢量（副本滞后 {} 帧）", present_motion_age_)
                                                                 : std::string(BoundMotionName(present_motion_bound_))));
   }
   return result;
@@ -697,7 +698,7 @@ void VkDlssContext::UpdateSession(std::chrono::steady_clock::time_point now) {
   if (PresentGroupNative() && ring_ != nullptr && present_problem_.empty() && present_encoding_.has_value()) {
     bool present_ready = true;
     if (allowed && !pipeline_->Prepare(VK_FORMAT_R16G16B16A16_SFLOAT)) {
-      SetPresentProblem("The Vulkan colour pipelines for NR at Present could not be built");
+      SetPresentProblem("无法构建 NR 在后处理阶段所需的 Vulkan 色彩管线");
       present_ready = false;
     }
     if (NativePresent()) {
@@ -710,13 +711,13 @@ void VkDlssContext::UpdateSession(std::chrono::steady_clock::time_point now) {
   // per output format, or once for Before upscaling) stays out of the game's evaluate, and a placement whose pipelines cannot be built never loads NR.
   if (placement_ready && allowed && before_upscaling && !pipeline_->PreparePreSr()) {
     pre_sr_unbuildable_ = true;
-    SetOutputProblem("The Vulkan colour pipelines for Before upscaling could not be built");
+    SetOutputProblem("无法构建 DLSS 前阶段的 Vulkan 色彩处理管线");
     placement_ready = false;
   } else if (placement_ready && allowed && (!before_upscaling || GroupAt(Stage::AFTER_DLSS).has_value()) && output_format_ != VK_FORMAT_UNDEFINED
              && !pipeline_->Prepare(output_format_)) {
     // Split chain: an After DLSS group behind Before upscaling needs DLSS's output pipelines too.
     unbuildable_formats_.push_back(output_format_);
-    SetOutputProblem(std::format("The Vulkan colour pipeline for DLSS's output format (VkFormat {}) could not be built", static_cast<int>(output_format_)));
+    SetOutputProblem(std::format("无法为 DLSS 输出格式（VkFormat {}）构建 Vulkan 色彩管线", static_cast<int>(output_format_)));
     placement_ready = false;
   }
   bool want = (allowed && (placement_ready || later_present_ready));
@@ -739,7 +740,7 @@ void VkDlssContext::UpdateSession(std::chrono::steady_clock::time_point now) {
   }
   if (!stream_reload_ && !input_reload_reason_.empty()) {
     stream_reload_ = true;
-    nr::Logf(nr::LogLevel::INFO, "Vulkan: NR reloads from off: {}", input_reload_reason_);
+    nr::Logf(nr::LogLevel::INFO, "Vulkan：NR 将从关闭状态重新加载：{}", input_reload_reason_);
     input_reload_reason_.clear();
   }
   const bool streams_change = VkStreamsNeedReload(session_streams_, wanted_streams, session_->State() == nr::SessionState::OFF);
@@ -748,12 +749,12 @@ void VkDlssContext::UpdateSession(std::chrono::steady_clock::time_point now) {
   if (!stream_reload_ && (streams_change || passes_move)) {
     stream_reload_ = true;
     if (streams_change) {
-      nr::Logf(nr::LogLevel::INFO, "Vulkan: NR moves from {} to {}: it reloads from off", StreamsName(session_streams_), StreamsName(wanted_streams));
+      nr::Logf(nr::LogLevel::INFO, "Vulkan：NR 运行流从 {} 切换至 {}；将从关闭状态重新加载", StreamsName(session_streams_), StreamsName(wanted_streams));
     } else {
-      nr::Logf(nr::LogLevel::INFO, "Vulkan: NR's passes move between its stages ({}): it reloads from off", FormatChainLine(chain_, {}));
+      nr::Logf(nr::LogLevel::INFO, "Vulkan：NR 的处理层将在不同阶段间切换（{}）；将从关闭状态重新加载", FormatChainLine(chain_, {}));
     }
     if ((session_streams_ & OWN) != 0u && ring_ && !std::exchange(own_drain_waited_, true) && !ring_->WaitIdle(RING_SWITCH_WAIT)) {
-      nr::Log(nr::LogLevel::WARN, "Vulkan: Uplift's command buffers did not finish within 2 s of leaving Present; NR stays off on this device until the game exits");
+      nr::Log(nr::LogLevel::WARN, "Vulkan：离开后处理阶段 2 秒后，Uplift 的命令缓冲区仍未完成；此设备上的 NR 将保持关闭直至游戏退出");
       Drop(false);  // no NGX call: the GPU may still run them
       return;
     }
@@ -762,7 +763,7 @@ void VkDlssContext::UpdateSession(std::chrono::steady_clock::time_point now) {
   // first (capped), as at a stage change. A drain with the configured grace (NR off by the user) needs no wait: its marks come long after.
   if (!want && (session_streams_ & OWN) != 0u && session_->State() != nr::SessionState::OFF && config_.session.grace.count() == 0 && ring_
       && !std::exchange(own_drain_waited_, true) && !ring_->WaitIdle(RING_SWITCH_WAIT)) {
-    nr::Log(nr::LogLevel::WARN, "Vulkan: Uplift's command buffers did not finish within 2 s of leaving Present; NR stays off on this device until the game exits");
+    nr::Log(nr::LogLevel::WARN, "Vulkan：离开后处理阶段 2 秒后，Uplift 的命令缓冲区仍未完成；此设备上的 NR 将保持关闭直至游戏退出");
     Drop(false);
     return;
   }
@@ -782,7 +783,7 @@ void VkDlssContext::UpdateSession(std::chrono::steady_clock::time_point now) {
   const auto note_state = [this] {
     const nr::SessionState state = session_->State();
     if (state == logged_state_) return;
-    nr::Logf(nr::LogLevel::INFO, "session {} -> {} (Vulkan)", nr::SessionStateName(logged_state_), nr::SessionStateName(state));
+    nr::Logf(nr::LogLevel::INFO, "会话状态 {} -> {}（Vulkan）", nr::SessionStateName(logged_state_), nr::SessionStateName(state));
     logged_state_ = state;
     logged_after_dlss_ = false;  // each activation logs its trigger again
     logged_trigger_ = TriggerPoint::NONE;
@@ -814,9 +815,9 @@ void VkDlssContext::UpdateChain() {
   if (!dlss_unavailable_reason_.empty()) {
     dlss_cause = dlss_unavailable_reason_;
   } else if (!dlss_seen_) {
-    dlss_cause = "DLSS has not run yet";
+    dlss_cause = "DLSS 尚未运行";
   } else if (dlss_off_.Off()) {
-    dlss_cause = "the game's DLSS is off";
+    dlss_cause = "游戏中的 DLSS 已关闭";
   }
   ChainFacts facts = {
       .pass1 = placement_.placement,
@@ -826,9 +827,9 @@ void VkDlssContext::UpdateChain() {
   };
   std::string_view before_cause = dlss_cause;
   if (before_cause.empty()) {
-    before_cause = (pre_sr_unbuildable_ ? std::string_view("The Vulkan colour pipelines for Before upscaling could not be built")
+    before_cause = (pre_sr_unbuildable_ ? std::string_view("无法构建 DLSS 前阶段的 Vulkan 色彩处理管线")
                     : BeforeUpscaling() ? std::string_view()
-                                        : std::string_view("Before upscaling is off"));
+                                        : std::string_view("DLSS 前阶段已关闭"));
   }
   facts.cannot[static_cast<size_t>(Stage::BEFORE_UPSCALING)] = before_cause;
   facts.cannot[static_cast<size_t>(Stage::AFTER_DLSS)] = dlss_cause;
@@ -839,10 +840,10 @@ void VkDlssContext::UpdateChain() {
     const void* const other_queue = stage_work_.OtherQueue(effect_queue_);
     if (other_queue != other_dlss_queue_) {
       if (other_queue != nullptr) {
-        nr::Logf(nr::LogLevel::INFO, "Vulkan: the game's DLSS runs on another queue ({}) than ReShade's effects ({}): passes stored at Present run at the DLSS "
-                 "stage", other_queue, effect_queue_);
+        nr::Logf(nr::LogLevel::INFO, "Vulkan：游戏的 DLSS 队列（{}）与 ReShade 效果队列（{}）不同；设为后处理阶段运行的层将改在 DLSS 阶段运行",
+                 other_queue, effect_queue_);
       } else {
-        nr::Log(nr::LogLevel::INFO, "Vulkan: the game's DLSS-stage NR runs on ReShade's effect queue again: passes stored at Present run there again");
+        nr::Log(nr::LogLevel::INFO, "Vulkan：游戏 DLSS 阶段的 NR 已重新在 ReShade 效果队列运行；设为后处理阶段的层将恢复在该队列运行");
       }
       other_dlss_queue_ = other_queue;
     }
@@ -853,7 +854,7 @@ void VkDlssContext::UpdateChain() {
   } else if (!present_problem_.empty()) {
     present_cause = present_problem_;  // the back buffer cannot take NR (ResolvePresentFrame): a lasting cause, never one frame's missing image
   } else if (config_.ngx_frame_generation > 0u && !config_.present_with_frame_gen) {
-    present_cause = "frame generation is on";
+    present_cause = "帧生成已开启";
   } else if (other_dlss_queue_ != nullptr) {
     present_cause = OTHER_QUEUE_REASON;
   }
@@ -875,9 +876,9 @@ void VkDlssContext::UpdateChain() {
   if (!same_groups(chain, chain_)) {
     // Logged only around a split, so a one-group chain logs exactly what the placement line already says.
     if (chain.Split()) {
-      nr::Logf(nr::LogLevel::INFO, "NR chain: {}", FormatChainLine(chain, {}));
+      nr::Logf(nr::LogLevel::INFO, "NR 处理链：{}", FormatChainLine(chain, {}));
     } else if (chain_.Split()) {
-      nr::Log(nr::LogLevel::INFO, "NR chain: every pass at one stage");
+      nr::Log(nr::LogLevel::INFO, "NR 处理链：所有层均在同一阶段运行");
     }
     const auto passes_of = [](const ChainPlan& plan) {
       return (plan.group_count == 0u ? 0u : plan.groups[plan.group_count - 1u].first + plan.groups[plan.group_count - 1u].count);
@@ -897,7 +898,7 @@ void VkDlssContext::UpdateChain() {
     }
   }
   if (chain.note != chain_.note && !chain.note.empty()) {
-    nr::Logf(nr::LogLevel::INFO, "NR chain: {}", chain.note);
+    nr::Logf(nr::LogLevel::INFO, "NR 处理链：{}", chain.note);
   }
   chain_ = std::move(chain);
   for (uint32_t index = 0u; index < chain_.group_count; ++index) {
@@ -987,7 +988,7 @@ void VkDlssContext::SetOutputProblem(std::string problem) {
   if (!problem.empty()) {
     if (placement_.placement == Placement::PRESENT) {
       // Plan 14 (batch 2 review, minor 6): at Present the evaluate only feeds the copies of DLSS's vectors; the problem matters to the DLSS placements alone.
-      nr::Logf(nr::LogLevel::INFO, "{} (NR runs on the presented frame here: this applies to the DLSS placements only)", problem);
+      nr::Logf(nr::LogLevel::INFO, "{}（NR 在此处处理最终呈现画面：此问题仅影响 DLSS 阶段）", problem);
     } else {
       nr::Log(nr::LogLevel::WARN, problem);
     }
@@ -1044,13 +1045,13 @@ sources::PipelineResult VkDlssContext::OnDlssEvaluate(VkCommandBuffer buffer, co
     const VkFormat color_format = (color_image ? copies.color.Resource.ImageViewInfo.Format : VK_FORMAT_UNDEFINED);
     if (!color_image) {
       color_skip = "invalid input";
-      color_problem = "DLSS's colour input is not an image view";
+      color_problem = "DLSS 色彩输入不是图像视图";
     } else if (!sources::VkNrPipeline::PreSrColorFormatSupported(color_format)) {
       color_skip = "unsupported format";
-      color_problem = std::format("Unsupported DLSS colour format on Vulkan (VkFormat {})", static_cast<int>(color_format));
+      color_problem = std::format("Vulkan 下不支持此 DLSS 色彩格式（VkFormat {}）", static_cast<int>(color_format));
     } else if (pre_sr_unbuildable_) {
       color_skip = "unsupported format";
-      color_problem = "The Vulkan colour pipelines for Before upscaling could not be built";
+      color_problem = "无法构建 DLSS 前阶段的 Vulkan 色彩处理管线";
     }
   }
   // DLSS's output, for After DLSS (pass 1's, or split chain: a later group behind Before upscaling).
@@ -1059,20 +1060,20 @@ sources::PipelineResult VkDlssContext::OnDlssEvaluate(VkCommandBuffer buffer, co
   if (!BeforeUpscaling() || after_group) {
     if (!image) {
       skip = "invalid input";
-      problem = "DLSS's output is not an image view";
+      problem = "DLSS 输出不是图像视图";
     } else if (!nr::MeetsNrFloor(output_size_)) {
       skip = "frame too small";
-      problem = std::format("NR needs a frame of at least {}x{} (DLSS's output region is {}x{})", nr::MIN_NR_LONG_SIDE, nr::MIN_NR_SHORT_SIDE,
+      problem = std::format("NR 至少需要 {}x{} 的画面（DLSS 输出区域为 {}x{}）", nr::MIN_NR_LONG_SIDE, nr::MIN_NR_SHORT_SIDE,
                             output_size_.width, output_size_.height);
     } else if (!variant) {
       skip = "unsupported format";
-      problem = std::format("Unsupported DLSS output format on Vulkan (VkFormat {})", static_cast<int>(output_format_));
+      problem = std::format("Vulkan 下不支持此 DLSS 输出格式（VkFormat {}）", static_cast<int>(output_format_));
     } else if (!storage_formats_[*variant]) {
       skip = "unsupported format";
-      problem = std::format("DLSS's output format (VkFormat {}) is not a storage format on this GPU's Vulkan driver", static_cast<int>(output_format_));
+      problem = std::format("此 GPU 的 Vulkan 驱动不支持将 DLSS 输出格式（VkFormat {}）用作存储格式", static_cast<int>(output_format_));
     } else if (std::ranges::find(unbuildable_formats_, output_format_) != unbuildable_formats_.end()) {
       skip = "unsupported format";
-      problem = std::format("The Vulkan colour pipeline for DLSS's output format (VkFormat {}) could not be built", static_cast<int>(output_format_));
+      problem = std::format("无法为 DLSS 输出格式（VkFormat {}）构建 Vulkan 色彩管线", static_cast<int>(output_format_));
     }
   }
   SetOutputProblem((BeforeUpscaling() && (!color_problem.empty() || !after_group)) ? std::move(color_problem) : std::move(problem));
@@ -1134,7 +1135,7 @@ sources::PipelineResult VkDlssContext::OnDlssEvaluate(VkCommandBuffer buffer, co
         last_game_list_recording_ = now;  // the latch window covers this recording too
         if (!present_motion_logged_) {
           present_motion_logged_ = true;
-          nr::Logf(nr::LogLevel::INFO, "Vulkan: DLSS's motion vectors copied for Present ({}x{})", motion_region.width, motion_region.height);
+          nr::Logf(nr::LogLevel::INFO, "Vulkan：已为后处理阶段复制 DLSS 运动矢量（{}x{}）", motion_region.width, motion_region.height);
         }
       }
       motion_copy = {.recorded = copied, .reason = "not placed after DLSS"};
@@ -1216,12 +1217,12 @@ sources::PipelineResult VkDlssContext::OnDlssEvaluate(VkCommandBuffer buffer, co
     motion_scale_y_ = result.motion_scale_y;
     if (result.nr_applied && !logged_after_dlss_) {
       logged_after_dlss_ = true;  // once per activation
-      nr::Log(nr::LogLevel::INFO, "NR trigger: after DLSS (Vulkan)");
+      nr::Log(nr::LogLevel::INFO, "NR 触发阶段：DLSS 后（Vulkan）");
     }
   }
   if (trace_frames_ > 0u) {
     --trace_frames_;
-    nr::Logf(nr::LogLevel::TRACE, "evaluate: NR {} after DLSS (Vulkan), {} pass(es) {}", (result.nr_applied ? "applied" : "skipped"), result.passes_run,
+    nr::Logf(nr::LogLevel::TRACE, "评估：DLSS 后的 NR {}（Vulkan），运行 {} 层；{}", (result.nr_applied ? "已处理" : "已跳过"), result.passes_run,
              result.reason);
   }
   return result;
@@ -1372,11 +1373,11 @@ const NVSDK_NGX_Resource_VK* VkDlssContext::BeforeDlssEvaluate(VkCommandBuffer b
   motion_scale_y_ = result.motion_scale_y;
   if (result.nr_applied && !logged_after_dlss_) {
     logged_after_dlss_ = true;  // once per activation
-    nr::Log(nr::LogLevel::INFO, "NR trigger: before upscaling (Vulkan)");
+    nr::Log(nr::LogLevel::INFO, "NR 触发阶段：DLSS 前（Vulkan）");
   }
   if (trace_frames_ > 0u) {
     --trace_frames_;
-    nr::Logf(nr::LogLevel::TRACE, "evaluate: NR {} before upscaling (Vulkan), {} pass(es) {}", (result.nr_applied ? "applied" : "skipped"), result.passes_run,
+    nr::Logf(nr::LogLevel::TRACE, "评估：DLSS 前的 NR {}（Vulkan），运行 {} 层；{}", (result.nr_applied ? "已处理" : "已跳过"), result.passes_run,
              result.reason);
   }
   return (result.nr_applied ? pipeline_->PrivateColor() : nullptr);
@@ -1445,9 +1446,8 @@ void VkDlssContext::NoteDeviceLost(std::chrono::steady_clock::time_point now) {
   device_lost_ = true;
   dlss_latch_tripped_ = (last_game_list_recording_.has_value() && now - *last_game_list_recording_ <= DLSS_LATCH_WINDOW);
   present_latch_tripped_ = (last_present_submission_.has_value() && now - *last_present_submission_ <= DLSS_LATCH_WINDOW);  // T6 (I-4), the same window
-  output_message_ = (dlss_latch_tripped_ ? std::string("Vulkan device lost soon after NR ran inside the game's frame: the DLSS placements stay off from the next start "
-                                                       "(Clear latch to try again)")
-                                         : std::string("Vulkan device lost: NR stays off on this device"));
+  output_message_ = (dlss_latch_tripped_ ? std::string("Vulkan 设备已丢失：NR 在游戏帧内运行后不久发生设备丢失；游戏重启前，“DLSS 前”和“DLSS 后”阶段将保持关闭（点击“清除锁定”可再次尝试）")
+                                         : std::string("Vulkan 设备已丢失：此设备上的 NR 将保持关闭"));
   nr::Log(nr::LogLevel::ERR, output_message_);
   Drop(true);
 }
@@ -1482,7 +1482,7 @@ void VkDlssContext::OnCoreShutdown(std::chrono::milliseconds cap) {
     }
   };
   ResetFrameStatus();
-  output_message_ = "The game shut NVIDIA's NGX down on this device: NR stays off here until the game restarts";
+  output_message_ = "游戏已在此设备上关闭 NVIDIA NGX：NR 将保持关闭，直到重启游戏";
   if (completion_->PollDeviceLost()) {
     NoteDeviceLost(std::chrono::steady_clock::now());
     return;
@@ -1493,12 +1493,12 @@ void VkDlssContext::OnCoreShutdown(std::chrono::milliseconds cap) {
   // after the game's own idle for vkDestroyDevice (VkNrPipeline keeps them out of the timeline's pending releases, which the Session's flush below runs).
   const auto note_kept = [this] {
     if (const uint64_t kept = pipeline_->HeldBytes(); kept > 0u) {
-      nr::Logf(nr::LogLevel::INFO, "Vulkan: Uplift's copies that ReShade's queue may still use ({:.1f} MiB) stay until the game's device goes",
+      nr::Logf(nr::LogLevel::INFO, "Vulkan：ReShade 队列可能仍在使用 Uplift 的副本（{:.1f} MiB）；这些副本将保留至游戏设备释放",
                static_cast<double>(kept) / MIB);
     }
   };
   if (session_->State() == nr::SessionState::OFF) {
-    nr::Log(nr::LogLevel::INFO, "Vulkan: the game shut NGX down on its device; NR was off there");
+    nr::Log(nr::LogLevel::INFO, "Vulkan：游戏已关闭其设备上的 NGX；该设备上的 NR 也已关闭");
     note_kept();
     pend_stop();
     return;  // nothing of NGX's is held and nothing is freed: no wait
@@ -1517,7 +1517,7 @@ void VkDlssContext::OnCoreShutdown(std::chrono::milliseconds cap) {
     return;
   }
   if (!finished) {
-    nr::Logf(nr::LogLevel::WARN, "Vulkan: NR's last frames did not finish within {} ms of the game's NGX shutdown; NR's runtime stays loaded until the game exits",
+    nr::Logf(nr::LogLevel::WARN, "Vulkan：游戏关闭 NGX 后的 {} 毫秒内，NR 的最后几帧仍未完成；NR 运行时将保留至游戏退出",
              cap.count());
     Drop(false);  // no NGX call: the game's command buffers may still be running NR
     return;
@@ -1529,7 +1529,7 @@ void VkDlssContext::OnCoreShutdown(std::chrono::milliseconds cap) {
   // Plan 13 final review, minor 2: BeginFrame returns early from now on, so UpdateSession's release at OFF never runs again; a game that goes on after
   // shutting NGX down would keep A, B and the private colour until it exits. The mask copy is not among them (C-1, above).
   pipeline_->ReleaseNrSurfaces();
-  nr::Log(nr::LogLevel::INFO, "Vulkan: NR released on the game's device before the game's NGX shutdown");
+  nr::Log(nr::LogLevel::INFO, "Vulkan：NR 已在游戏关闭 NGX 前从游戏设备释放");
   note_kept();
   pend_stop();
 }
@@ -1545,7 +1545,7 @@ void VkDlssContext::Teardown() {
   // T6 (M-3): the game idled the device, which covers the effect queue where Uplift's own command buffers ran; their fences confirm it before anything they
   // used goes. If they do not (a broken idle), nothing is freed and NGX is not called: as an abandon.
   if (ring_ && !ring_->WaitIdle(RING_TEARDOWN_WAIT)) {
-    nr::Log(nr::LogLevel::WARN, "Vulkan: Uplift's command buffers had not finished when the game's device went; NR's runtime stays loaded until the game exits");
+    nr::Log(nr::LogLevel::WARN, "游戏设备释放时，Uplift 的命令缓冲区仍未完成；NR 运行时将保留至游戏退出");
     Drop(false);
     return;
   }
@@ -1569,28 +1569,28 @@ void VkDlssContext::Abandon() {
   if (torn_down_) return;
   torn_down_ = true;
   if (!dropped_ && session_ && session_->State() != nr::SessionState::OFF) {
-    nr::Log(nr::LogLevel::WARN, "Vulkan: the game's device went before Uplift could release NR on it; NR's runtime stays loaded until the game exits");
+    nr::Log(nr::LogLevel::WARN, "Uplift 尚未能从游戏设备释放 NR，游戏设备便已释放；NR 运行时将保留至游戏退出");
   }
   Drop(false);
 }
 
 std::string VkDlssContext::DetailsLine() const {
-  if (core_shut_down_) return "Vulkan: the game shut NVIDIA's NGX down on this device; NR stays off here until the game restarts";
+  if (core_shut_down_) return "Vulkan：游戏已关闭此设备上的 NVIDIA NGX；游戏重启前，NR 将保持关闭";
   if (!WantsNr() && NrState() == nr::SessionState::OFF) return {};
   const nr::SessionStatus status = (session_ ? session_->Status() : nr::SessionStatus{});
   const uint64_t bytes = status.runtime_bytes.value_or(0u) + (pipeline_ ? pipeline_->HeldBytes() : 0u);
   if (NativePresent()) {
     // Plan 19: the route the card names, with what the Present path's own counters say (as the bridge's line does).
-    std::string line = std::format("Vulkan: NR runs natively on the game's Vulkan device ({:.0f} MiB; {})", static_cast<double>(bytes) / MIB, VK_FIRST_USE_NOTE);
+    std::string line = std::format("Vulkan：NR 在游戏的 Vulkan 设备上原生运行（{:.0f} MiB；{}）", static_cast<double>(bytes) / MIB, VK_FIRST_USE_NOTE);
     if (busy_skips_ > 0u) {
-      line += std::format(", {} frame(s) without NR while Uplift's command buffers were busy", busy_skips_);
+      line += std::format("；Uplift 命令缓冲区繁忙期间，有 {} 帧未运行 NR", busy_skips_);
     }
     if (second_queue_) {
-      line += ", presents from a second queue";
+      line += "；游戏从第二个队列呈现画面";
     }
     return line;
   }
-  return std::format("Vulkan: NR runs inside the game's frame (native Vulkan NR, {:.0f} MiB; {})", static_cast<double>(bytes) / MIB, VK_FIRST_USE_NOTE);
+  return std::format("Vulkan：NR 在游戏帧内运行（原生 Vulkan NR，{:.0f} MiB；{}）", static_cast<double>(bytes) / MIB, VK_FIRST_USE_NOTE);
 }
 
 vk::NrImage VkDlssContext::PresentMotion() {
@@ -1625,8 +1625,8 @@ void VkDlssContext::NotePresentMotionSecond(std::chrono::steady_clock::time_poin
   if (now - *counters.since < std::chrono::seconds(1)) return;
   if (counters.presents > 0u || counters.evaluates > 0u) {
     nr::Logf(nr::LogLevel::TRACE,
-             "Vulkan: Present motion: {} evaluates for {} presents; {} copies, skipped {} (input) {} (ring slot) {} (slot's last use); presents bound {} own, "
-             "{} older, {} none; GPU lag at the evaluates {}..{} frames; latest jitter correction {} x {} px",
+             "Vulkan：后处理阶段运动矢量：{} 次评估对应 {} 次呈现；复制 {} 次，跳过 {} 次（输入无效）、{} 次（环形槽位繁忙）、{} 次（槽位仍在使用）；呈现帧绑定：当前帧 {} 个、较旧帧 {} 个、缺失 {} 个；"
+             "评估间 GPU 延迟 {}–{} 帧；最近一次抖动校正量 {} x {} 像素",
              counters.evaluates, counters.presents, counters.copies, counters.skipped_input, counters.skipped_ring, counters.skipped_slot, counters.own,
              counters.older, counters.missed, (counters.lag_min == UINT64_MAX ? 0u : counters.lag_min), counters.lag_max, counters.offset_x, counters.offset_y);
   }
@@ -1652,21 +1652,21 @@ ContextStatus VkDlssContext::Status() const {
   std::string placement_note = placement_.reason;
   // Split chain: a later Present group runs on while the game's DLSS idles, so NR is not waiting then.
   if (dlss_placement && dlss_idle_ && !PresentGroupNative()) {
-    placement_note = (status.session.state == nr::SessionState::OFF ? "Waiting for DLSS: NR memory released" : "Waiting for DLSS: releasing NR memory");
+    placement_note = (status.session.state == nr::SessionState::OFF ? "等待 DLSS：NR 显存已释放" : "等待 DLSS：正在释放 NR 显存");
   }
   // Batch 3 review, minor 2: while this device's own Present path still holds NR, the native placement is taking it over (one grace period, design R86):
   // the card and the line say so, not "another device".
   const bool waiting_for_claim = (!config_.nr_allowed && config_.session.enabled);
   const bool claimed_elsewhere = (waiting_for_claim && !present_holds_nr_);
   if (waiting_for_claim && present_holds_nr_ && dlss_placement) {
-    placement_note = "Switching from Present: NR starts here once the Present path has released it";
+    placement_note = "正在从后处理阶段切换：后处理路径释放 NR 后，将在此阶段启动";
   }
   // Plan 19: at native Present the frame's own problem is the output's, unless the context stopped (a loss or the game's NGX shutdown say so instead).
   const bool native_present = NativePresent();
   const std::string_view output_problem =
       ((native_present && !device_lost_ && !core_shut_down_) ? std::string_view(present_problem_) : std::string_view(output_message_));
   status.message = ContextMessage({
-      .blocked = (blocked_reason_.empty() && claimed_elsewhere ? std::string_view("NR runs on another device in this game") : std::string_view(blocked_reason_)),
+      .blocked = (blocked_reason_.empty() && claimed_elsewhere ? std::string_view("NR 正在此游戏的另一台设备上运行") : std::string_view(blocked_reason_)),
       .output = output_problem,
       .placement = placement_note,
       .skip_reason = skip_reason_,
@@ -1698,7 +1698,7 @@ ContextStatus VkDlssContext::Status() const {
   status.placement = placement_.placement;
   status.placement_line = FormatPlacementLine(placement_, main_snapshot_, true);
   if (before_upscaling && main_feature_ == NVSDK_NGX_Feature_RayReconstruction) {
-    status.placement_line += " (Ray Reconstruction's input)";  // split-chain design 11: NR runs before RR denoises and upscales
+    status.placement_line += "（Ray Reconstruction 的输入画面）";  // split-chain design 11: NR runs before RR denoises and upscales
   }
   status.dlss_seen = dlss_seen_;
   status.dlss_latch_tripped = dlss_latch_tripped_;
@@ -1724,14 +1724,15 @@ ContextStatus VkDlssContext::Status() const {
     // As Direct3D 12's line: below the floor the render is padded into the canvas; below the output size the change returns through the upsampling.
     std::string detail;
     if (status.canvas != status.work) {
-      detail = std::format(" (a {}x{} render, padded)", status.work.width, status.work.height);
+      detail = std::format("（{}x{} 渲染画面，已补齐）", status.work.width, status.work.height);
     } else if (status.work != status.frame && !status.frame.Empty()) {
-      detail = std::format(" of {}x{} ({})", status.frame.width, status.frame.height, (config_.upsampling == color::Upsampling::CLASSIC ? "Classic" : "Edge-aware"));
+      detail = std::format(" / {}x{}（{}）", status.frame.width, status.frame.height,
+                           (config_.upsampling == color::Upsampling::CLASSIC ? "经典升采样" : "边缘感知升采样"));
     }
     if (match_game_waiting) {
-      detail += " (Match game: waiting for DLSS)";
+      detail += "（匹配游戏：正在等待 DLSS）";
     }
-    status.work_line = std::format("Working at {}x{}{}", status.canvas.width, status.canvas.height, detail);
+    status.work_line = std::format("处理尺寸：{}x{}{}", status.canvas.width, status.canvas.height, detail);
   }
   if (nr_applied_ && pipeline_) {
     status.exposure_line = sources::ExposureLine(pipeline_->LastExposure());  // Plan 17
@@ -1742,7 +1743,7 @@ ContextStatus VkDlssContext::Status() const {
     canvases[stage] = stages_[stage].canvas;
   }
   if (chain_.Split()) {
-    status.chain_line = std::format("Chain: {}", FormatChainLine(chain_, canvases));
+    status.chain_line = std::format("处理链：{}", FormatChainLine(chain_, canvases));
   }
   status.chain_note = chain_.note;
   status.group_count = chain_.group_count;
@@ -1757,37 +1758,37 @@ ContextStatus VkDlssContext::Status() const {
   if (native_present) {
     // Plan 19: the Present path's lines, as Direct3D 12's bridged Vulkan context gives them.
     switch (motion_source_) {
-      case sources::MotionSource::PRESENT_COPY: status.motion_line = "Motion vectors: DLSS (copied for Present)"; break;
+      case sources::MotionSource::PRESENT_COPY: status.motion_line = "运动矢量：DLSS（已复制至后处理）"; break;
       case sources::MotionSource::LAUNCHPAD:
-        status.motion_line = std::format("Motion vectors: {} (UPLIFT_MV, scale {} x {})", UpliftMvName(config_), config_.motion_scale_x, config_.motion_scale_y);
+        status.motion_line = std::format("运动矢量：{}（UPLIFT_MV，缩放比例 {} x {}）", UpliftMvName(config_), config_.motion_scale_x, config_.motion_scale_y);
         break;
       case sources::MotionSource::DIRECT:
       case sources::MotionSource::NONE: {
-        const std::string_view reason = ((!config_.motion_vectors && !config_.launchpad_motion) ? "set to Off"
-                                         : config_.present_motion_copy                           ? "no copy of DLSS's vectors this frame"
+        const std::string_view reason = ((!config_.motion_vectors && !config_.launchpad_motion) ? "已设为“关闭”"
+                                         : config_.present_motion_copy                           ? "本帧未能复制 DLSS 运动矢量"
                                          : config_.launchpad_motion                              ? NoUpliftMvReason(config_)
-                                                                                                 : "DLSS's vectors do not reach the Present path on this device");
-        status.motion_line = std::format("Motion vectors: none ({})", reason);
+                                                                                                 : "此设备上的 DLSS 运动矢量无法送达后处理路径");
+        status.motion_line = std::format("运动矢量：未使用（{}）", reason);
         break;
       }
     }
   } else {
     switch (motion_source_) {
       case sources::MotionSource::DIRECT:
-        status.motion_line = std::format("Motion vectors: DLSS (the game's own, scale {} x {})", motion_scale_x_, motion_scale_y_);
+        status.motion_line = std::format("运动矢量：DLSS（游戏提供，缩放比例 {} x {}）", motion_scale_x_, motion_scale_y_);
         break;
       case sources::MotionSource::NONE:
       case sources::MotionSource::PRESENT_COPY:
       case sources::MotionSource::LAUNCHPAD:    {
-        std::string_view reason = "the game passed no motion vectors";
+        std::string_view reason = "游戏未传递运动矢量";
         if (!config_.motion_vectors) {
-          reason = "set to Off";
+          reason = "已设为“关闭”";
         } else if (!dlss_seen_) {
-          reason = "no DLSS running yet";
+          reason = "DLSS 尚未运行";
         } else if (!last_motion_vectors_missing_) {
-          reason = "NR has not run yet";
+          reason = "NR 尚未运行";
         }
-        status.motion_line = std::format("Motion vectors: none ({})", reason);
+        status.motion_line = std::format("运动矢量：未使用（{}）", reason);
         break;
       }
     }
@@ -1796,9 +1797,9 @@ ContextStatus VkDlssContext::Status() const {
     status.launchpad_gap = ui::MotionGap::NO_UPLIFT_MV;  // Plan 19, as Direct3D 12's Present path
   }
   if (dlss_placement) {
-    status.ui_correction_note = "Not needed here: the HUD is drawn after NR";
+    status.ui_correction_note = "此处无需校正：HUD 在 NR 处理后绘制";
   } else if (native_present) {
-    status.ui_correction_note = "Unavailable here: the HUD is already in this image; use the NR mask";  // Plan 19, as Direct3D 12's Present path
+    status.ui_correction_note = "此处无法校正：画面已包含 HUD；请使用 NR 蒙版";  // Plan 19, as Direct3D 12's Present path
   }
   status.keep_faces_supported = (!pipeline_ || pipeline_->KeepFacesSupported());
   return status;

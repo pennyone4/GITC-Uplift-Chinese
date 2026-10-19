@@ -8,12 +8,12 @@ namespace uplift::addon {
 
 std::string_view TriggerPointName(TriggerPoint point) {
   switch (point) {
-    case TriggerPoint::NONE:          return "none";
-    case TriggerPoint::PRESENT:       return "before effects";
-    case TriggerPoint::MARKER:        return "Uplift technique";
-    case TriggerPoint::AFTER_EFFECTS: return "after effects (the Uplift technique did not render)";
+    case TriggerPoint::NONE:          return "无";
+    case TriggerPoint::PRESENT:       return "后处理阶段（ReShade 效果前）";
+    case TriggerPoint::MARKER:        return "Uplift 技术";
+    case TriggerPoint::AFTER_EFFECTS: return "ReShade 效果后（Uplift 技术未运行）";
   }
-  return "none";
+  return "无";
 }
 
 TriggerPoint FrameTrigger::OnPresent(bool marker_expected, bool effects_on) {
@@ -31,7 +31,7 @@ TriggerPoint FrameTrigger::OnPresent(bool marker_expected, bool effects_on) {
   if (was_waiting && !marker_missed_) {
     marker_missed_ = true;
     nr::Log(nr::LogLevel::WARN,
-            "the Uplift technique did not render on ReShade's command list; NR runs before effects until it is toggled");
+            "Uplift 技术未在 ReShade 的命令列表中执行；重新启用该技术前，NR 会在效果处理前运行");
   }
   if (marker_missed_) return BeforeEffects(defer);
   waiting_ = true;

@@ -19,7 +19,7 @@ ImportResult Interop::ImportTexture(HANDLE nt_handle, uint64_t bytes, DXGI_FORMA
   const GLenum internal_format = InternalFormatOf(shared_format);
   if (internal_format == 0u) {
     out.error = GL_INVALID_ENUM;
-    out.step = "the format";
+    out.step = "纹理格式";
     return out;
   }
   for (int drained = 0; drained < 16 && gl_.GetError() != GL_NO_ERROR; ++drained) {

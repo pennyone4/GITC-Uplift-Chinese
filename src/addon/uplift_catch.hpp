@@ -14,7 +14,7 @@
     static std::atomic<bool> logged = false;                                                                \
     if (!logged.exchange(true)) {                                                                           \
       uplift::nr::Log(uplift::nr::LogLevel::ERR,                                                            \
-                      handler_name " threw an exception; the event was ignored so the game keeps running"); \
+                      handler_name " 中发生异常；已忽略此事件，游戏将继续运行");                           \
     }                                                                                                       \
     return default_return;                                                                                  \
   }

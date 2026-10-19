@@ -32,7 +32,7 @@ GetInterfaceFunction D3D12GetInterfaceOrNull() {
   const HMODULE d3d12 = GetModuleHandleW(L"d3d12.dll");
   const auto function = (d3d12 != nullptr ? reinterpret_cast<GetInterfaceFunction>(GetProcAddress(d3d12, "D3D12GetInterface")) : nullptr);
   if (function == nullptr && !said.exchange(true)) {
-    nr::Log(nr::LogLevel::INFO, "this d3d12.dll has no D3D12GetInterface, so no device factory");
+    nr::Log(nr::LogLevel::INFO, "此 d3d12.dll 未导出 D3D12GetInterface，因此没有可用的设备工厂");
   }
   return function;
 }
@@ -56,11 +56,11 @@ std::unique_ptr<D3D12Side> D3D12Side::Create(LUID luid, ComPtr<ID3D12Device>* cr
   DXGI_ADAPTER_DESC1 adapter_description = {};
   if (FAILED(CreateDXGIFactory2(0u, IID_PPV_ARGS(&factory))) || FAILED(factory->EnumAdapterByLuid(luid, IID_PPV_ARGS(&adapter)))
       || FAILED(adapter->GetDesc1(&adapter_description))) {
-    return fail("the game's adapter could not be found by its LUID");
+    return fail("无法通过 LUID 找到游戏使用的显卡");
   }
   // WARP and other vendors are refused, as on D3D12 (addon::IsNvidiaDevice); cross-adapter sharing is out of scope.
   if (adapter_description.VendorId != addon::NVIDIA_VENDOR_ID) {
-    return fail("Uplift needs an NVIDIA GPU; this game renders on another adapter");
+    return fail("Uplift 需要 NVIDIA GPU；此游戏正在另一块显卡上渲染");
   }
   // Plan 17: DRED on Uplift's private devices (this is the only place they are made), decided before the first one exists (the DRED cost case's control
   // has decided it off already). The settings are written below, on the factory, or process-wide only on the fallback.
@@ -72,7 +72,7 @@ std::unique_ptr<D3D12Side> D3D12Side::Create(LUID luid, ComPtr<ID3D12Device>* cr
   // blocks nothing. Not a ReShade proxy either (ReShade does not wrap the factory): the native device is used for all work anyway.
   HRESULT factory_result = E_NOINTERFACE;
   if (DeviceFactoryDisabledForTest()) {
-    nr::Log(nr::LogLevel::INFO, "UPLIFT_NO_DEVICE_FACTORY: no device factory (a test's switch)");
+    nr::Log(nr::LogLevel::INFO, "UPLIFT_NO_DEVICE_FACTORY：未启用设备工厂（测试开关）");
   } else if (const GetInterfaceFunction get_interface = D3D12GetInterfaceOrNull()) {
     ComPtr<ID3D12DeviceFactory> device_factory;
     factory_result = get_interface(DEVICE_FACTORY, IID_PPV_ARGS(&device_factory));
@@ -82,8 +82,8 @@ std::unique_ptr<D3D12Side> D3D12Side::Create(LUID luid, ComPtr<ID3D12Device>* cr
       if (const HRESULT copied = device_factory->InitializeFromGlobalState(); FAILED(copied)) {
         static std::atomic<bool> said{false};
         if (!said.exchange(true)) {
-          nr::Logf(nr::LogLevel::WARN, "the device factory could not take the process's global D3D12 state ({:#010x}): a debug layer turned on for the "
-                   "game does not reach Uplift's private device", static_cast<uint32_t>(copied));
+          nr::Logf(nr::LogLevel::WARN, "设备工厂无法继承进程的全局 D3D12 状态（{:#010x}）；在游戏中启用的调试层不会应用于 Uplift 的专用设备",
+                   static_cast<uint32_t>(copied));
         }
       }
       // Without DISALLOW_STORING the factory's new device may become the singleton, the state this path avoids: a failed SetFlags is no factory.
@@ -96,7 +96,7 @@ std::unique_ptr<D3D12Side> D3D12Side::Create(LUID luid, ComPtr<ID3D12Device>* cr
   }
   if (SUCCEEDED(factory_result)) {
     side->independent_ = true;
-    nr::Log(nr::LogLevel::INFO, "the private Direct3D 12 device is an independent one (the device factory)");
+    nr::Log(nr::LogLevel::INFO, "专用 Direct3D 12 设备为独立设备（由设备工厂创建）");
   } else {
     // The fallback: the adapter's singleton (under ReShade its proxy, reshade d3d12.cpp, which raises init_device for it), shared with any other
     // D3D12CreateDevice in the process. After its removal no new device can be made on the adapter in this process: a stop is final (Independent()).
@@ -104,36 +104,36 @@ std::unique_ptr<D3D12Side> D3D12Side::Create(LUID luid, ComPtr<ID3D12Device>* cr
     addon::ApplyDredGlobal();
     const HRESULT result = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(created->ReleaseAndGetAddressOf()));
     if (FAILED(result)) {
-      return fail(std::format("the device factory could not make an independent device ({:#010x}), and D3D12CreateDevice failed with {:#010x}",
+      return fail(std::format("设备工厂无法创建独立设备（{:#010x}），且 D3D12CreateDevice 失败（{:#010x}）",
                               static_cast<uint32_t>(factory_result), static_cast<uint32_t>(result)));
     }
-    nr::Logf(nr::LogLevel::INFO, "the private Direct3D 12 device is the adapter's shared one: the device factory could not make an independent device "
-             "({:#010x}), so a stop of NR on it is final until the game restarts", static_cast<uint32_t>(factory_result));
+    nr::Logf(nr::LogLevel::INFO, "专用 Direct3D 12 设备与适配器的共享设备相同：设备工厂无法创建独立设备（{:#010x}），因此 NR 在该设备上停止后，必须重启游戏才能恢复",
+             static_cast<uint32_t>(factory_result));
   }
   side->created_ = *created;
   // Key decision a: ReShade forwards CreateFence unwrapped, so the fence's own device is the native one.
   if (FAILED((*created)->CreateFence(0u, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&side->progress_)))
       || FAILED(side->progress_->GetDevice(IID_PPV_ARGS(&side->device_)))) {
-    return fail("the progress fence could not be created");
+    return fail("无法创建进度栅栏");
   }
   ID3D12Device* const native = side->device_.Get();
   const D3D12_COMMAND_QUEUE_DESC queue_description = {.Type = D3D12_COMMAND_LIST_TYPE_DIRECT};
   if (FAILED(native->CreateCommandQueue(&queue_description, IID_PPV_ARGS(&side->queue_)))) {
-    return fail("the private queue could not be created");
+    return fail("无法创建专用队列");
   }
   side->queue_->SetName(L"Uplift private queue");
   side->progress_->SetName(L"Uplift progress fence");  // Plan 17: names DRED's breadcrumbs and page faults can show
   for (size_t index = 0u; index < RING; ++index) {
     Slot& slot = side->ring_[index];
     if (FAILED(native->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&slot.allocator)))) {
-      return fail("the private command allocators could not be created");
+      return fail("无法创建专用命令分配器");
     }
     slot.allocator->SetName(L"Uplift NR frame allocator");
   }
   if (FAILED(native->CreateCommandList(0u, D3D12_COMMAND_LIST_TYPE_DIRECT, side->ring_[0].allocator.Get(), nullptr,
                                        IID_PPV_ARGS(&side->list_)))
       || FAILED(side->list_->Close())) {
-    return fail("the private command list could not be created");
+    return fail("无法创建专用命令列表");
   }
   side->list_->SetName(L"Uplift NR frame");
   return side;

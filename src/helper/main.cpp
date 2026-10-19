@@ -64,7 +64,7 @@ void LogDebugLayerErrors(ID3D12Device* device) {
   queue->RegisterMessageCallback(
       [](D3D12_MESSAGE_CATEGORY, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID, LPCSTR description, void*) {
         if (severity <= D3D12_MESSAGE_SEVERITY_ERROR) {
-          uplift::nr::Logf(uplift::nr::LogLevel::ERR, "D3D12 debug layer: {}", description);
+          uplift::nr::Logf(uplift::nr::LogLevel::ERR, "D3D12 调试层：{}", description);
         }
       },
       D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, &cookie);
@@ -120,7 +120,7 @@ int APIENTRY wWinMain(HINSTANCE /*instance*/, HINSTANCE /*previous*/, PWSTR /*co
 #endif
   block->helper_pid = GetCurrentProcessId();
   Publish(block, ipc::HelperState::READY);
-  uplift::nr::Logf(uplift::nr::LogLevel::INFO, "helper ready (build {})", UPLIFT_BUILD_ID);
+  uplift::nr::Logf(uplift::nr::LogLevel::INFO, "辅助进程已就绪（构建版本 {}）", UPLIFT_BUILD_ID);
   uplift::helper::Helper helper(block, events, std::move(side));
   return helper.Loop();
 }

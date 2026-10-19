@@ -55,7 +55,7 @@ Session::Session(Host& host, Timeline& timeline, SessionConfig config)
 
 Session::~Session() {
   if (runtime_loaded_ || LiveFeatureCount() > 0u || !retired_.empty()) {
-    Log(LogLevel::ERR, "Session destroyed before OnDeviceDestroyed(); tearing down synchronously");
+    Log(LogLevel::ERR, "Session 在 OnDeviceDestroyed() 调用前被销毁；正在同步清理");
     OnDeviceDestroyed();
   }
 }
@@ -225,7 +225,7 @@ void Session::Load() {
   const NVSDK_NGX_Result result = host_.LoadRuntime();
   if (NVSDK_NGX_FAILED(result)) {
     state_ = SessionState::FAILED;
-    message_ = std::format("NR runtime failed to load: {:#010x}", static_cast<uint32_t>(result));
+    message_ = std::format("NR 运行时加载失败：{:#010x}", static_cast<uint32_t>(result));
     Log(LogLevel::ERR, message_);
     failed_at_ = host_.Now();
     return;
@@ -238,7 +238,7 @@ void Session::Load() {
   last_sample_.reset();
   budget_.ResetYield();
   state_ = SessionState::ACTIVE;
-  Log(LogLevel::INFO, "NR runtime loaded");
+  Log(LogLevel::INFO, "NR 运行时已加载");
 }
 
 void Session::EnterGrace() {
@@ -282,7 +282,7 @@ void Session::ReleaseAllFeaturesAndUnload() {
     runtime_loaded_ = false;
     // Helper hand-over round: logged by every path that unloads the runtime (a drain, a device's destruction, a release before the game's NGX shutdown),
     // once per unload, so ReShade.log pairs each "NR runtime loaded" with it. A dropped runtime (device lost, abandoned) stays mapped: never logged so.
-    Log(LogLevel::INFO, "NR runtime unloaded; NR memory released");
+    Log(LogLevel::INFO, "NR 运行时已卸载；已释放 NR 显存");
   }
 }
 
@@ -324,10 +324,10 @@ void Session::Tick() {
                                   && now - *failed_at_ >= RETRY_DELAYS[retry_attempts_]);
       if (enabled_ && !teardown_pending_ && (retry_requested_ || automatic_due)) {
         if (retry_requested_) {
-          Log(LogLevel::INFO, "retrying NR (Retry now)");
+          Log(LogLevel::INFO, "正在重试 NR（立即重试）");
         } else {
           ++retry_attempts_;
-          Logf(LogLevel::INFO, "retrying NR (automatic retry {} of {})", retry_attempts_, RETRY_DELAYS.size());
+          Logf(LogLevel::INFO, "正在重试 NR（自动重试 {}/{}）", retry_attempts_, RETRY_DELAYS.size());
         }
         BeginLoading();
       }
@@ -372,7 +372,7 @@ void Session::SampleBudget(std::chrono::steady_clock::time_point now) {
     RetireAllFeatures();
     ResetAllStages();
     budget_.ResetYield();
-    Log(LogLevel::WARN, "Budget: Keep faces paused, the game needs VRAM");
+    Log(LogLevel::WARN, "显存预算：游戏需要显存，已暂停保留面部");
     return;
   }
   switch (action) {
@@ -396,13 +396,13 @@ void Session::SampleBudget(std::chrono::steady_clock::time_point now) {
       // Any headroom already held toward restoring a previous drop no longer
       // applies: the target it was measured against just changed.
       budget_.ResetYield();
-      message_ = std::format("Budget: dropped to {} pass(es), the game needs VRAM", passes_limit_);
+      message_ = std::format("显存不足：已将运行层数降至 {} 层，以满足游戏的显存需求", passes_limit_);
       Log(LogLevel::WARN, message_);
       break;
     }
     case YieldAction::SUSPEND:
       suspended_ = true;
-      message_ = "Suspended: game needs VRAM";
+      message_ = "已暂停：游戏需要更多显存";
       Log(LogLevel::WARN, message_);
       budget_.ResetYield();
       BeginTeardown(SessionState::DRAINING);
@@ -419,7 +419,7 @@ void Session::SampleBudget(std::chrono::steady_clock::time_point now) {
         if (budget_.ResumeReady(memory, need, now)) {
           ++passes_limit_;
           budget_.ResetYield();  // a further increment needs its own fresh 10 s
-          Logf(LogLevel::INFO, "VRAM headroom restored; raising to {} of {} pass(es)", passes_limit_, pass_count_);
+          Logf(LogLevel::INFO, "显存余量已恢复；层数提高至 {}/{} 层", passes_limit_, pass_count_);
         }
         break;
       }
@@ -432,7 +432,7 @@ void Session::SampleBudget(std::chrono::steady_clock::time_point now) {
         if (budget_.ResumeReady(memory, need, now)) {
           stage.faces_pause = FacesPause::NONE;
           budget_.ResetYield();
-          Log(LogLevel::INFO, "VRAM headroom restored; Keep faces resumes");
+          Log(LogLevel::INFO, "显存余量已恢复；已恢复保留面部");
         }
         break;
       }
@@ -457,7 +457,7 @@ void Session::TryResume(std::chrono::steady_clock::time_point now) {
   need += surfaces;
   if (!budget_.ResumeReady(host_.QueryMemory(), need, now)) return;
   BeginLoading();
-  Log(LogLevel::INFO, "VRAM headroom restored; resuming NR");
+  Log(LogLevel::INFO, "显存余量已恢复；正在恢复 NR");
 }
 
 void Session::RetireFeature(size_t index) {
@@ -569,7 +569,7 @@ bool Session::EnsureFeatures(ID3D12GraphicsCommandList* list, const PassChain& c
       // Keep faces turned off: the twin goes alone, at its last use. Under the pool rule this frees nothing while pass 1 lives, so the passes keep running
       // undisturbed instead of waiting for it.
       RetireFaceFeature(&stage);
-      Log(LogLevel::INFO, "Keep faces: its extra NR run stopped");
+      Log(LogLevel::INFO, "保留面部：额外 NR 运行已停止");
     }
     // Off also ends a pause and a failure: turned on again, the twin is fitted (and created) afresh.
     stage.faces_pause = FacesPause::NONE;
@@ -604,7 +604,7 @@ bool Session::EnsureFeatures(ID3D12GraphicsCommandList* list, const PassChain& c
   const bool face_fits = (want_face && fit.passes > wanted);
   const uint32_t target = std::max(std::min(fit.passes, wanted), live_before);
   if (target == 0u) {
-    message_ = std::format("NR skipped: needs {}, {} free", Gigabytes(fit.need_bytes), Gigabytes(fit.available_bytes));
+    message_ = std::format("NR 已跳过：需要 {} 显存，当前可用 {}", Gigabytes(fit.need_bytes), Gigabytes(fit.available_bytes));
     *reason = "budget";
     return false;
   }
@@ -633,7 +633,7 @@ bool Session::EnsureFeatures(ID3D12GraphicsCommandList* list, const PassChain& c
     if (const NVSDK_NGX_Result result = create(&features_[index], presets_[index]); NVSDK_NGX_FAILED(result)) {
       create_failed_ = true;
       create_result_ = static_cast<uint32_t>(result);
-      EnterFailed(std::format("NR feature creation failed: {:#010x}", static_cast<uint32_t>(result)));
+      EnterFailed(std::format("NR 功能创建失败：{:#010x}", static_cast<uint32_t>(result)));
       *reason = "create failed";
       return false;
     }
@@ -646,20 +646,20 @@ bool Session::EnsureFeatures(ID3D12GraphicsCommandList* list, const PassChain& c
     // Fix round 1 (C2): a twin that cannot be created never turns NR off; the passes run on without it until Keep faces is toggled or NR reloads.
     if (const NVSDK_NGX_Result result = create(&stage.face_feature, presets_[slice.first]); NVSDK_NGX_FAILED(result)) {
       stage.faces_pause = FacesPause::FAILED_CREATE;
-      Logf(LogLevel::ERR, "Keep faces stopped: its extra NR run could not start ({:#010x}); NR runs on without it", static_cast<uint32_t>(result));
+      Logf(LogLevel::ERR, "保留面部已停止：额外 NR 运行无法启动（{:#010x}）；NR 将继续运行", static_cast<uint32_t>(result));
     } else {
       stage.face_preset = presets_[slice.first];
-      Logf(LogLevel::INFO, "Keep faces: its extra NR run started (pass {} runs twice)", slice.first + 1u);
+      Logf(LogLevel::INFO, "保留面部：额外 NR 运行已启动（第 {} 层将处理两次）", slice.first + 1u);
     }
   } else if (need_face) {
     stage.faces_pause = FacesPause::UNFIT;  // back after the resume hold (SampleBudget), not at the next frame that fits
     budget_.ResetYield();                   // fix round 2 (1): a fresh hold, never one an earlier pause had been accumulating
-    Log(LogLevel::WARN, "Keep faces paused: no video memory for its extra NR run beside the passes");
+    Log(LogLevel::WARN, "保留面部已暂停：显存不足，无法在现有层之外运行额外的 NR");
   }
   // Split chain: the count names every live pass, whichever stage made it; the slice says whether the budget cut it.
   const uint32_t slice_requested = std::max(slice.first, std::min(slice_end, pass_count_)) - slice.first;
   const uint32_t running = live_between(0u, pass_count_);
-  message_ = (target < slice_requested ? std::format("Budget: running {} of {} passes", running, pass_count_) : std::string());
+  message_ = (target < slice_requested ? std::format("显存不足：当前运行 {}/{} 层", running, pass_count_) : std::string());
   return true;
 }
 
@@ -700,7 +700,7 @@ EvaluateResult Session::Evaluate(ID3D12GraphicsCommandList* list, const PassChai
     // Bail before any feature creation, rebuild or shrink check (EnsureFeatures below): the hang
     // this guards against was observed on a tiny frame that fit inside a larger, already-live
     // feature's capacity, so size alone must gate this, regardless of what is currently live.
-    message_ = std::format("NR needs a frame of at least {}x{} (this frame is {}x{})", MIN_NR_LONG_SIDE,
+    message_ = std::format("NR 至少需要 {}x{} 的画面（当前画面为 {}x{}）", MIN_NR_LONG_SIDE,
                            MIN_NR_SHORT_SIDE, chain.size.width, chain.size.height);
     return {nullptr, 0u, "frame too small"};
   }
@@ -787,15 +787,15 @@ EvaluateResult Session::Evaluate(ID3D12GraphicsCommandList* list, const PassChai
         // until it is toggled or NR loads again; NR's failure count is untouched.
         stage.faces_pause = FacesPause::FAILED_EVALUATE;
         RetireFaceFeature(&stage);
-        Logf(LogLevel::ERR, "Keep faces stopped: its extra NR run failed ({:#010x}); NR runs on without it", static_cast<uint32_t>(twin_result));
+        Logf(LogLevel::ERR, "保留面部已停止：额外 NR 运行失败（{:#010x}）；NR 将继续运行", static_cast<uint32_t>(twin_result));
       }
     }
     if (NVSDK_NGX_FAILED(result)) {
       ++consecutive_failures_;
-      message_ = std::format("NR evaluate failed: {:#010x}", static_cast<uint32_t>(result));
+      message_ = std::format("NR 处理失败：{:#010x}", static_cast<uint32_t>(result));
       Log(LogLevel::WARN, message_);
       if (consecutive_failures_ >= MAX_CONSECUTIVE_FAILURES) {
-        EnterFailed(std::format("NR disabled after {} failed frames (last {:#010x})", consecutive_failures_,
+        EnterFailed(std::format("连续 {} 帧处理失败后已停用 NR（最后一次错误：{:#010x}）", consecutive_failures_,
                                 static_cast<uint32_t>(result)));
       }
       return {nullptr, 0u, "evaluate failed"};
@@ -835,11 +835,11 @@ void Session::OnDeviceDestroyed() {
 }
 
 void Session::OnDeviceLost() {
-  Drop("device lost: NR stopped for this device; the runtime stays loaded and is never called again");
+  Drop("设备丢失：NR 已在此设备上停止；运行时仍保持加载，之后不会再调用");
 }
 
 void Session::Abandon() {
-  Drop("NR abandoned at the game's NGX shutdown: the runtime stays loaded and is never called again");
+  Drop("游戏关闭 NGX 时已弃用 NR：运行时仍保持加载，之后不会再调用");
 }
 
 void Session::Drop(std::string_view message) {
@@ -924,10 +924,10 @@ SessionStatus Session::Status() const {
     if (!status.faces_note.empty() || !stage.faces_requested) continue;
     switch (stage.faces_pause) {
       case FacesPause::NONE:            break;
-      case FacesPause::BUDGET:          status.faces_note = "Keep faces paused: the game needs video memory"; break;
-      case FacesPause::UNFIT:           status.faces_note = "Keep faces paused: no video memory for its extra NR run"; break;
-      case FacesPause::FAILED_CREATE:   status.faces_note = "Keep faces stopped: its extra NR run could not start"; break;
-      case FacesPause::FAILED_EVALUATE: status.faces_note = "Keep faces stopped: its extra NR run failed"; break;
+      case FacesPause::BUDGET:          status.faces_note = "保护面部已暂停：游戏需要更多显存"; break;
+      case FacesPause::UNFIT:           status.faces_note = "保护面部已暂停：显存不足以额外运行一次 NR"; break;
+      case FacesPause::FAILED_CREATE:   status.faces_note = "保护面部已停止：无法启动额外的 NR 处理"; break;
+      case FacesPause::FAILED_EVALUATE: status.faces_note = "保护面部已停止：额外的 NR 处理失败"; break;
     }
   }
   if (state_ == SessionState::GRACE) {

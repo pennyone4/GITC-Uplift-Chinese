@@ -4,12 +4,12 @@
 
 uniform float Split <
   ui_type = "slider"; ui_min = 0.0; ui_max = 1.0;
-  ui_label = "Split"; ui_tooltip = "NR is masked off left of this line.";
+  ui_label = "分界位置"; ui_tooltip = "分界线左侧不应用 NR。";
 > = 0.5;
 
 uniform float Feather <
   ui_type = "slider"; ui_min = 0.001; ui_max = 0.25;
-  ui_label = "Feather";
+  ui_label = "羽化宽度";
 > = 0.02;
 
 texture UPLIFT_MASK { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = R8; };
@@ -24,8 +24,8 @@ float UpliftMaskPS(float4 position : SV_Position, float2 texcoord : TEXCOORD) : 
 }
 
 technique UpliftMaskExample <
-  ui_label = "Uplift mask (example)";
-  ui_tooltip = "Writes UPLIFT_MASK: NR runs right of the split only.";
+  ui_label = "Uplift 蒙版（示例）";
+  ui_tooltip = "写入 UPLIFT_MASK：仅在分界线右侧运行 NR。";
 >
 {
   pass

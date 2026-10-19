@@ -80,8 +80,7 @@
 // The name ReShade shows in its Add-ons list. The log lines keep their "[Uplift]" prefix (addon/log_bridge.cpp).
 extern "C" __declspec(dllexport) const char* NAME = "GITC Uplift";
 extern "C" __declspec(dllexport) const char* DESCRIPTION =
-    "A virtual photography focused version of the DLSS 5 mod: NVIDIA DLSS Neural Rendering (DLSS-NR) with greater "
-    "flexibility, ease of use, stability and hassle-free compatibility across APIs.";
+    "专为虚拟摄影打造的 DLSS 5 模组，基于 NVIDIA DLSS Neural Rendering（DLSS-NR），兼具灵活性、易用性、稳定性与跨 API 兼容性。";
 
 namespace {
 
@@ -125,8 +124,7 @@ constexpr uint32_t NATIVE_MARKER_FRAMES = 180u;
 constexpr std::chrono::seconds HELPER_DRAIN_WARN{5};
 // Plan 19 T6 (I-4): the native route's reason while VulkanNativeNr is 0.
 constexpr std::string_view VULKAN_NATIVE_OFF_REASON =
-    "native Vulkan NR is off (VulkanNativeNr = 0: Uplift sets it after a start or a device loss with native NR went wrong; press Clear latch, or set "
-    "VulkanNativeNr=1 under [Uplift], and restart the game to try again)";
+    "原生 Vulkan NR 已关闭（VulkanNativeNr = 0：Uplift 会在原生 NR 启动失败或设备丢失后自动关闭此项；点击“清除锁定”，或在 [Uplift] 下将 VulkanNativeNr 设为 1，然后重启游戏重试）";
 
 struct DeviceEntry {
   addon::SwapchainSelector selector;
@@ -451,7 +449,7 @@ bool PinReshade(HMODULE reshade_module) {
   if (reshade_module == nullptr
       || GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_PIN | GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, reinterpret_cast<LPCWSTR>(reshade_module), &pinned)
              == FALSE) {
-    nr::Logf(nr::LogLevel::WARN, "could not pin ReShade's module (error {}): if ReShade unloads with the last Vulkan instance, Uplift is registered again at the next one",
+    nr::Logf(nr::LogLevel::WARN, "无法固定 ReShade 模块（错误 {}）：若 ReShade 在最后一个 Vulkan 实例退出时卸载，Uplift 会在下一个实例创建时重新注册",
              GetLastError());
     return false;
   }
@@ -526,7 +524,7 @@ void NoteLatchIfTripped(AddonState* state, Context* context) {
   const addon::ContextStatus status = context->Status();
   state->settings.dlss_placement_blocked = true;
   state->dlss_unavailable_reason = std::string(addon::LATCH_UNAVAILABLE_REASON);
-  nr::Log(nr::LogLevel::ERR, "DLSS placements latched off after a device removal (DlssPlacementBlocked = 1)");
+  nr::Log(nr::LogLevel::ERR, "设备移除后已锁定关闭 DLSS 阶段（DlssPlacementBlocked = 1）");
   addon::WriteLatchMarker(state->latch_marker_path, status.message);
   for (auto& [device, entry] : state->devices) {
     if (entry.context) {
@@ -646,7 +644,7 @@ void AddonRouting::OnMainEvaluateVk(const void* device, ID3D12GraphicsCommandLis
   NoteLatchIfTripped(g_state, context);  // a loss first seen by an evaluate still decides the latch here
   static std::atomic<bool> binds_logged = false;
   if (const uint32_t binds = std::exchange(t_dlss_compute_binds, 0u); g_dlss_binds_watched.load(std::memory_order_relaxed) && !binds_logged.exchange(true)) {
-    nr::Logf(nr::LogLevel::INFO, "Vulkan: the game's DLSS evaluate bound {} compute pipeline(s) of its own (the game binds its state again after DLSS; Uplift replays none on Vulkan)", binds);
+    nr::Logf(nr::LogLevel::INFO, "Vulkan：游戏的 DLSS 评估绑定了 {} 条自有计算管线（DLSS 后游戏会重新绑定状态；Uplift 在 Vulkan 上不会重放这些状态）", binds);
   }
 }
 
@@ -724,7 +722,7 @@ void AddonRouting::BeforeCoreShutdownD3D12(ID3D12Device* device) {
     // waits on the entry for the next context.
     if (!entry.core_hold.Abandoned()) {
       entry.core_hold.Hold(creates, serial);
-      nr::Log(nr::LogLevel::INFO, "Direct3D 12: the game shut NGX down on its device; NR was off there");
+      nr::Log(nr::LogLevel::INFO, "Direct3D 12：游戏已关闭其设备上的 NGX；该设备上的 NR 也已关闭");
     }
     return;
   }
@@ -761,7 +759,7 @@ Microsoft::WRL::ComPtr<ID3D12Fence> DiagnosticGateMidFrame(const AddonState& sta
   Microsoft::WRL::ComPtr<ID3D12Fence> gate;
   if (FAILED(entry.d3d11_bridge->Device()->CreateFence(0u, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&gate)))
       || FAILED(entry.d3d11_bridge->Queue()->Wait(gate.Get(), 1u))) {
-    nr::Log(nr::LogLevel::WARN, "Diagnostic (DiagnosticRemoveDevice): the private queue could not be held before NR's work; no removal on this frame");
+    nr::Log(nr::LogLevel::WARN, "诊断（DiagnosticRemoveDevice）：无法在 NR 开始处理前暂停专用队列；本帧不会移除设备");
     return nullptr;
   }
   return gate;
@@ -780,14 +778,13 @@ void DiagnosticRemoveMidFrame(const AddonState& state, DeviceEntry& entry, const
       !entry.strikes.Stopped() && private_device != nullptr && SUCCEEDED(private_device->QueryInterface(IID_PPV_ARGS(&removable)))) {
     const bool game_waiting = entry.d3d11_bridge->DiagnosticWaitForGameSignal(500u);
     nr::Logf(nr::LogLevel::WARN,
-             "Diagnostic (DiagnosticRemoveDevice = {}): removing Uplift's own private Direct3D 12 device inside the game's frame (its queue held ahead of "
-             "NR's work; the game's queue {})",
-             state.settings.diagnostic_remove_device, (game_waiting ? "at its wait" : "not yet at its wait after 500 ms"));
+             "诊断（DiagnosticRemoveDevice = {}）：正在游戏帧内移除 Uplift 自己的专用 Direct3D 12 设备（其队列已暂停在 NR 处理之前；游戏队列{}）",
+             state.settings.diagnostic_remove_device, (game_waiting ? "已到达等待点" : "等待 500 毫秒后仍未到达等待点"));
     removable->RemoveDevice();
     return;
   }
   gate->Signal(1u);
-  nr::Log(nr::LogLevel::WARN, "Diagnostic (DiagnosticRemoveDevice): Uplift's private device could not be removed on this frame; its queue is released");
+  nr::Log(nr::LogLevel::WARN, "诊断（DiagnosticRemoveDevice）：本帧无法移除 Uplift 的专用设备；已解除队列暂停");
 }
 
 const void* AddonRouting::DeviceOfD3D11(ID3D12GraphicsCommandList* list) {
@@ -796,7 +793,7 @@ const void* AddonRouting::DeviceOfD3D11(ID3D12GraphicsCommandList* list) {
   if (deferred) {
     static std::atomic<bool> logged = false;
     if (!logged.exchange(true)) {
-      nr::Log(nr::LogLevel::INFO, "Direct3D 11: a DLSS call on a deferred context is passed through untouched (NGX's Direct3D 11 backend refuses them)");
+      nr::Log(nr::LogLevel::INFO, "Direct3D 11：延迟上下文中的 DLSS 调用将原样传递（NGX 的 Direct3D 11 后端不支持此类调用）");
     }
   }
   return owner;
@@ -831,7 +828,7 @@ void AddonRouting::OnMainEvaluateD3D11(const void* device, ID3D12GraphicsCommand
     if (entry.d3d11_bridge->CopyPresentMotion(motion, frame.motion_region, decision.motion_scale_x, decision.motion_scale_y) && !entry.present_motion_logged) {
       entry.present_motion_logged = true;
       const nr::Rect region = bridge::ResolveRegion11(motion, frame.motion_region);
-      nr::Logf(nr::LogLevel::INFO, "Direct3D 11: DLSS's motion vectors copied for Present ({}x{})", region.width, region.height);
+      nr::Logf(nr::LogLevel::INFO, "Direct3D 11：已为后处理阶段复制 DLSS 运动矢量（{}x{}）", region.width, region.height);
     }
   }
   if (decision.work == addon::BridgedDlssWork::AFTER_DLSS) {
@@ -879,15 +876,15 @@ void AddonRouting::ColorSwapRejectedD3D11(const void* device, ID3D12GraphicsComm
 // Batch 1 review M3: NgxBridge calls this ahead of Vulkan's close guard, so it never throws; a failure logs nothing.
 void AddonRouting::LogFirstEvaluate(ngx_hooks::NgxApi api, ID3D12GraphicsCommandList* list, const ngx_hooks::DlssFrame& frame) {
   try {
-    std::string_view device = "a Vulkan device";
+    std::string_view device = "Vulkan 设备";
     if (api == ngx_hooks::NgxApi::D3D11) {
       bool deferred = false;
       const void* const owner = addon::D3D11ContextOwner(nr::D3D11ContextOf(list), &deferred);
-      device = (deferred ? "a deferred context (passed through)"
-                : owner != nullptr ? "the game's device"
-                                   : "an immediate context (Uplift has not marked its device yet: NR has not been on)");
+      device = (deferred ? "已放行的延迟上下文"
+                : owner != nullptr ? "游戏设备"
+                                   : "即时上下文（Uplift 尚未标记此设备，NR 尚未运行）");
     } else if (api == ngx_hooks::NgxApi::D3D12) {
-      device = (addon::FindListState(list) != nullptr ? "a device ReShade tracks" : "a device ReShade does not track (a mod's own?)");
+      device = (addon::FindListState(list) != nullptr ? "ReShade 跟踪的设备" : "ReShade 未跟踪的设备（可能由其他模组创建）");
     }
     nr::Log(nr::LogLevel::INFO, addon::FormatDlssSummary(addon::SummarizeEvaluate(api, frame, device)));
   } catch (...) {
@@ -957,7 +954,7 @@ void RunOrWarnOnce(AddonState* state, addon::DeviceContext* context, ReshadeFram
   }
   if (!state->warned_no_immediate_list) {
     state->warned_no_immediate_list = true;
-    nr::Log(nr::LogLevel::WARN, "ReShade gave no immediate command list for this queue; NR is skipped until it does");
+    nr::Log(nr::LogLevel::WARN, "ReShade 未为此队列提供即时命令列表；在提供前将跳过 NR");
   }
 }
 
@@ -987,7 +984,7 @@ void ReleaseBridgeMask(DeviceEntry& entry, api::device* device) {
 // initialisation on the game's device is latched too): the pending marker goes on disk, unless it is there already or native NR has proved itself.
 void NoteNativePresentLoad(api::device* device) {
   if (g_state->vk_native_marker_done || g_state->vk_native_marker_pending.load(std::memory_order_relaxed)) return;
-  addon::WriteLatchMarker(g_state->vk_native_marker, "native Vulkan NR at Present started; waiting for it to run for a few seconds");
+  addon::WriteLatchMarker(g_state->vk_native_marker, "Vulkan 原生 NR 已在后处理阶段启动；等待其持续运行数秒");
   g_state->vk_native_marker_owner = device;
   g_state->vk_native_frames = 0u;
   g_state->vk_native_marker_pending.store(true, std::memory_order_release);
@@ -1023,7 +1020,7 @@ void RunNative(DeviceEntry& entry, api::device* device, addon::TriggerPoint poin
   if (entry.present_queue != nullptr && entry.present_queue != queue) {
     if (!entry.vk_second_queue_logged) {
       entry.vk_second_queue_logged = true;
-      nr::Log(nr::LogLevel::INFO, "Vulkan: the game presents from another queue than ReShade's effects; Uplift waits for it on the CPU before NR");
+      nr::Log(nr::LogLevel::INFO, "Vulkan：游戏通过与 ReShade 特效不同的队列呈现画面；Uplift 会在 NR 运行前于 CPU 上等待该队列");
     }
     present_host.emplace(device, entry.present_queue, native.QueueSubmit());
     queues.flush_present_queue = [&present_host](VkFence fence) { return present_host->FlushWithFence(fence); };
@@ -1044,7 +1041,7 @@ void RunNative(DeviceEntry& entry, api::device* device, addon::TriggerPoint poin
     g_state->vk_native_marker_pending.store(false, std::memory_order_release);
     g_state->vk_native_marker_done = true;
     addon::DeleteLatchMarker(g_state->vk_native_marker);
-    nr::Logf(nr::LogLevel::INFO, "Vulkan: native NR at Present ran {} frames; its start marker is cleared", NATIVE_MARKER_FRAMES);
+    nr::Logf(nr::LogLevel::INFO, "Vulkan：后处理阶段的原生 NR 已运行 {} 帧；已清除启动标记", NATIVE_MARKER_FRAMES);
   }
   if (usage == vk::Usage::PRESENT) {
     // Review I-1: only a semaphore orders a present after earlier work on the queue. ReShade's final flush waits on the game's semaphores and signals the
@@ -1061,8 +1058,8 @@ void RunNative(DeviceEntry& entry, api::device* device, addon::TriggerPoint poin
 bool MoveStageForVkRoute(ui::Settings* settings, ui::VulkanNrMode before) {
   if (!addon::VkRoutePickMovesStage(before, settings->vulkan_nr, ui::SourcePickOf(*settings, true))) return false;
   ui::SetSourcePick(settings, ui::SourcePick::PRESENT, true);
-  nr::Logf(nr::LogLevel::INFO, "Vulkan NR is {}: the NR stage moves to Present (only native Vulkan NR runs inside the game's DLSS)",
-           (settings->vulkan_nr == ui::VulkanNrMode::DIRECT3D_12 ? "Direct3D 12" : "Helper"));
+  nr::Logf(nr::LogLevel::INFO, "Vulkan NR 运行路径已切换为 {}：NR 阶段改为后处理（只有原生 Vulkan NR 会在游戏的 DLSS 阶段运行）",
+           (settings->vulkan_nr == ui::VulkanNrMode::DIRECT3D_12 ? "Direct3D 12" : "辅助进程"));
   return true;
 }
 
@@ -1081,7 +1078,7 @@ void E2eLiveSettings(AddonState& state, DeviceEntry& entry, api::device* device)
     skip = (status.message.empty() ? std::string(nr::SessionStateName(status.session.state)) : status.message);
   } else {
     applied = state.front->NrApplied(device);
-    skip = "the helper's NR has not applied";
+    skip = "辅助进程中的 NR 尚未处理画面";
   }
   if (applied && !state.e2e_first_applied) {
     state.e2e_first_applied = state.e2e_presents;
@@ -1133,21 +1130,21 @@ void E2eLiveSettings(AddonState& state, DeviceEntry& entry, api::device* device)
     for (uint32_t group = 0u; native_status.group_count > 1u && group < native_status.group_count; ++group) {
       const addon::ContextStatus::Group& stage_group = native_status.groups[group];
       const auto stage = static_cast<size_t>(stage_group.stage);
-      const std::string_view name = (stage_group.stage == addon::Stage::BEFORE_UPSCALING ? "before upscaling"
-                                     : stage_group.stage == addon::Stage::AFTER_DLSS    ? "after DLSS"
-                                                                                        : "at Present");
-      groups += std::format("{}{} {}-{} x{}", (groups.empty() ? " | groups: " : ", "), name, stage_group.first + 1u, stage_group.first + stage_group.count,
+      const std::string_view name = (stage_group.stage == addon::Stage::BEFORE_UPSCALING ? "DLSS 前"
+                                     : stage_group.stage == addon::Stage::AFTER_DLSS    ? "DLSS 后"
+                                                                                        : "后处理阶段");
+      groups += std::format("{}{} {}-{} x{}", (groups.empty() ? "｜阶段组：" : "、"), name, stage_group.first + 1u, stage_group.first + stage_group.count,
                             recordings[stage] - std::min(recordings[stage], state.e2e_stage_recordings[stage]));
     }
     state.e2e_stage_recordings = recordings;
   }
   nr::Logf(nr::LogLevel::INFO,
-           "e2e: held VulkanNr={} Source={} PreUpscale={} MotionVectors={} KeepFaces={} ShowFaceMask={} PassCount={} Pass2Stage={} Pass3Stage={}: {} of {} "
-           "presents with NR applied, the first after {} presents ({} ms), {} of {} from there on; without NR: {}{}",
+           "端到端检查：VulkanNativeNr={}，Source={}，PreUpscale={}，MotionVectors={}，KeepFaces={}，ShowFaceMask={}，PassCount={}，Pass2Stage={}，Pass3Stage={}："
+           "{} / {} 次呈现已应用 NR；第 {} 次呈现后首次应用（{} 毫秒），之后应用 {} / {} 次；未应用 NR 的原因：{}{}",
            static_cast<uint32_t>(held.vulkan_nr), static_cast<uint32_t>(held.source), (held.pre_upscale ? 1 : 0), static_cast<uint32_t>(held.motion_vectors),
            (held.keep_faces ? 1 : 0), (held.show_face_mask ? 1 : 0), held.pass_count, static_cast<uint32_t>(held.passes[0].stage),
            static_cast<uint32_t>(held.passes[1].stage), state.e2e_applied_presents, state.e2e_presents, first, state.e2e_first_applied_ms.value_or(-1),
-           state.e2e_applied_presents, state.e2e_presents - first, (skips.empty() ? std::string("none") : skips), groups);
+           state.e2e_applied_presents, state.e2e_presents - first, (skips.empty() ? std::string("无") : skips), groups);
   state.e2e_applied_presents = 0u;
   state.e2e_presents = 0u;
   state.e2e_first_applied.reset();
@@ -1206,7 +1203,7 @@ void RunBridged(DeviceEntry& entry, api::device* device, addon::TriggerPoint poi
       if (!entry.vk_second_queue_logged) {
         entry.vk_second_queue_logged = true;
         nr::Log(nr::LogLevel::INFO,
-                "Vulkan: the game presents from another queue than ReShade's effects; Uplift waits for it on the CPU before NR");
+                "Vulkan：游戏通过与 ReShade 特效不同的队列呈现画面；Uplift 会在 NR 运行前于 CPU 上等待该队列");
       }
       entry.vk_bridge->NoteSecondQueue();
       present_host.emplace(device, entry.present_queue, submit);
@@ -1358,16 +1355,16 @@ void OnDestroyDevice(api::device* device) {
       if (found != g_state->devices.end() && found->second.d3d11_bridge) {
         // Final review I-2: before Teardown, so a wedged private queue drains during Teardown's own wait instead of
         // running lists later over NR resources Teardown freed. Never in the bridge's destructor, which runs after it.
-        found->second.d3d11_bridge->Stop("The Direct3D 11 bridge stopped: the game's Direct3D 11 device was destroyed");
+        found->second.d3d11_bridge->Stop("游戏的 Direct3D 11 设备已销毁");
       }
       if (found != g_state->devices.end() && found->second.d3d10_bridge) {
-        found->second.d3d10_bridge->Stop("The Direct3D 10 bridge stopped: the game's Direct3D 10 device was destroyed");
+        found->second.d3d10_bridge->Stop("游戏的 Direct3D 10 设备已销毁");
       }
       if (found != g_state->devices.end() && found->second.vk_bridge) {
-        found->second.vk_bridge->Stop("The Vulkan bridge stopped: the game's Vulkan device was destroyed");
+        found->second.vk_bridge->Stop("游戏的 Vulkan 设备已销毁");
       }
       if (found != g_state->devices.end() && found->second.gl_bridge) {
-        found->second.gl_bridge->Stop("The OpenGL bridge stopped: the game's OpenGL context was destroyed");
+        found->second.gl_bridge->Stop("游戏的 OpenGL 上下文已销毁");
       }
       if (found != g_state->devices.end() && found->second.context) {
         // Important 1 (fix round 1): Teardown() first, so a removal first seen only here still decides
@@ -1615,7 +1612,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
     });
     if (enabled_in_config) {
       state.settings.enabled = *enabled_in_config;
-      nr::Logf(nr::LogLevel::INFO, "Enabled set to {} in ReShade.ini", (*enabled_in_config ? 1 : 0));
+      nr::Logf(nr::LogLevel::INFO, "ReShade.ini 中的 Enabled 已设为 {}", (*enabled_in_config ? 1 : 0));
       state.front->SettingsChanged(state.settings);  // Plan 10: this does not bump Plan 6's generation, and the helper must see Enabled change
     }
 
@@ -1649,8 +1646,8 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
     }
     if (const bool upside_down = DepthUpsideDown(entry.runtime); entry.depth_upside_down != upside_down) {
       if (entry.depth_upside_down.has_value() || upside_down) {
-        nr::Logf(nr::LogLevel::INFO, "{} is {}: DLSS's motion vectors are {} at Present", DEPTH_UPSIDE_DOWN_DEFINE, (upside_down ? 1 : 0),
-                 (upside_down ? "flipped vertically" : "used as they are"));
+        nr::Logf(nr::LogLevel::INFO, "{} 已设为 {}：后处理阶段的 DLSS 运动矢量{}", DEPTH_UPSIDE_DOWN_DEFINE, (upside_down ? 1 : 0),
+                 (upside_down ? "会垂直翻转" : "保持原样"));
       }
       entry.depth_upside_down = upside_down;
     }
@@ -1728,7 +1725,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
       if (!configured_path && !configured.empty() && !state.warned_invalid_snippet_path) {
         state.warned_invalid_snippet_path = true;
         nr::Log(nr::LogLevel::WARN,
-                "SnippetPath is not valid UTF-8; searching next to gitc-uplift.addon64 and the game instead");
+                "SnippetPath 不是有效的 UTF-8；将改为在 gitc-uplift.addon64 及游戏文件旁搜索");
       }
       return addon::LocateSnippet({
           .configured = configured_path.value_or(std::filesystem::path()),
@@ -1739,7 +1736,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
     const auto note_static_block = [&state, &entry](const std::optional<std::filesystem::path>& snippet) {
       const std::string& configured = state.settings.snippet_path;
       if (const std::optional<std::wstring> host = addon::FindConflictingHost(addon::LoadedModuleFileNames())) {
-        entry.static_block = std::format("{} is loaded and runs NR too; remove it from the add-on folder to use Uplift",
+        entry.static_block = std::format("{} 已加载且也在运行 NR；请将其从插件文件夹中移除后再使用 Uplift",
                                          addon::Utf8FromPath(*host));
         entry.block_stage = ui::CardStage::CONFLICTS;
         // NR can never load while the other host stays loaded, so the deferred SHA-256 below must not
@@ -1747,15 +1744,15 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         entry.snippet_path.clear();
       } else if (!snippet) {
         entry.static_block =
-            (configured.empty() ? "nvngx_dlssnr.dll not found next to gitc-uplift.addon64 or the game; copy it there or set Runtime path"
-                                : std::format("Runtime path not found: {}", configured));
+            (configured.empty() ? "在 gitc-uplift.addon64 或游戏文件旁均未找到 nvngx_dlssnr.dll；请将其复制到其中一处，或设置“运行时路径”。"
+                                : std::format("未找到运行时文件：{}", configured));
         entry.block_stage = ui::CardStage::RUNTIME;
       }
     };
     const auto hash_runtime_once = [&state, &entry] {
       if (state.settings.enabled && !state.snippet_hashed && !entry.snippet_path.empty()) {
         state.snippet_hashed = true;
-        nr::Logf(nr::LogLevel::INFO, "NR runtime file {} (SHA-256 {})", addon::Utf8FromPath(entry.snippet_path),
+        nr::Logf(nr::LogLevel::INFO, "NR 运行时文件 {}（SHA-256 {}）", addon::Utf8FromPath(entry.snippet_path),
                  addon::Sha256Hex(entry.snippet_path));
       }
     };
@@ -1769,7 +1766,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         std::error_code same_error;
         if (!mapped.empty() && std::filesystem::equivalent(mapped.parent_path(), state.game_directory, same_error) && !same_error) {
           entry.runtime_in_game_folder = true;
-          return "NVIDIA's DLSS loaded nvngx_dlssnr.dll from the game's folder before Uplift could (RTX 50 cards do this), and NR cannot run on that copy";
+          return "NVIDIA 的 DLSS 在 Uplift 之前从游戏文件夹加载了 nvngx_dlssnr.dll（RTX 50 系列显卡会这样做），NR 无法使用该副本运行";
         }
       }
       std::optional<std::string> foreign;
@@ -1797,8 +1794,8 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         const bool declared = variable.handle != 0u;
         mask_lookup.emplace(declared && MaskEffectRunning(entry.runtime, variable),
                             (state.settings.mask != ui::MaskMode::AUTO) ? std::string_view()
-                            : declared                                  ? std::string_view("NR mask: the UPLIFT_MASK effect is off")
-                                                                        : std::string_view("NR mask: no effect writes UPLIFT_MASK"));
+                            : declared                                  ? std::string_view("NR 蒙版：UPLIFT_MASK 效果已关闭")
+                                                                        : std::string_view("NR 蒙版：没有效果写入 UPLIFT_MASK"));
       }
       return *mask_lookup;
     };
@@ -1814,32 +1811,32 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
       if (!entry.vk_native_checked) {
         entry.vk_native_checked = true;
         entry.vk_native_needs = [&]() -> std::string {
-          if (!state.hooks.Started()) return "NGX hooks";
+          if (!state.hooks.Started()) return "NGX 钩子";
           if (!state.reshade_vulkan_events) return "ReShade 6.8";
-          if (const std::string error = vk::DeviceHook::NativeHooksError(); !error.empty()) return std::format("Uplift's Vulkan hooks ({})", error);
+          if (const std::string error = vk::DeviceHook::NativeHooksError(); !error.empty()) return std::format("Uplift 的 Vulkan 钩子（{}）", error);
           const std::optional<vk::DeviceRecord> record = vk::DeviceHook::Find(vk_device);
-          if (!record) return "a device Uplift saw being created";
-          if (!record->ngx_ready) return std::format("a device with NGX's extensions (this one lacks {})", record->ngx_missing);
-          if (record->instance == VK_NULL_HANDLE) return "the game's Vulkan instance, which Uplift did not see";
-          if (!record->storage_extended_supported) return "a driver whose storage images include RG16F (shaderStorageImageExtendedFormats)";
+          if (!record) return "Uplift 监测到的设备创建事件";
+          if (!record->ngx_ready) return std::format("带有 NGX 扩展的设备（此设备缺少 {}）", record->ngx_missing);
+          if (record->instance == VK_NULL_HANDLE) return "Uplift 未监测到的游戏 Vulkan 实例";
+          if (!record->storage_extended_supported) return "支持 RG16F 存储图像的驱动（shaderStorageImageExtendedFormats）";
           return {};
         }();
-        entry.vk_native_problem = (entry.vk_native_needs.empty() ? std::string() : std::format("NR after DLSS on Vulkan needs {}", entry.vk_native_needs));
+        entry.vk_native_problem = (entry.vk_native_needs.empty() ? std::string() : std::format("Vulkan 下在 DLSS 后运行 NR 需要：{}", entry.vk_native_needs));
       }
       // Plan 19: a creation failure on the game's device keeps NR at Present on the Direct3D 12 route for the rest of the session (logged once, with NGX's
       // result; no retry ping-pong between the routes). A context without Uplift's own command buffers cannot run NR at Present at all.
       if (entry.vk_dlss && entry.vk_native_create_failure.empty()) {
         if (std::string failure = entry.vk_dlss->CreateFailure(); !failure.empty()) {
-          nr::Logf(nr::LogLevel::WARN, "Vulkan: NGX could not create NR's feature on the game's device ({}); NR at Present uses the Direct3D 12 route for "
-                   "the rest of this session", failure);
+          nr::Logf(nr::LogLevel::WARN, "Vulkan：NGX 无法在游戏设备上创建 NR 功能（{}）；本次游戏运行期间，后处理阶段的 NR 将使用 Direct3D 12 路径。",
+                   failure);
           entry.vk_native_create_failure = std::move(failure);
         }
       }
       // T6 (I-2, I-3): native NR at Present stopped on this device (second-queue timeouts, the game's NGX shutdown): the chain goes on for the session.
       if (entry.vk_dlss && entry.vk_native_stopped.empty() && !entry.vk_dlss->PresentStopped().empty()) {
-        entry.vk_native_stopped = std::format("native Vulkan NR stopped: {}", entry.vk_dlss->PresentStopped());
-        nr::Logf(nr::LogLevel::WARN, "Vulkan: native NR at Present stopped on this device ({}); NR at Present moves along the route chain for the rest of this "
-                 "session", entry.vk_dlss->PresentStopped());
+        entry.vk_native_stopped = std::format("原生 Vulkan NR 已停止：{}", entry.vk_dlss->PresentStopped());
+        nr::Logf(nr::LogLevel::WARN, "Vulkan：此设备上的原生后处理阶段 NR 已停止（{}）；本次游戏运行期间将沿路径链切换到下一条可用路径。",
+                 entry.vk_dlss->PresentStopped());
       }
       // T6 (I-4): the device was lost soon after a native Present submission: native NR stays off from now on, and from the next start (VulkanNativeNr = 0).
       if (entry.vk_dlss && entry.vk_dlss->PresentLatchTripped() && !entry.vk_native_latch_noted) {
@@ -1847,7 +1844,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         state.settings.vulkan_native_nr = false;
         state.vk_native_off = std::string(VULKAN_NATIVE_OFF_REASON);
         state.latch_save_pending = true;  // saved on this present thread, below
-        nr::Log(nr::LogLevel::WARN, "Vulkan: the game's device was lost within 10 s of native NR at Present: native NR is off from now on (VulkanNativeNr = 0)");
+        nr::Log(nr::LogLevel::WARN, "Vulkan：后处理阶段的原生 NR 运行后 10 秒内游戏设备丢失；现已关闭原生 NR（VulkanNativeNr = 0）");
       }
       // Fix round (I-B): no route starts on a device its native context saw lost (the native runtime was left mapped there): NR stays off on it, as the loss's
       // own message says. Only the latch's save, and the native marker's clear, still happen. Review 97f99e3 (Important 1): the same for any native NR that
@@ -1862,14 +1859,14 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
       }
       if (entry.vk_dlss && !entry.vk_dlss->CanRunPresent() && entry.vk_native_start_error.empty()) {
         entry.vk_native_start_error = (entry.vk_dlss->RingFailed()
-                                           ? "Uplift's own command buffers could not be made again on the effect queue's family (ReShade.log has the error)"
-                                           : "Uplift's own command buffers need the effect queue's family, which Uplift did not see when the device was created");
+                                           ? "无法在效果队列族上重新创建 Uplift 的命令缓冲区（详情见 ReShade.log）"
+                                           : "Uplift 需要使用效果队列族，但创建设备时未能检测到该队列族");
       }
       // T5: the same for the Direct3D 12 route, whose creation failure (structured, never parsed from the message) sends NR at Present on to the helper.
       if (entry.context && entry.vk_d3d12_create_failure.empty()) {
         if (std::string failure = entry.context->CreateFailure(); !failure.empty()) {
-          nr::Logf(nr::LogLevel::WARN, "Vulkan: NGX could not create NR's feature on the private Direct3D 12 device ({}); NR at Present uses Uplift's helper "
-                   "process for the rest of this session", failure);
+          nr::Logf(nr::LogLevel::WARN, "Vulkan：NGX 无法在专用 Direct3D 12 设备上创建 NR 功能（{}）；本次游戏运行期间，后处理阶段的 NR 将使用 Uplift 辅助进程。",
+                   failure);
           entry.vk_d3d12_create_failure = std::move(failure);
         }
       }
@@ -1911,7 +1908,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
       if (const addon::VkOwnerChange change = addon::VkOwnerChangeOf(entry.vk_owner, owner, native_at_dlss_stage != entry.vk_owner_stage,
                                                                      state.settings.vulkan_nr != entry.vk_owner_setting);
           change.changed) {
-        nr::Log(nr::LogLevel::INFO, std::format("Vulkan: {}", addon::VkOwnerChangeLine(entry.vk_owner, owner, change.cause, route.reason)));
+        nr::Log(nr::LogLevel::INFO, std::format("Vulkan：{}", addon::VkOwnerChangeLine(entry.vk_owner, owner, change.cause, route.reason)));
       }
       entry.vk_owner = owner;
       entry.vk_owner_stage = native_at_dlss_stage;
@@ -1930,7 +1927,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         const bool in_process_off = ((!entry.vk_dlss || entry.vk_dlss->NrState() == nr::SessionState::OFF)
                                      && (!entry.context || entry.context->NrState() == nr::SessionState::OFF));
         if (helper_allowed && in_process_allowed && !in_process_off && !std::exchange(entry.helper_guard_noted, true)) {
-          nr::Log(nr::LogLevel::WARN, "Vulkan: the helper's NR waits for NR in the game's process to unload first (the claims allowed it early)");
+          nr::Log(nr::LogLevel::WARN, "Vulkan：辅助进程中的 NR 正在等待游戏进程中的 NR 卸载（资源占用标记过早允许了启动）");
         }
         std::string vk_hook_error;  // an unseen device's reason, read under its leaf lock
         if (!entry.helper.HasClient()) {
@@ -1966,14 +1963,13 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
           if (!entry.helper_drain_since) {
             entry.helper_drain_since = now;
           } else if (now - *entry.helper_drain_since > HELPER_DRAIN_WARN && !std::exchange(entry.helper_drain_warned, true)) {
-            nr::Log(nr::LogLevel::WARN, "Vulkan: Uplift's helper process has not released NR 5 s after NR moved away from it; NR stays off on this device "
-                    "until it does");
+            nr::Log(nr::LogLevel::WARN, "Vulkan：NR 切离辅助进程 5 秒后，该进程仍未释放 NR；在其释放前，此设备上的 NR 将保持关闭。");
           }
           present_through_helper(false);
           if (!native_at_dlss_stage) return;
         } else {
           if (entry.helper_drain_since) {
-            nr::Logf(nr::LogLevel::INFO, "Vulkan: Uplift's helper process released NR {} ms after NR moved away from it",
+            nr::Logf(nr::LogLevel::INFO, "Vulkan：NR 切离 Uplift 辅助进程 {} 毫秒后，该进程已释放 NR",
                      std::chrono::duration_cast<std::chrono::milliseconds>(now - *entry.helper_drain_since).count());
           }
           entry.helper_drain_since.reset();
@@ -1986,10 +1982,10 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
           state.claim.Forget(device);
           entry.helper = {};
           if (native_at_dlss_stage) {
-            nr::Log(nr::LogLevel::INFO, "Vulkan: NR runs at a DLSS stage natively; Uplift's helper process waits until the placement is Present again");
+            nr::Log(nr::LogLevel::INFO, "Vulkan：NR 已在原生 DLSS 阶段运行；Uplift 辅助进程会等待运行阶段重新切换到后处理");
           } else {
-            nr::Logf(nr::LogLevel::INFO, "Vulkan: the helper route is gone; NR at Present starts {}",
-                     (native_route ? "natively on the game's device" : "on a private Direct3D 12 device"));
+            nr::Logf(nr::LogLevel::INFO, "Vulkan：辅助进程路径已退出；后处理阶段的 NR 将通过{}启动",
+                     (native_route ? "游戏设备原生运行" : "专用 Direct3D 12 设备运行"));
             return;  // this frame goes without NR
           }
         }
@@ -1998,8 +1994,8 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         // Plan 19: the Direct3D 12 route goes before NR runs natively, as Retry now tears a bridge down (Stop before Teardown; its imports retire behind
         // their fences), so two NR runtimes never coexist: the bridged context's Teardown unloads NR synchronously, and the claim is free after it. T5: the
         // same before NR runs in the helper, so the helper's NR never runs next to this one.
-        StopBridge(entry, (native_route ? "The Vulkan bridge stopped: NR at Present runs natively on the game's device"
-                                        : "The Vulkan bridge stopped: NR at Present runs in Uplift's helper process"));
+        StopBridge(entry, (native_route ? "NR 在游戏设备的后处理阶段运行"
+                                        : "NR 在 Uplift 辅助进程的后处理阶段运行"));
         if (entry.context) {
           entry.context->Teardown();
           entry.context.reset();
@@ -2014,8 +2010,8 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         entry.message.clear();
         entry.retry_pending = false;
         entry.diagnostic_retry_in = 0u;
-        nr::Logf(nr::LogLevel::INFO, "Vulkan: the Direct3D 12 route is gone; NR at Present starts {}",
-                 (native_route ? "natively on the game's device" : "in Uplift's helper process"));
+        nr::Logf(nr::LogLevel::INFO, "Vulkan：Direct3D 12 路径已退出；后处理阶段的 NR 将通过{}启动",
+                 (native_route ? "游戏设备原生运行" : "Uplift 辅助进程"));
       }
       // Plan 14 (design §2.2): DLSS's motion vectors for the Present path, copied in the game's frame by the native context. Only while NR runs at Present on
       // a GPU-ordered bridge (a CPU-ordered one holds this lock across capped CPU waits, which the hooked evaluate must not wait on) or natively (Plan 19), and
@@ -2042,7 +2038,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
               || (state.dlss_unavailable_reason.empty() && ((state.settings.source == ui::PlacementSource::DLSS && !vk_dlss_stages_off) || present_motion_wanted)))) {
         const vk::Loader* const loader = vk::Loader::Get();
         const std::optional<vk::DeviceRecord> record = vk::DeviceHook::Find(vk_device);
-        std::string error = "the device's record or the loader is gone";
+        std::string error = "Vulkan 设备记录或加载器已失效";
         LUID luid = {};
         if (loader != nullptr && loader->get_instance_proc_addr != nullptr && record && addon::VulkanAdapterLuid(device, &luid, &error)) {
           Microsoft::WRL::ComPtr<IDXGIFactory4> factory;
@@ -2077,11 +2073,11 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         if (entry.vk_dlss) {
           state.bridge.AddVkContexts(1);  // batch 3 review I-2: the NGX hooks' Vulkan paths stop being a passthrough
           entry.vk_dlss->SetDlssUnavailableReason(state.dlss_unavailable_reason);
-          nr::Log(nr::LogLevel::INFO, (native_route                                        ? "Vulkan: native NR is ready on the game's device"
-                                       : state.settings.source == ui::PlacementSource::DLSS ? "Vulkan: NR after DLSS available on this device"
-                                                                                            : "Vulkan: DLSS's motion vectors can reach the Present path on this device"));
+          nr::Log(nr::LogLevel::INFO, (native_route                                        ? "Vulkan：游戏设备上的原生 NR 已就绪"
+                                       : state.settings.source == ui::PlacementSource::DLSS ? "Vulkan：此设备已可在 DLSS 后运行 NR"
+                                                                                            : "Vulkan：此设备上的 DLSS 运动矢量可传递至后处理路径"));
         } else {
-          entry.vk_native_problem = std::format("NR after DLSS on Vulkan could not start: {}", error);
+          entry.vk_native_problem = std::format("Vulkan 下无法在 DLSS 后启动 NR：{}", error);
           entry.vk_native_start_error = error;  // Plan 19: the Direct3D 12 route from the next present
           nr::Log(nr::LogLevel::ERR, entry.vk_native_problem);
         }
@@ -2114,7 +2110,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         if (native_allowed && native.NrState() == nr::SessionState::OFF && state.front->NrLoaded(device)) {
           native_allowed = false;
           if (!std::exchange(entry.native_guard_noted, true)) {
-            nr::Log(nr::LogLevel::WARN, "Vulkan: native NR waits for the helper's NR to unload first (the claim allowed it early)");
+            nr::Log(nr::LogLevel::WARN, "Vulkan：原生 NR 正在等待辅助进程中的 NR 卸载（资源占用标记过早允许了启动）");
           }
         }
         if (!native_wants && native.NrState() == nr::SessionState::OFF) {
@@ -2171,8 +2167,8 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
                                || present_motion_wanted);
         if (watching != entry.vk_nr_counted) {
           state.bridge.NoteVkContextNr(entry.vk_nr_counted, watching);
-          nr::Log(nr::LogLevel::INFO, (watching ? "Vulkan: the game's DLSS evaluates are watched for NR on this device"
-                                                : "Vulkan: NR is off here and no DLSS placement is chosen: the game's DLSS evaluates are a pure passthrough again"));
+          nr::Log(nr::LogLevel::INFO, (watching ? "Vulkan：此设备上的游戏 DLSS 评估已纳入 NR 监测"
+                                                : "Vulkan：此处 NR 已关闭且未选择 DLSS 阶段；游戏的 DLSS 评估已恢复原样传递"));
         }
         if (native_route) {
           // Plan 19: NR at Present runs natively and the Direct3D 12 route does not exist here. The effect events reach the native context (RunNative).
@@ -2237,30 +2233,30 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
       // card and the log name it.
       if (entry.context && entry.strikes.Note(PrivateDeviceStopped(entry), PrivateDeviceIndependent(entry))) {
         if (const std::optional<addon::NrHeartbeat::Figures> figures = entry.heartbeat.Stop(now)) {
-          LogHeartbeat(entry, device, "NR stopped after", *figures);  // 1.0.1 (F2): how long NR ran, with what, and the memory then
+          LogHeartbeat(entry, device, "NR 已停止", *figures);  // 1.0.1 (F2): how long NR ran, with what, and the memory then
         }
         if (BridgeLatch(entry).empty()) {
-          const std::string reason = std::format("The {} bridge stopped: its private Direct3D 12 device was removed",
+          const std::string reason = std::format("{} 中继的专用 Direct3D 12 设备已移除",
                                                  (entry.d3d11 ? "Direct3D 11" : entry.d3d10 ? "Direct3D 10" : entry.vulkan ? "Vulkan" : "OpenGL"));
           nr::Log(nr::LogLevel::ERR, reason);
           StopBridge(entry, reason);
         }
         if (entry.strikes.Exhausted()) {
-          nr::Logf(nr::LogLevel::WARN, "NR stopped twice this session on this device: it stays off until the game restarts");
+          nr::Logf(nr::LogLevel::WARN, "本次运行期间，此设备上的 NR 已停止两次；重启游戏前将保持关闭");
         } else if (entry.strikes.Unretryable()) {
           // Test phase (review M-3): the fallback's private device is the adapter's shared one, which the abandoned NR runtime keeps removed: no new device
           // can be made in this process, so there is no Retry now.
           nr::Log(nr::LogLevel::WARN, std::string(ui::PRIVATE_DEVICE_STOPPED_FINAL_REASON));
         } else {
-          nr::Logf(nr::LogLevel::INFO, "NR stopped on this device ({} of {} this session): Retry now in Uplift's panel starts it again on a new private "
-                   "Direct3D 12 device", entry.strikes.Stops(), addon::BridgeStrikes::LIMIT);
+          nr::Logf(nr::LogLevel::INFO, "此设备上的 NR 已停止（本次运行期间 {}/{} 次）。点击 Uplift 面板中的“立即重试”，即可在新的专用 Direct3D 12 设备上重新启动。",
+                   entry.strikes.Stops(), addon::BridgeStrikes::LIMIT);
           if (state.settings.diagnostic_remove_device != 0u) {
             entry.diagnostic_retry_in = DIAGNOSTIC_RETRY_PRESENTS;
           }
         }
       }
       if (entry.diagnostic_retry_in != 0u && --entry.diagnostic_retry_in == 0u && entry.strikes.RetryAllowed()) {
-        nr::Log(nr::LogLevel::WARN, "Diagnostic (DiagnosticRemoveDevice): pressing Retry now");
+        nr::Log(nr::LogLevel::WARN, "诊断（DiagnosticRemoveDevice）：正在点击“立即重试”");
         entry.retry_pending = true;
       }
       if (entry.retry_pending) {
@@ -2272,7 +2268,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         if (gl_ready) {
           entry.retry_pending = false;
           if (entry.strikes.Retried()) {
-            StopBridge(entry, "Retry now");
+            StopBridge(entry, "立即重试");
             if (entry.context) {
               entry.context->Teardown();
               entry.context.reset();
@@ -2296,7 +2292,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
             entry.rejected = false;
             entry.message.clear();
             entry.diagnostic_frames = 0u;
-            nr::Log(nr::LogLevel::INFO, "Retry now: the stopped bridge and its NR are gone; a new private Direct3D 12 device starts with the next frame");
+            nr::Log(nr::LogLevel::INFO, "立即重试：已销毁停止的中继及其 NR；新的专用 Direct3D 12 设备将在下一帧启动");
           }
           return;  // this frame goes without NR
         }
@@ -2315,12 +2311,12 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         if (addon::VulkanAdapterLuid(device, &luid, &error)) {  // else `error` is the card's text: not NVIDIA's, or its adapter is unknown
           std::optional<vk::Device> functions = vk::Device::Open(reinterpret_cast<VkDevice>(device->get_native()));
           if (!functions) {
-            error = "the Vulkan loader, or a Vulkan function every device has, is missing";
+            error = "缺少 Vulkan 加载器或所有设备都必须提供的 Vulkan 函数";
           } else {
             if (!functions->seen) {
               const std::scoped_lock error_lock(state.vk_hook_error_mutex);
               if (!state.vk_hook_error.empty()) {
-                functions->record.not_adjusted = std::format("Uplift's vkCreateDevice hook could not be installed ({})", state.vk_hook_error);
+                functions->record.not_adjusted = std::format("无法安装 Uplift 的 vkCreateDevice 钩子（{}）", state.vk_hook_error);
               }
             }
             entry.vk_bridge = bridge::VkBridge::Create(*functions, luid, &release_after_unlock, &error);
@@ -2332,7 +2328,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         native_device = (entry.vk_bridge ? entry.vk_bridge->Device() : nullptr);
         if (native_device == nullptr) {
           entry.rejected = true;
-          entry.message = std::format("Uplift could not start on this Vulkan device: {}", error);
+          entry.message = std::format("Uplift 无法在此 Vulkan 设备上启动：{}", error);
           nr::Log(nr::LogLevel::ERR, entry.message);
           return;
         }
@@ -2359,7 +2355,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         native_device = (entry.gl_bridge ? entry.gl_bridge->Device() : nullptr);
         if (native_device == nullptr) {
           entry.rejected = true;
-          entry.message = std::format("Uplift could not start on this OpenGL context: {}", error);
+          entry.message = std::format("Uplift 无法在此 OpenGL 上下文中启动：{}", error);
           nr::Log(nr::LogLevel::ERR, entry.message);
           return;
         }
@@ -2381,7 +2377,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         }
         if (native_device == nullptr) {
           entry.rejected = true;
-          entry.message = std::format("Uplift could not start on this Direct3D {} device: {}", (entry.d3d10 ? 10 : 11), error);
+          entry.message = std::format("Uplift 无法在此 Direct3D {} 设备上启动：{}", (entry.d3d10 ? 10 : 11), error);
           nr::Log(nr::LogLevel::ERR, entry.message);
           return;
         }
@@ -2389,7 +2385,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         native_device = reinterpret_cast<ID3D12Device*>(device->get_native());
         if (!addon::IsNvidiaDevice(native_device)) {
           entry.rejected = true;
-          entry.message = "Uplift needs an NVIDIA GPU; this game renders on another adapter";
+          entry.message = "Uplift 需要 NVIDIA GPU；此游戏正在另一块显卡上渲染";
           nr::Log(nr::LogLevel::WARN, entry.message);
           return;
         }
@@ -2415,7 +2411,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
         if (vulkan) {
           entry.vk_d3d12_start_error = error;  // T5: NR at Present goes on to the helper from the next present
         }
-        entry.message = std::format("Uplift could not start on this device: {}", error);
+        entry.message = std::format("Uplift 无法在此设备上启动：{}", error);
         nr::Log(nr::LogLevel::ERR, entry.message);
         return;
       }
@@ -2443,7 +2439,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
       // watch this device's evaluates while NR is on or not yet released (Plan 13 I-2's rule).
       if (!entry.foreign_dlss && state.bridge.ForeignD3D12Dlss() && !entry.context->DlssSeen()) {
         entry.foreign_dlss = true;
-        nr::Logf(nr::LogLevel::INFO, "Direct3D 11: {}", ui::FOREIGN_D3D12_DLSS_REASON);
+        nr::Logf(nr::LogLevel::INFO, "Direct3D 11：{}", ui::FOREIGN_D3D12_DLSS_REASON);
       }
       entry.context->SetDlssUnavailableReason(std::string(D3D11DlssReason(state, entry)));
       if (const HRESULT removed = reinterpret_cast<ID3D11Device*>(device->get_native())->GetDeviceRemovedReason(); FAILED(removed)) {
@@ -2458,7 +2454,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
     // is counted, above.
     if (const std::optional<addon::NrHeartbeat::Figures> figures =
             entry.heartbeat.Note(entry.context->NrRecordings(), entry.context->LatestMotionSource(), now)) {
-      LogHeartbeat(entry, device, "NR running:", *figures);
+      LogHeartbeat(entry, device, "NR 运行中", *figures);
     }
     // Plan 17: DiagnosticRemoveDevice (hidden, diagnostic only): Uplift's own private device is removed once NR has run that many frames on it (never the
     // game's: Bridged only), so Retry now and the 2-strike rule can be tested without a real hang.
@@ -2468,7 +2464,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
       Microsoft::WRL::ComPtr<ID3D12Device5> removable;
       if (ID3D12Device* const private_device = PrivateDevice(entry);
           private_device != nullptr && SUCCEEDED(private_device->QueryInterface(IID_PPV_ARGS(&removable)))) {
-        nr::Logf(nr::LogLevel::WARN, "Diagnostic (DiagnosticRemoveDevice = {}): removing Uplift's own private Direct3D 12 device",
+        nr::Logf(nr::LogLevel::WARN, "诊断（DiagnosticRemoveDevice = {}）：正在移除 Uplift 自己的专用 Direct3D 12 设备",
                  state.settings.diagnostic_remove_device);
         removable->RemoveDevice();
       }
@@ -2581,7 +2577,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
     if (!Bridged(entry) && entry.context->DeviceLost()) {
       // 1.0.1 (F2): the game's own Direct3D 12 device, found removed by this very BeginFrame (or earlier): the heartbeat's figures, once.
       if (const std::optional<addon::NrHeartbeat::Figures> figures = entry.heartbeat.Stop(now)) {
-        LogHeartbeat(entry, device, "NR stopped after", *figures);
+        LogHeartbeat(entry, device, "NR 已停止", *figures);
       }
     }
     if (Bridged(entry)) {
@@ -2746,7 +2742,7 @@ void OnFinishEffects(api::effect_runtime* runtime, api::command_list* cmd_list, 
         masked.vk_dlss->ReleaseMask();
       }
       ReleaseBridgeMask(masked, runtime->get_device());
-      masked.mask_note = "NR mask: the UPLIFT_MASK effect is off";
+      masked.mask_note = "NR 蒙版：UPLIFT_MASK 效果已关闭";
       return;
     }
     api::resource_view view = {0u};
@@ -2765,7 +2761,7 @@ void OnFinishEffects(api::effect_runtime* runtime, api::command_list* cmd_list, 
       const VkImage copy = native->vk_dlss->PrepareMaskCopy((readable ? vk::VkFormatOf(format->view_format) : VK_FORMAT_UNDEFINED),
                                                             {description.texture.width, description.texture.height}, &first);
       if (copy == VK_NULL_HANDLE) {
-        native->mask_note = (readable ? "NR mask: waiting for NR to run" : "NR mask: UPLIFT_MASK's format is not supported");
+        native->mask_note = (readable ? "NR 蒙版：等待 NR 运行" : "NR 蒙版：不支持 UPLIFT_MASK 的格式");
         return;
       }
       const api::resource target = {addon::ReshadeHandleOf(copy)};
@@ -2775,7 +2771,7 @@ void OnFinishEffects(api::effect_runtime* runtime, api::command_list* cmd_list, 
       cmd_list->barrier(target, api::resource_usage::copy_dest, api::resource_usage::shader_resource);
       cmd_list->barrier(mask, api::resource_usage::copy_source, api::resource_usage::shader_resource);
       native->vk_dlss->NoteMaskCopied();
-      native->mask_note = std::format("NR mask: UPLIFT_MASK ({}x{})", description.texture.width, description.texture.height);
+      native->mask_note = std::format("NR 蒙版：UPLIFT_MASK（{}x{}）", description.texture.width, description.texture.height);
       return;
     }
     if (!entry->context) return;  // Plan 19: native Present whose context stopped (a loss): no copy anywhere
@@ -2783,7 +2779,7 @@ void OnFinishEffects(api::effect_runtime* runtime, api::command_list* cmd_list, 
       // Plan 7 (key decision b): UPLIFT_MASK crosses in the bridge's shared mask; the next bridged recording copies it
       // into NR's own. Only while NR runs, as PrepareMaskCopy gates the D3D12 copy.
       if (entry->context->NrState() != nr::SessionState::ACTIVE) {
-        entry->mask_note = "NR mask: waiting for NR to run";
+        entry->mask_note = "NR 蒙版：等待 NR 运行";
         return;
       }
       bridge::MaskCopy copied;
@@ -2800,13 +2796,13 @@ void OnFinishEffects(api::effect_runtime* runtime, api::command_list* cmd_list, 
       }
       // Final review Minor 4: "not supported" only for a format NR cannot read; any other failure is the share's.
       if (copied.size) {
-        entry->mask_note = std::format("NR mask: UPLIFT_MASK ({}x{})", copied.size->width, copied.size->height);
+        entry->mask_note = std::format("NR 蒙版：UPLIFT_MASK（{}x{}）", copied.size->width, copied.size->height);
       } else if (copied.unsupported) {
-        entry->mask_note = "NR mask: UPLIFT_MASK's format is not supported";
+        entry->mask_note = "NR 蒙版：不支持 UPLIFT_MASK 的格式";
       } else if (copied.relay_failed) {
-        entry->mask_note = "NR mask: UPLIFT_MASK could not be shared with Uplift's relay device";  // Plan 8: D3D10's keyed share
+        entry->mask_note = "NR 蒙版：无法将 UPLIFT_MASK 共享至 Uplift 的中继设备";  // Plan 8: D3D10's keyed share
       } else {
-        entry->mask_note = "NR mask: UPLIFT_MASK could not be shared with the private Direct3D 12 device";
+        entry->mask_note = "NR 蒙版：无法将 UPLIFT_MASK 共享至专用 Direct3D 12 设备";
       }
       return;
     }
@@ -2819,7 +2815,7 @@ void OnFinishEffects(api::effect_runtime* runtime, api::command_list* cmd_list, 
                                     && description.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D
                                     && description.SampleDesc.Count == 1u;
       entry->mask_note =
-          (format_supported ? "NR mask: waiting for NR to run" : "NR mask: UPLIFT_MASK's format is not supported");
+          (format_supported ? "NR 蒙版：等待 NR 运行" : "NR 蒙版：不支持 UPLIFT_MASK 的格式");
       return;
     }
     const api::resource target = {reinterpret_cast<uint64_t>(copy)};
@@ -2829,7 +2825,7 @@ void OnFinishEffects(api::effect_runtime* runtime, api::command_list* cmd_list, 
     cmd_list->barrier(target, api::resource_usage::copy_dest, api::resource_usage::shader_resource);
     cmd_list->barrier(mask, api::resource_usage::copy_source, api::resource_usage::shader_resource);
     entry->context->NoteMaskCopied();
-    entry->mask_note = std::format("NR mask: UPLIFT_MASK ({}x{})", description.Width, description.Height);
+    entry->mask_note = std::format("NR 蒙版：UPLIFT_MASK（{}x{}）", description.Width, description.Height);
     // ReShade keeps effect textures in shader_resource between techniques (its runtime.cpp, read-only), so the
     // barriers above name its real state.
   }
@@ -2853,7 +2849,7 @@ void OnReshadePresent(api::effect_runtime* runtime) {
     [[maybe_unused]] const auto& [device, entry] = *found;
     if (entry.runtime != runtime) return;  // toggle once per frame: the primary swap chain's runtime only
     state.settings.enabled = !state.settings.enabled;
-    nr::Logf(nr::LogLevel::INFO, "Hotkey: NR {}", (state.settings.enabled ? "enabled" : "disabled"));
+    nr::Logf(nr::LogLevel::INFO, "快捷键：NR{}", (state.settings.enabled ? "已启用" : "已关闭"));
     SaveAndApply(&state);
   }
   UPLIFT_CATCH("reshade_present", )
@@ -2879,18 +2875,18 @@ void FillVulkanRoute(const AddonState& state, const DeviceEntry& entry, ui::Over
     case addon::VkNrRoute::NATIVE: break;
     case addon::VkNrRoute::DIRECT3D_12:
       running = ui::VulkanNrMode::DIRECT3D_12;
-      running_on = "a private Direct3D 12 device";
+      running_on = "专用 Direct3D 12 设备";
       break;
     case addon::VkNrRoute::HELPER:
       running = ui::VulkanNrMode::HELPER;
-      running_on = "Uplift's helper process";
+      running_on = "Uplift 辅助进程";
       break;
   }
   view->vulkan_nr_running = running;
   view->vulkan_native_unavailable = route.native_unavailable;
   view->vulkan_d3d12_unavailable = route.d3d12_unavailable;
   if (running != state.settings.vulkan_nr) {
-    view->vulkan_nr_note = std::format("Now: {} ({})", running_on, route.reason);
+    view->vulkan_nr_note = std::format("当前运行位置：{}（{}）", running_on, route.reason);
   }
 }
 
@@ -2910,7 +2906,7 @@ ui::StatusCard CardFor(const AddonState& state, const DeviceEntry& entry, const 
     // from another context than the runtime's has no bridge yet and says why (R63).
     if (Bridged(entry) && !entry.rejected && entry.message.empty()) return ui::BuildStatusCard({.enabled = state.settings.enabled});
     return ui::BuildStatusCard({
-        .device_problem = (entry.message.empty() ? std::string_view("Waiting for the game's first frame")
+        .device_problem = (entry.message.empty() ? std::string_view("等待游戏的第一帧画面")
                                                  : std::string_view(entry.message)),
     });
   }
@@ -2950,8 +2946,8 @@ void OnDrawOverlay(api::effect_runtime* runtime) {
     const std::unique_lock lock(g_state->mutex);
     AddonState& state = *g_state;
     const auto now = std::chrono::steady_clock::now();
-    ui::OverlayView view = {.status_line = "OFF", .last_key_pressed = runtime->last_key_pressed(),
-                            .placement_line = "Placement: NR is off", .motion_line = "Motion vectors: NR is off"};
+    ui::OverlayView view = {.status_line = "已关闭", .last_key_pressed = runtime->last_key_pressed(),
+                            .placement_line = "运行阶段：NR 已关闭", .motion_line = "运动矢量：NR 已关闭"};
     const auto found = state.devices.find(runtime->get_device());
     const api::device_api overlay_device_api = runtime->get_device()->get_api();
     // Plan 13 (the user's decision 1): on Vulkan, Before upscaling and After DLSS are explicit choices, offered where native NR can run.
@@ -2964,15 +2960,15 @@ void OnDrawOverlay(api::effect_runtime* runtime) {
     addon::FillPreference(&facts, state.settings, view.dlss_explicit);
     bool setup_finished = false;  // the helper front finished Setup (a Direct3D 9 device, T5: a Vulkan device on the helper route)
     if (overlay_device_api != api::device_api::d3d9) {
-      view.d3d9ex_unavailable = "Only for Direct3D 9 games";  // Plan 10: the 9Ex toggle works in 64-bit Direct3D 9 games too
+      view.d3d9ex_unavailable = "仅适用于 Direct3D 9 游戏";  // Plan 10: the 9Ex toggle works in 64-bit Direct3D 9 games too
     }
     if (overlay_device_api != api::device_api::vulkan) {
-      view.vulkan_nr_unavailable = "Only for Vulkan games";  // Plan 19
+      view.vulkan_nr_unavailable = "仅适用于 Vulkan 游戏";  // Plan 19
     }
     if (overlay_device_api != api::device_api::d3d12 && overlay_device_api != api::device_api::d3d11
         && overlay_device_api != api::device_api::d3d10 && overlay_device_api != api::device_api::d3d9
         && overlay_device_api != api::device_api::vulkan && overlay_device_api != api::device_api::opengl) {
-      view.card = ui::BuildStatusCard({.device_problem = "Uplift supports Direct3D 9, 10, 11 and 12, Vulkan and OpenGL games only"});
+      view.card = ui::BuildStatusCard({.device_problem = "Uplift 仅支持 Direct3D 9、10、11、12、Vulkan 和 OpenGL 游戏"});
       view.dlss_unavailable = state.dlss_unavailable_reason;
       view.keep_faces_unavailable = std::string(ui::KeepFacesUnavailable({.nr_runs = false}));
     } else if (overlay_device_api == api::device_api::d3d9) {
@@ -2982,7 +2978,7 @@ void OnDrawOverlay(api::effect_runtime* runtime) {
                            state.settings, &view, &state.overlay, now);  // finishes Setup too
       setup_finished = true;
     } else if (found == state.devices.end()) {
-      view.card = ui::BuildStatusCard({.device_problem = "Waiting for the game's first frame"});
+      view.card = ui::BuildStatusCard({.device_problem = "等待游戏的第一帧画面"});
       view.dlss_unavailable = state.dlss_unavailable_reason;
     } else if (HelperView(found->second)) {
       // T5: NR at Present runs in Uplift's helper process: the helper front's lines, card and Setup, as for a Direct3D 9 device. In-game round 2: the DLSS
@@ -3062,7 +3058,7 @@ void OnDrawOverlay(api::effect_runtime* runtime) {
       } else if (entry.opengl) {
         facts.api = "OpenGL";
       } else if (entry.vulkan) {
-        facts.api = (native_view ? "Vulkan (native NR)" : "Vulkan (Direct3D 12)");  // Plan 19: the route
+        facts.api = (native_view ? "Vulkan（原生 NR）" : "Vulkan（Direct3D 12）");  // Plan 19: the route
       }
       if (native_view || entry.context) {
         const addon::ContextStatus status = (native_view ? entry.vk_dlss->Status() : entry.context->Status());
@@ -3119,9 +3115,9 @@ void OnDrawOverlay(api::effect_runtime* runtime) {
           // Plan 14: and so do the four copies of DLSS's motion vectors the native context holds on the game's device while it makes them.
           if (const uint64_t copies = (entry.vk_dlss ? entry.vk_dlss->HeldBytes() : 0u); copies > 0u) {
             view.intermediate_bytes += copies;
-            view.api_line += (native_stopped ? std::format("; DLSS's motion vectors' last copies, kept until the game's device goes ({:.1f} MiB)",
+            view.api_line += (native_stopped ? std::format("；DLSS 运动矢量的最近一次复制结果会保留到游戏设备释放（{:.1f} MiB）",
                                                            static_cast<double>(copies) / (1024.0 * 1024.0))
-                                             : std::format("; DLSS's motion vectors copied in the game's frame ({:.1f} MiB)",
+                                             : std::format("；游戏帧中复制的 DLSS 运动矢量（{:.1f} MiB）",
                                                            static_cast<double>(copies) / (1024.0 * 1024.0)));
           }
         }
@@ -3264,7 +3260,7 @@ bool OnCreateDevice(api::device_api device_api, uint32_t& api_version) {
         }
         static std::atomic<bool> logged = false;
         if (!logged.exchange(true)) {
-          nr::Logf(nr::LogLevel::WARN, "Vulkan: the vkCreateDevice hook could not be installed: {}", *error);
+          nr::Logf(nr::LogLevel::WARN, "Vulkan：无法安装 vkCreateDevice 挂钩：{}", *error);
         }
       } else {
         PinReshade(reshade::internal::get_reshade_module_handle());  // I-4: the detour pinned Uplift, so ReShade stays loaded next to it
@@ -3358,13 +3354,12 @@ extern "C" __declspec(dllexport) bool AddonInit(HMODULE addon_module, HMODULE re
     case vk::DeviceHook::MarkerVerdict::NGX_OFF:
       g_state->settings.adjust_vulkan_devices_for_ngx = false;
       ui::SaveSettings(g_state->settings, &g_state->config);
-      warnings.push_back("Vulkan: NGX's device additions turned off (AdjustVulkanDevicesForNgx = 0): the last start with them did not reach its first frame; "
-                         "NR at Present on Vulkan uses the Direct3D 12 route");
+      warnings.push_back("Vulkan：NGX 设备扩展已停用（AdjustVulkanDevicesForNgx = 0）：上次启用后游戏未能呈现首帧；Vulkan 下的后处理阶段 NR 将改用 Direct3D 12 路径。");
       break;
     case vk::DeviceHook::MarkerVerdict::ADJUST_OFF:
       g_state->settings.adjust_vulkan_devices = false;
       ui::SaveSettings(g_state->settings, &g_state->config);
-      warnings.push_back("Vulkan device adjustment turned off (AdjustVulkanDevices = 0): the last start with it did not reach its first frame");
+      warnings.push_back("Vulkan 设备调整已停用（AdjustVulkanDevices = 0）：上次启用后游戏未能呈现首帧");
       break;
     case vk::DeviceHook::MarkerVerdict::NONE: break;
   }
@@ -3376,8 +3371,7 @@ extern "C" __declspec(dllexport) bool AddonInit(HMODULE addon_module, HMODULE re
     if (g_state->settings.vulkan_native_nr) {
       g_state->settings.vulkan_native_nr = false;
       ui::SaveSettings(g_state->settings, &g_state->config);
-      warnings.push_back("Vulkan: native NR at Present turned off (VulkanNativeNr = 0): the last start with it ended before it had run for a few seconds; "
-                         "NR at Present on Vulkan starts at the next route");
+      warnings.push_back("Vulkan：原生后处理阶段 NR 已停用（VulkanNativeNr = 0）：上次启用后游戏在其运行数秒前便已结束；Vulkan 下的后处理阶段 NR 将改用下一条可用路径。");
     }
   }
   if (!g_state->settings.vulkan_native_nr) {
@@ -3400,7 +3394,7 @@ extern "C" __declspec(dllexport) bool AddonInit(HMODULE addon_module, HMODULE re
         const std::scoped_lock error_lock(g_state->vk_hook_error_mutex);
         g_state->vk_hook_error = *error;
       }
-      warnings.push_back(std::format("Vulkan: the vkCreateDevice hook could not be installed: {}", *error));
+      warnings.push_back(std::format("Vulkan：无法安装 vkCreateDevice 挂钩：{}", *error));
     }
   }
   // Batch 2 review I-4: Uplift is pinned now (the NGX hooks, the detour), so ReShade's module is too.
@@ -3443,18 +3437,18 @@ extern "C" __declspec(dllexport) bool AddonInit(HMODULE addon_module, HMODULE re
   }
   reshade::register_overlay("GITC Uplift", OnDrawOverlay);
 
-  nr::Logf(nr::LogLevel::INFO, "Uplift {} registered (ReShade API {}, Dear ImGui {}, ReShade {})", UPLIFT_VERSION,
+  nr::Logf(nr::LogLevel::INFO, "Uplift {} 已注册（ReShade API {}、Dear ImGui {}、ReShade {}）", UPLIFT_VERSION,
            RESHADE_API_VERSION, IMGUI_VERSION_NUM,
-           (reshade_version ? addon::FormatModuleVersion(*reshade_version) : std::string("of unknown version")));
+           (reshade_version ? addon::FormatModuleVersion(*reshade_version) : std::string("版本未知")));
   if (hooks_started) {
     for (const ngx_hooks::HookedModule& module : g_state->hooks.Modules()) {
       // Plan 18: every API the module's hooks cover, Direct3D 11 included (ngx_hooks::HookedApis).
-      nr::Logf(nr::LogLevel::INFO, "NGX hooks on {} ({} entry points){}", addon::Utf8FromPath(module.file_name), ngx_hooks::HookedApis(module),
-               (module.evaluate_c ? " (with EvaluateFeature_C)" : ""));
+      nr::Logf(nr::LogLevel::INFO, "{} 上的 NGX 挂钩（{} 个入口点）{}", addon::Utf8FromPath(module.file_name), ngx_hooks::HookedApis(module),
+               (module.evaluate_c ? "（含 EvaluateFeature_C）" : ""));
     }
   }
-  nr::Logf(nr::LogLevel::INFO, "DLSS placements: {}",
-           (g_state->dlss_unavailable_reason.empty() ? std::string("available") : g_state->dlss_unavailable_reason));
+  nr::Logf(nr::LogLevel::INFO, "DLSS 阶段运行状态：{}",
+           (g_state->dlss_unavailable_reason.empty() ? std::string("可用") : g_state->dlss_unavailable_reason));
   for (const std::string& warning : warnings) {
     nr::Log(nr::LogLevel::WARN, warning);
   }

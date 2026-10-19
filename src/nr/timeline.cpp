@@ -37,12 +37,12 @@ class D3D12QueueFences final : public QueueFences {
     auto& fence = fences_[queue];
     if (!fence && FAILED(device_->CreateFence(0u, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)))) {
       fences_.erase(queue);
-      Log(LogLevel::WARN, "could not create a completion-token fence");
+      Log(LogLevel::WARN, "无法创建完成令牌栅栏");
       return false;
     }
     const HRESULT result = queue->Signal(fence.Get(), value);
     if (FAILED(result)) {
-      Logf(LogLevel::WARN, "completion-token Signal failed with {:#010x}", static_cast<uint32_t>(result));
+      Logf(LogLevel::WARN, "完成令牌 Signal 调用失败：{:#010x}", static_cast<uint32_t>(result));
       return false;
     }
     return true;
@@ -81,7 +81,7 @@ std::unique_ptr<Timeline> Timeline::CreateD3D12(ID3D12Device* device) {
       [raw](ID3D12CommandQueue* queue, uint64_t value) {
         HRESULT hr = queue->Signal(raw, value);
         if (FAILED(hr)) {
-          Log(LogLevel::WARN, std::format("ID3D12CommandQueue::Signal failed with 0x{:08x}", static_cast<uint32_t>(hr)));
+          Log(LogLevel::WARN, std::format("ID3D12CommandQueue::Signal 调用失败：0x{:08x}", static_cast<uint32_t>(hr)));
         }
       },
       [raw, event](uint64_t value, std::chrono::milliseconds timeout) {
@@ -126,7 +126,7 @@ Timeline::~Timeline() {
     CloseHandle(event_);
   }
   if (!pending_.empty()) {
-    Log(LogLevel::WARN, std::format("Timeline destroyed with {} pending releases; call Flush before destroying", pending_.size()));
+    Log(LogLevel::WARN, std::format("Timeline 销毁时仍有 {} 项待释放资源；销毁前请调用 Flush", pending_.size()));
   }
 }
 
@@ -173,7 +173,7 @@ uint64_t Timeline::BeginFrame(ID3D12CommandQueue* queue) {
         }
       }
     }
-    Log(LogLevel::INFO, "the present queue changed; pending releases also wait for the previous queue");
+    Log(LogLevel::INFO, "呈现队列已切换；待释放资源还需等待先前的队列");
   }
   if (current > 0u && queue != nullptr) {
     signal_(queue, current);
@@ -264,7 +264,7 @@ std::string_view Timeline::WaitIdle(std::chrono::milliseconds timeout) {
     signaled_ = current;
   }
   if (current > 0u && !wait_(current, timeout)) {
-    late = "Timeline flush timed out";
+    late = "Timeline 刷新超时";
   }
   bool probed = false;
   {
@@ -278,7 +278,7 @@ std::string_view Timeline::WaitIdle(std::chrono::milliseconds timeout) {
       Sleep(1u);
     }
     if (!TokensComplete(newest) && late.empty()) {
-      late = "a completion-token event did not complete in time";
+      late = "完成令牌事件未能及时完成";
     }
   }
   const std::unique_lock lock(tokens_mutex_);
@@ -295,7 +295,7 @@ std::string_view Timeline::WaitIdle(std::chrono::milliseconds timeout) {
                                  std::chrono::milliseconds(0));
       if (!fences_->Wait(queue, value, left)) {
         if (late.empty()) {
-          late = "a completion-token wait timed out";
+          late = "等待完成令牌超时";
         }
         break;
       }
@@ -306,7 +306,7 @@ std::string_view Timeline::WaitIdle(std::chrono::milliseconds timeout) {
 
 void Timeline::Flush(std::chrono::milliseconds timeout) {
   if (const std::string_view late = WaitIdle(timeout); !late.empty()) {
-    Logf(LogLevel::WARN, "{}; releasing anyway at device teardown", late);
+    Logf(LogLevel::WARN, "{}；仍将在设备销毁时释放资源", late);
   }
   {
     const std::unique_lock lock(tokens_mutex_);
@@ -410,7 +410,7 @@ void Timeline::StampAged(std::chrono::steady_clock::time_point now) {
       // second WARN merely unlikely (every caller holds the add-on lock in practice), and this makes
       // it impossible even if that ever stopped holding: only the caller that flips the latch logs.
       if (now - token.issue_time > STUCK_TOKEN_AGE && !stuck_warned_.exchange(true, std::memory_order_relaxed)) {
-        Logf(LogLevel::WARN, "a completion token has been outstanding for over {}s; NR memory may be stuck",
+        Logf(LogLevel::WARN, "完成令牌已等待超过 {} 秒；NR 显存可能无法释放",
              std::chrono::duration_cast<std::chrono::seconds>(now - token.issue_time).count());
       }
       break;

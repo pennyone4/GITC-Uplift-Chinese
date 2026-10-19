@@ -14,12 +14,12 @@ HMODULE SystemOpenGl(std::string* missing) {
   wchar_t directory[MAX_PATH] = {};
   const UINT length = GetSystemDirectoryW(directory, MAX_PATH);
   if (length == 0u || length >= MAX_PATH) {
-    *missing = "GetSystemDirectoryW failed";
+    *missing = "GetSystemDirectoryW 调用失败";
     return nullptr;
   }
   const HMODULE system = GetModuleHandleW((std::wstring(directory, length) + L"\\opengl32.dll").c_str());
   if (system == nullptr) {
-    *missing = "the system opengl32.dll is not loaded";
+    *missing = "系统 opengl32.dll 尚未加载";
   }
   return system;
 }
@@ -64,11 +64,11 @@ std::optional<Functions> Functions::Load(std::string* missing) {
   using GetProcAddressFn = PROC(WINAPI*)(LPCSTR);
   const auto get_proc_address = reinterpret_cast<GetProcAddressFn>(GetProcAddress(system, "wglGetProcAddress"));
   if (!absent_exports.empty() || get_proc_address == nullptr) {
-    *missing = "the system opengl32.dll lacks:" + absent_exports + (get_proc_address == nullptr ? " wglGetProcAddress" : "");
+    *missing = "系统 opengl32.dll 缺少：" + absent_exports + (get_proc_address == nullptr ? " wglGetProcAddress" : "");
     return std::nullopt;
   }
   if (gl.GetCurrentContext() == nullptr) {
-    *missing = "no OpenGL context is current";
+    *missing = "当前没有 OpenGL 上下文";
     return std::nullopt;
   }
 
@@ -89,7 +89,7 @@ std::optional<Functions> Functions::Load(std::string* missing) {
   resolve_function(gl.ClientWaitSync, "glClientWaitSync");
   resolve_function(gl.DeleteSync, "glDeleteSync");
   if (!absent_functions.empty()) {
-    *missing = "OpenGL 4.5's functions are missing:" + absent_functions + " (glCreateTextures needs OpenGL 4.5)";
+    *missing = "缺少 OpenGL 4.5 函数：" + absent_functions + "（glCreateTextures 需要 OpenGL 4.5）";
     return std::nullopt;
   }
 
@@ -104,7 +104,7 @@ std::optional<Functions> Functions::Load(std::string* missing) {
   }
   const auto offered = [&extensions](std::string_view name) { return std::ranges::find(extensions, name) != extensions.end(); };
   if (!offered("GL_EXT_memory_object") || !offered("GL_EXT_memory_object_win32")) {
-    *missing = "GL_EXT_memory_object_win32 is not offered, so the context cannot import Uplift's textures";
+    *missing = "驱动未提供 GL_EXT_memory_object_win32 扩展，无法导入 Uplift 纹理";
     return std::nullopt;
   }
   absent_functions.clear();
@@ -114,13 +114,13 @@ std::optional<Functions> Functions::Load(std::string* missing) {
   resolve_function(gl.MemoryObjectParameterivEXT, "glMemoryObjectParameterivEXT");
   resolve_function(gl.ImportMemoryWin32HandleEXT, "glImportMemoryWin32HandleEXT");
   if (!absent_functions.empty()) {
-    *missing = "GL_EXT_memory_object_win32 is offered but its functions are missing:" + absent_functions;
+    *missing = "驱动已提供 GL_EXT_memory_object_win32 扩展，但缺少相应函数：" + absent_functions;
     return std::nullopt;
   }
   resolve_function(gl.GetUnsignedBytevEXT, "glGetUnsignedBytevEXT");  // optional (GL_EXT_memory_object's LUID query): DXGI's NVIDIA adapter otherwise
 
   if (!offered("GL_EXT_semaphore") || !offered("GL_EXT_semaphore_win32")) {
-    gl.cpu_reason = "this driver does not offer GL_EXT_semaphore_win32";
+    gl.cpu_reason = "此驱动不支持 GL_EXT_semaphore_win32";
     return gl;
   }
   absent_functions.clear();
@@ -133,7 +133,7 @@ std::optional<Functions> Functions::Load(std::string* missing) {
   if (absent_functions.empty()) {
     gl.semaphores = true;
   } else {
-    gl.cpu_reason = "this driver offers GL_EXT_semaphore_win32 but its functions are missing:" + absent_functions;
+    gl.cpu_reason = "此驱动支持 GL_EXT_semaphore_win32，但缺少以下函数：" + absent_functions;
   }
   return gl;
 }

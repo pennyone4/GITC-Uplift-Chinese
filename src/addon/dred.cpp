@@ -71,7 +71,7 @@ std::string_view OpName(D3D12_AUTO_BREADCRUMB_OP op) {
     case D3D12_AUTO_BREADCRUMB_OP_CLEARDEPTHSTENCILVIEW:     return "ClearDepthStencilView";
     case D3D12_AUTO_BREADCRUMB_OP_RESOURCEBARRIER:           return "ResourceBarrier";
     case D3D12_AUTO_BREADCRUMB_OP_EXECUTEBUNDLE:             return "ExecuteBundle";
-    case D3D12_AUTO_BREADCRUMB_OP_PRESENT:                   return "Present";
+    case D3D12_AUTO_BREADCRUMB_OP_PRESENT:                   return "呈现";
     case D3D12_AUTO_BREADCRUMB_OP_RESOLVEQUERYDATA:          return "ResolveQueryData";
     case D3D12_AUTO_BREADCRUMB_OP_BEGINSUBMISSION:           return "BeginSubmission";
     case D3D12_AUTO_BREADCRUMB_OP_ENDSUBMISSION:             return "EndSubmission";
@@ -87,7 +87,7 @@ std::string_view OpName(D3D12_AUTO_BREADCRUMB_OP op) {
     case D3D12_AUTO_BREADCRUMB_OP_DISPATCHMESH:              return "DispatchMesh";
     case D3D12_AUTO_BREADCRUMB_OP_BARRIER:                   return "Barrier";
     case D3D12_AUTO_BREADCRUMB_OP_BEGIN_COMMAND_LIST:        return "BeginCommandList";
-    default:                                                 return "another op";
+    default:                                                 return "其他操作";
   }
 }
 
@@ -97,12 +97,12 @@ std::string AllocationNames(const D3D12_DRED_ALLOCATION_NODE1* node) {
   size_t count = 0u;
   for (; node != nullptr; node = node->pNext, ++count) {
     if (count < MAX_ALLOCATIONS) {
-      names += std::format("{}{}", (count == 0u ? "" : ", "), NameOf(node->ObjectNameW, node->ObjectNameA, "an unnamed allocation"));
+      names += std::format("{}{}", (count == 0u ? "" : "、"), NameOf(node->ObjectNameW, node->ObjectNameA, "未命名的显存分配"));
     }
   }
-  if (count == 0u) return "none";
+  if (count == 0u) return "无";
   if (count > MAX_ALLOCATIONS) {
-    names += std::format(" and {} more", count - MAX_ALLOCATIONS);
+    names += std::format("，另有 {} 项", count - MAX_ALLOCATIONS);
   }
   return names;
 }
@@ -113,11 +113,11 @@ void DecideDred(DredMode mode) {
   int undecided = UNDECIDED;
   if (!g_mode.compare_exchange_strong(undecided, static_cast<int>(mode))) return;  // decided already
   if (mode == DredMode::OFF) {
-    nr::Log(nr::LogLevel::INFO, "DRED off for Uplift's private Direct3D 12 devices");
+    nr::Log(nr::LogLevel::INFO, "Uplift 的专用 Direct3D 12 设备已关闭 DRED");
     return;
   }
-  nr::Logf(nr::LogLevel::INFO, "DRED on for Uplift's private Direct3D 12 devices ({}page faults)",
-           (mode == DredMode::BREADCRUMBS_AND_PAGE_FAULTS ? "breadcrumbs and " : ""));
+  nr::Logf(nr::LogLevel::INFO, "Uplift 的专用 Direct3D 12 设备已启用 DRED（{}页错误）",
+           (mode == DredMode::BREADCRUMBS_AND_PAGE_FAULTS ? "面包屑和" : ""));
 }
 
 void ApplyDredGlobal() {
@@ -138,32 +138,32 @@ void ApplyDred(ID3D12DeviceFactory* factory) {
 void LogDred(ID3D12Device* device) {
   ComPtr<ID3D12DeviceRemovedExtendedData1> dred;
   if (device == nullptr || FAILED(device->QueryInterface(IID_PPV_ARGS(&dred)))) {
-    nr::Log(nr::LogLevel::ERR, "DRED: no data for this device");
+    nr::Log(nr::LogLevel::ERR, "DRED：此设备没有可用数据");
     return;
   }
   D3D12_DRED_AUTO_BREADCRUMBS_OUTPUT1 breadcrumbs = {};
   if (const HRESULT result = dred->GetAutoBreadcrumbsOutput1(&breadcrumbs); FAILED(result)) {
-    nr::Logf(nr::LogLevel::ERR, "DRED: no breadcrumbs ({:#010x})", static_cast<uint32_t>(result));
+    nr::Logf(nr::LogLevel::ERR, "DRED：无法获取自动面包屑（{:#010x}）", static_cast<uint32_t>(result));
   } else {
     size_t in_flight = 0u;
     for (const D3D12_AUTO_BREADCRUMB_NODE1* node = breadcrumbs.pHeadAutoBreadcrumbNode; node != nullptr; node = node->pNext) {
       const uint32_t completed = (node->pLastBreadcrumbValue != nullptr ? *node->pLastBreadcrumbValue : 0u);
       if (node->BreadcrumbCount == 0u || completed >= node->BreadcrumbCount) continue;  // finished, or never started
       if (++in_flight > MAX_LISTS) continue;
-      nr::Logf(nr::LogLevel::ERR, "DRED: {} on {}: completed {}/{}, next: {}",
-               NameOf(node->pCommandListDebugNameW, node->pCommandListDebugNameA, "an unnamed command list"),
-               NameOf(node->pCommandQueueDebugNameW, node->pCommandQueueDebugNameA, "an unnamed queue"), completed, node->BreadcrumbCount,
+      nr::Logf(nr::LogLevel::ERR, "DRED：{}（{}）：已完成 {}/{}，下一项：{}",
+               NameOf(node->pCommandListDebugNameW, node->pCommandListDebugNameA, "未命名命令列表"),
+               NameOf(node->pCommandQueueDebugNameW, node->pCommandQueueDebugNameA, "未命名队列"), completed, node->BreadcrumbCount,
                OpName(node->pCommandHistory[completed]));
     }
     if (in_flight == 0u) {
-      nr::Log(nr::LogLevel::ERR, "DRED: no command list was in flight");
+      nr::Log(nr::LogLevel::ERR, "DRED：当前没有正在执行的命令列表");
     } else if (in_flight > MAX_LISTS) {
-      nr::Logf(nr::LogLevel::ERR, "DRED: and {} more command lists in flight", in_flight - MAX_LISTS);
+      nr::Logf(nr::LogLevel::ERR, "DRED：另有 {} 个命令列表正在执行", in_flight - MAX_LISTS);
     }
   }
   D3D12_DRED_PAGE_FAULT_OUTPUT1 fault = {};
   if (SUCCEEDED(dred->GetPageFaultAllocationOutput1(&fault)) && fault.PageFaultVA != 0u) {
-    nr::Logf(nr::LogLevel::ERR, "DRED: page fault at {:#018x}; allocations there: {}; recently freed there: {}", fault.PageFaultVA,
+    nr::Logf(nr::LogLevel::ERR, "DRED：页错误地址 {:#018x}；该地址上的分配：{}；近期释放的分配：{}", fault.PageFaultVA,
              AllocationNames(fault.pHeadExistingAllocationNode), AllocationNames(fault.pHeadRecentFreedAllocationNode));
   }
 }

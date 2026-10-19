@@ -20,7 +20,7 @@ using Microsoft::WRL::ComPtr;
 constexpr DWORD DESTROY_WAIT_MS = 2000u;  // the design's R29 cap on the waits that can stall the game thread
 
 std::string ShareFailureText(const char* what, DXGI_FORMAT format, HRESULT result) {
-  return std::format("{} could not be shared with Uplift's helper (DXGI_FORMAT {}, HRESULT {:#010x})", what, static_cast<int>(format),
+  return std::format("{}无法与 Uplift 辅助进程共享（DXGI_FORMAT {}，HRESULT {:#010x}）", what, static_cast<int>(format),
                      static_cast<uint32_t>(result));
 }
 
@@ -37,17 +37,17 @@ std::unique_ptr<D3D12Client> D3D12Client::Create(ID3D12Device* device, std::stri
   DXGI_ADAPTER_DESC adapter_description = {};
   if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory))) || FAILED(factory->EnumAdapterByLuid(luid, IID_PPV_ARGS(&adapter)))
       || FAILED(adapter->GetDesc(&adapter_description))) {
-    return fail("the game's adapter could not be read");
+    return fail("无法读取游戏的显卡信息");
   }
   // WARP and other vendors are refused, as on every other API; cross-adapter sharing is out of scope.
   if (adapter_description.VendorId != addon::NVIDIA_VENDOR_ID) {
-    return fail("Uplift needs an NVIDIA GPU; this game renders on another adapter");
+    return fail("Uplift 需要 NVIDIA GPU；此游戏正在另一块显卡上渲染");
   }
   std::unique_ptr<D3D12Client> client(new D3D12Client());
   client->device_ = device;
   client->luid_ = luid;
   if (const HRESULT result = device->CreateFence(0u, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&client->retire_fence_)); FAILED(result)) {
-    return fail(std::format("a Direct3D 12 fence could not be made (HRESULT {:#010x})", static_cast<uint32_t>(result)));
+    return fail(std::format("无法创建 Direct3D 12 栅栏（HRESULT {:#010x}）", static_cast<uint32_t>(result)));
   }
   return client;
 }
@@ -124,7 +124,7 @@ void D3D12Client::DestroyDevice(bool wait) {
     idle = false;  // still held, and the queue was not waited for
   }
   if (!idle) {
-    nr::Log(nr::LogLevel::WARN, "the game's Direct3D 12 queue did not finish with Uplift's shared textures; they are left until the process ends");
+    nr::Log(nr::LogLevel::WARN, "游戏的 Direct3D 12 队列尚未完成对 Uplift 共享纹理的使用；这些纹理将保留至进程结束");
     for (Retired& item : retired_) {
       item.object.Detach();
     }
@@ -176,7 +176,7 @@ bool D3D12Client::ReleaseAll(D3D12Host& host) {
 
 void D3D12Client::Stop(std::string_view reason, NrLink& link, D3D12Host& host) {
   if (latch_.empty()) {
-    latch_ = std::format("The Direct3D 12 bridge stopped: {}. Restart the game to use NR again", reason);
+    latch_ = std::format("Direct3D 12 中继已停止：{}。请重启游戏以再次使用 NR。", reason);
     nr::Log(nr::LogLevel::ERR, latch_);
   }
   link.Stop(waited11_, latch_);
@@ -234,17 +234,17 @@ ipc::Target D3D12Client::Describe(D3D12Host& host, const D3D12_RESOURCE_DESC& ba
   if (!latch_.empty()) {
     problem = latch_;
   } else if (!texture) {
-    problem = "The back buffer is not a 2D texture";
+    problem = "后备缓冲区不是二维纹理";
   } else if (back_buffer.SampleDesc.Count != 1u) {
-    problem = "Multisampled back buffers are not supported on Direct3D 12";
+    problem = "Direct3D 12 不支持多重采样后备缓冲区";
   } else if (!color::DescribeFormat(format)) {
-    problem = std::format("Unsupported back-buffer format (DXGI_FORMAT {})", static_cast<int>(format));
+    problem = std::format("不支持此后备缓冲区格式（DXGI_FORMAT {}）", static_cast<int>(format));
   }
   if (!running || !problem.empty()) {
     RetireShared(host, {&color_, &mask_, &motion_});  // NR is off, or this image cannot go: the shared surfaces go with it (Plan 7's final review C-1)
   }
   if (problem.empty() && color_failure_ && color_failure_->Matches(size, format)) {
-    problem = ShareFailureText("The back buffer", format, color_failure_->result);
+    problem = ShareFailureText("后备缓冲区", format, color_failure_->result);
   }
   if (problem != problem_) {
     if (!problem.empty()) {
@@ -296,7 +296,7 @@ void D3D12Client::Apply(const ipc::Reply& reply, NrLink& link, D3D12Host& host) 
       // No fallback: Direct3D 12 always has shared fences, so a refusal is a fault of this device (or a wrapper's), named with its HRESULT.
       to12_.Reset();
       to11_.Reset();
-      Stop(std::format("the helper's shared fences could not be opened (HRESULT {:#010x})", static_cast<uint32_t>(FAILED(first) ? first : second)), link, host);
+      Stop(std::format("无法打开辅助进程的共享栅栏（HRESULT {:#010x}）", static_cast<uint32_t>(FAILED(first) ? first : second)), link, host);
     }
   }
   HRESULT result = S_OK;
@@ -306,7 +306,7 @@ void D3D12Client::Apply(const ipc::Reply& reply, NrLink& link, D3D12Host& host) 
       color_failure_.reset();
     } else {
       color_failure_ = ShareFailure{.size = color_ask_.size, .format = color_ask_.format, .result = result};
-      nr::Log(nr::LogLevel::WARN, ShareFailureText("The back buffer", color_ask_.format, result));
+      nr::Log(nr::LogLevel::WARN, ShareFailureText("后备缓冲区", color_ask_.format, result));
     }
   }
   if (mask != nullptr && latch_.empty()) {
@@ -399,7 +399,7 @@ bool D3D12Client::RunFenced(D3D12Host& host, ID3D12Resource* back_buffer, D3D12U
         } else {
           // Logged once: not retried for this size (Plan 7's final review Minor 3).
           motion_failure_ = ShareFailure{.size = motion_size, .format = DXGI_FORMAT_R16G16_FLOAT, .result = result};
-          nr::Logf(nr::LogLevel::WARN, "UPLIFT_MV could not be shared with Uplift's helper (HRESULT {:#010x}); NR runs without LaunchPad's motion",
+          nr::Logf(nr::LogLevel::WARN, "无法向 Uplift 辅助进程共享 UPLIFT_MV（HRESULT {:#010x}）；NR 将不使用 LaunchPad 提供的运动矢量",
                    static_cast<uint32_t>(result));
         }
       }
@@ -491,7 +491,7 @@ bool D3D12Client::RunFenced(D3D12Host& host, ID3D12Resource* back_buffer, D3D12U
     if (steps.sent) {
       pending_out_ = out;
       in_flight_ = true;
-      nr::Log(nr::LogLevel::WARN, "Uplift's 64-bit helper did not answer within 2 s; frames go without NR until it does");
+      nr::Log(nr::LogLevel::WARN, "Uplift 的 64 位辅助进程在 2 秒内未响应；在其恢复响应前，后续帧将不运行 NR");
     }
     return false;
   }
@@ -542,7 +542,7 @@ MaskCopy D3D12Client::CopyMask(D3D12Host& host, ID3D12Resource* mask, NrLink& li
     if (!opened) {
       // Logged once: not retried for this size and format (final review Minor 3).
       mask_failure_ = ShareFailure{.size = size, .format = format->view_format, .result = result};
-      nr::Logf(nr::LogLevel::WARN, "UPLIFT_MASK could not be shared with Uplift's helper (DXGI_FORMAT {}, HRESULT {:#010x})", static_cast<int>(format->view_format),
+      nr::Logf(nr::LogLevel::WARN, "无法向 Uplift 辅助进程共享 UPLIFT_MASK（DXGI_FORMAT {}，HRESULT {:#010x}）", static_cast<int>(format->view_format),
                static_cast<uint32_t>(result));
       return {};
     }
@@ -559,7 +559,7 @@ MaskCopy D3D12Client::CopyMask(D3D12Host& host, ID3D12Resource* mask, NrLink& li
 }
 
 std::string D3D12Client::Line() const {
-  return std::format("Direct3D 12 ({}): NR runs in Uplift's 64-bit helper (shared textures and fences)", BITNESS);
+  return std::format("Direct3D 12（{} 位）：NR 在 Uplift 的 64 位辅助进程中运行（共享纹理和栅栏）", BITNESS);
 }
 
 }  // namespace uplift::client

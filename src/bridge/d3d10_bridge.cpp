@@ -23,7 +23,7 @@ std::unique_ptr<D3D10Bridge> D3D10Bridge::Create(ID3D10Device* device, ComPtr<ID
   if (!bridge->relay_) return nullptr;  // `error` says why
   bridge->bridge_ = D3D11Bridge::Create(bridge->relay_->Relay(), created, error, "Direct3D 10");
   if (!bridge->bridge_) return nullptr;  // `error` says why
-  nr::Log(nr::LogLevel::INFO, "Direct3D 10: frames cross through a Direct3D 11 relay device (keyed mutex)");
+  nr::Log(nr::LogLevel::INFO, "Direct3D 10：帧通过 Direct3D 11 中继设备传递（键控互斥体）");
   return bridge;
 }
 
@@ -33,7 +33,7 @@ void D3D10Bridge::SyncLatches() {
     nr::Log(nr::LogLevel::ERR, reason);
     bridge_->Stop(std::move(reason));  // key decision c: the D3D11 bridge's latch is the one, its fences signalled
   } else if (bridge_->Stopped() && !relay_->Stopped()) {
-    relay_->Stop("the Direct3D 11 bridge stopped");
+    relay_->Stop("Direct3D 11 中继已停止");
   }
 }
 
@@ -63,11 +63,11 @@ BridgeFrame D3D10Bridge::BeginFrame(ID3D10Resource* back_buffer, bool enabled, b
   const nr::Size size = (description ? nr::Size{description->Width, description->Height} : nr::Size{});
   const DXGI_FORMAT back_buffer_format = (description ? description->Format : DXGI_FORMAT_UNKNOWN);
   if (!description) {
-    problem = "The back buffer is not a 2D texture";
+    problem = "后备缓冲区不是二维纹理";
   } else if (description->SampleDesc.Count != 1u) {
-    problem = "Multisampled back buffers are not supported on Direct3D 10";  // design R26
+    problem = "Direct3D 10 不支持多重采样后备缓冲区";  // design R26
   } else if (!format) {
-    problem = std::format("Unsupported back-buffer format (DXGI_FORMAT {})", static_cast<int>(description->Format));
+    problem = std::format("不支持此后备缓冲区格式（DXGI_FORMAT {}）", static_cast<int>(description->Format));
   }
   if (!(running && problem.empty()) || Stopped()) {
     retire_keyed();
@@ -88,7 +88,7 @@ BridgeFrame D3D10Bridge::BeginFrame(ID3D10Resource* back_buffer, bool enabled, b
   // Reported while NR is off too, so the Session does not load for a back buffer the relay cannot share, nor (I-1) for
   // one the D3D11 bridge could not share with the private device: it describes a back buffer only while NR runs.
   if (problem.empty() && color_failure_ && color_failure_->Matches(size, back_buffer_format)) {
-    problem = std::format("The back buffer could not be shared with the Direct3D 11 relay (DXGI_FORMAT {}, HRESULT {:#010x})",
+    problem = std::format("无法通过 Direct3D 11 中继设备共享后备缓冲区（DXGI_FORMAT {}，HRESULT {:#010x}）",
                           static_cast<int>(back_buffer_format), static_cast<uint32_t>(color_failure_->result));
   } else if (problem.empty() && bridge_problem_ && bridge_problem_->size == size && bridge_problem_->format == back_buffer_format) {
     problem = bridge_problem_->text;
@@ -147,7 +147,7 @@ bool D3D10Bridge::Run(ID3D10Resource* back_buffer, ID3D10Resource* motion, const
         // Logged once: not retried for this size.
         motion_failure_ = ShareFailure{.size = size, .format = DXGI_FORMAT_R16G16_FLOAT, .result = result};
         nr::Logf(nr::LogLevel::WARN,
-                 "UPLIFT_MV could not be shared with the Direct3D 11 relay (HRESULT {:#010x}); NR runs without LaunchPad's motion",
+                 "无法通过 Direct3D 11 中继共享 UPLIFT_MV（HRESULT {:#010x}）；NR 将不使用 LaunchPad 提供的运动矢量",
                  static_cast<uint32_t>(result));
       }
     }
@@ -209,7 +209,7 @@ MaskCopy D3D10Bridge::CopyMask(ID3D10Resource* mask) {
     if (!relay_->CreateKeyed(size, format->view_format, format->bytes_per_pixel, &mask_, &result)) {
       // Logged once: not retried for this size and format.
       mask_failure_ = ShareFailure{.size = size, .format = format->view_format, .result = result};
-      nr::Logf(nr::LogLevel::WARN, "UPLIFT_MASK could not be shared with the Direct3D 11 relay (DXGI_FORMAT {}, HRESULT {:#010x})",
+      nr::Logf(nr::LogLevel::WARN, "无法向 Direct3D 11 中继共享 UPLIFT_MASK（DXGI_FORMAT {}，HRESULT {:#010x}）",
                static_cast<int>(format->view_format), static_cast<uint32_t>(result));
       return {.relay_failed = true};
     }
@@ -256,10 +256,10 @@ uint64_t D3D10Bridge::SharedBytes() const {
 
 std::string D3D10Bridge::StatusLine() const {
   std::string line =
-      std::format("Direct3D 10: NR runs on a private Direct3D 12 device through a Direct3D 11 relay (shared {:.1f} MiB)",
+      std::format("Direct3D 10：NR 通过 Direct3D 11 中继在专用 Direct3D 12 设备上运行（共享资源 {:.1f} MiB）",
                   static_cast<double>(SharedBytes()) / MIB);
   if (bridge_->BusySkips() > 0u) {
-    line += std::format(", {} frame(s) without NR while the bridge was busy", bridge_->BusySkips());
+    line += std::format("；桥接繁忙期间有 {} 帧未运行 NR", bridge_->BusySkips());
   }
   return line;
 }

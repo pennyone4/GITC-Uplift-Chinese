@@ -19,17 +19,17 @@ ChainPlan DecideChain(const ChainFacts& facts) {
   }();
   const auto stage_name = [](Stage stage) -> std::string_view {
     switch (stage) {
-      case Stage::BEFORE_UPSCALING: return "Before upscaling";
-      case Stage::AFTER_DLSS:       return "After DLSS";
+      case Stage::BEFORE_UPSCALING: return "DLSS 前";
+      case Stage::AFTER_DLSS:       return "DLSS 后";
       case Stage::PRESENT:          break;
     }
-    return "Present";
+    return "后处理阶段";
   };
   const auto can_run = [&facts](Stage stage) { return facts.cannot[static_cast<size_t>(stage)].empty(); };
   // Only the first pass that does not run where it is stored is named: the passes after it follow from it.
   const auto note = [&plan, &stage_name](uint32_t index, std::string_view why) {
     if (plan.note.empty()) {
-      plan.note = std::format("Pass {} runs at {}: {}", index + 1u, stage_name(plan.effective[index]), why);
+      plan.note = std::format("第 {} 层运行于{}：{}", index + 1u, stage_name(plan.effective[index]), why);
     }
   };
 
@@ -43,12 +43,12 @@ ChainPlan DecideChain(const ChainFacts& facts) {
     const auto picked = static_cast<Stage>(static_cast<uint32_t>(stored) - 1u);
     if (!facts.split_capable) {
       if (picked != before) {
-        note(index, "all passes run at one stage here");
+        note(index, "此处所有层都在同一阶段运行");
       }
       continue;
     }
     if (picked < before) {
-      note(index, std::format("it cannot run before pass {}", index));
+      note(index, std::format("不能早于第 {} 层运行", index));
       continue;
     }
     // The pass before's stage always takes it: that pass runs there.
@@ -92,17 +92,17 @@ std::string FormatChainLine(const ChainPlan& plan, const std::array<nr::Size, ST
     const StageGroup& group = plan.groups[index];
     const std::string_view where = [&group] {
       switch (group.stage) {
-        case Stage::BEFORE_UPSCALING: return "before upscaling";
-        case Stage::AFTER_DLSS:       return "after DLSS";
+        case Stage::BEFORE_UPSCALING: return "DLSS 前";
+        case Stage::AFTER_DLSS:       return "DLSS 后";
         case Stage::PRESENT:          break;
       }
-      return "at Present";
+      return "后处理阶段";
     }();
-    const std::string passes = (group.count == 1u ? std::format("{}", group.first + 1u) : std::format("{}-{}", group.first + 1u, group.first + group.count));
-    const std::string_view noun = (index > 0u ? "" : (group.count == 1u ? "pass " : "passes "));
+    const std::string layer_range =
+        (group.count == 1u ? std::format("第 {} 层", group.first + 1u) : std::format("第 {}-{} 层", group.first + 1u, group.first + group.count));
     const nr::Size size = canvas[static_cast<size_t>(group.stage)];
-    const std::string at_size = (size.Empty() ? std::string() : std::format(" ({}x{})", size.width, size.height));
-    line += std::format("{}{}{} {}{}", (index > 0u ? ", " : ""), noun, passes, where, at_size);
+    const std::string at_size = (size.Empty() ? std::string() : std::format("（{}x{}）", size.width, size.height));
+    line += std::format("{}{}：{}{}", (index > 0u ? "；" : ""), layer_range, where, at_size);
   }
   return line;
 }

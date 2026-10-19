@@ -262,7 +262,7 @@ bool VkNrPipeline::EnsureFaces(nr::Size canvas) {
       vk::DestroyNrImage(functions_, device_, image);
     }
     if (!allocation_failure_logged_) {
-      nr::Logf(nr::LogLevel::ERR, "could not allocate the {}x{} Keep faces surfaces (Vulkan)", canvas.width, canvas.height);
+      nr::Logf(nr::LogLevel::ERR, "无法分配 {}x{} 的保护面部表面（Vulkan）", canvas.width, canvas.height);
       allocation_failure_logged_ = true;
     }
     return false;
@@ -448,7 +448,7 @@ void VkNrPipeline::ReleaseNrSurfaces() {
 
 void VkNrPipeline::LogAllocationFailure(nr::Size size) {
   if (allocation_failure_logged_) return;
-  nr::Logf(nr::LogLevel::ERR, "could not allocate the {}x{} NR surfaces (Vulkan)", size.width, size.height);
+  nr::Logf(nr::LogLevel::ERR, "无法分配 {}x{} 的 NR 表面（Vulkan）", size.width, size.height);
   allocation_failure_logged_ = true;
 }
 
@@ -485,7 +485,7 @@ bool VkNrPipeline::EnsureLook(const LookPlan& plan) {
       vk::DestroyNrImage(functions_, device_, image);
     }
     if (!allocation_failure_logged_) {
-      nr::Logf(nr::LogLevel::ERR, "could not allocate the {}x{} look surfaces (Vulkan)", plan.image.width, plan.image.height);
+      nr::Logf(nr::LogLevel::ERR, "无法分配 {}x{} 的处理结果调整表面（Vulkan）", plan.image.width, plan.image.height);
       allocation_failure_logged_ = true;
     }
     return false;
@@ -1266,7 +1266,7 @@ PresentMotionWrite VkNrPipeline::RecordPresentMotion(VkCommandBuffer buffer, con
     // moved, and the frame mapping change only picks other slots, each still behind its own last use). This frame goes without its copy.
     if (PresentMotionGrows(present_motion_slots_, PresentMotionWrite::SLOT_BUSY)
         && MakePresentMotionSlots(present_motion_slots_, PRESENT_MOTION_SLOTS, size)) {
-      nr::Logf(nr::LogLevel::INFO, "Vulkan: the GPU runs too far behind for four slots: DLSS's motion copies for Present grow from {} to {} slots ({:.1f} MiB)",
+      nr::Logf(nr::LogLevel::INFO, "Vulkan：GPU 处理延迟过大，4 个槽位已不足；后处理阶段的 DLSS 运动矢量副本槽位从 {} 个增至 {} 个（{:.1f} MiB）",
                present_motion_slots_, PRESENT_MOTION_SLOTS,
                static_cast<double>(PRESENT_MOTION_SLOTS * size.Pixels() * MOTION_BYTES_PER_PIXEL) / (1024.0 * 1024.0));
       present_motion_slots_ = PRESENT_MOTION_SLOTS;

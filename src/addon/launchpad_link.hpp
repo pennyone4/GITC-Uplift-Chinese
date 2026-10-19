@@ -24,7 +24,7 @@ inline constexpr bool LAUNCHPAD_ON_D3D9 = true;
 // edge-aware upsample is not checked on shader model 3), so the Lumenite choice is greyed there with LUMENITE_D3D9_REASON.
 inline constexpr bool LUMENITE_ON_D3D9 = false;
 inline constexpr char LUMENITE_TECHNIQUE[] = "Lumenite_Kernel";
-inline constexpr std::string_view LUMENITE_D3D9_REASON = "Lumenite's vectors are not used on Direct3D 9";
+inline constexpr std::string_view LUMENITE_D3D9_REASON = "Lumenite 的运动矢量不适用于 Direct3D 9";
 
 // Which source Uplift.fx compiles into UPLIFT_MV (UPLIFT_USE_LAUNCHPAD or UPLIFT_USE_LUMENITE, one LaunchPadLink each): never both. `launchpad_on` and
 // `lumenite_on`: the technique that makes them is enabled (MartysMods_Launchpad, Lumenite_Kernel) where Uplift can use it. Auto takes Launchpad when both

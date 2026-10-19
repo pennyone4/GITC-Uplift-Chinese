@@ -51,13 +51,13 @@ bool UpliftMvValid(UpliftMvSource compiled, bool launchpad_on, bool lumenite_on)
 }
 
 std::string LumeniteLinkLine(bool value) {
-  return std::format("Lumenite link: UPLIFT_USE_LUMENITE = {}; ReShade recompiles Uplift.fx, and other add-ons that keep ReShade handles across a "
-                     "recompile may be affected", (value ? 1 : 0));
+  return std::format("Lumenite 连接：UPLIFT_USE_LUMENITE = {}；ReShade 将重新编译 Uplift.fx，其他跨重新编译仍持有 ReShade 句柄的插件可能受到影响",
+                     (value ? 1 : 0));
 }
 
 std::string LaunchPadLinkLine(bool value) {
-  return std::format("LaunchPad link: UPLIFT_USE_LAUNCHPAD = {}; ReShade recompiles Uplift.fx, and other add-ons that keep ReShade handles across a "
-                     "recompile may be affected", (value ? 1 : 0));
+  return std::format("LaunchPad 连接：UPLIFT_USE_LAUNCHPAD = {}；ReShade 将重新编译 Uplift.fx，其他跨重新编译仍持有 ReShade 句柄的插件可能受到影响",
+                     (value ? 1 : 0));
 }
 
 std::optional<bool> LaunchPadDefinition(std::optional<std::string_view> effect_value, std::optional<std::string_view> outer_value) {

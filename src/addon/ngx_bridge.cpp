@@ -75,7 +75,7 @@ void NgxBridge::AfterCreate(const ngx_hooks::CreateCall& call, NVSDK_NGX_Handle*
   if (call.submitted) {
     if (snapshot.render != call.submitted->render || snapshot.output != call.submitted->output) {
       nr::Logf(nr::LogLevel::INFO,
-               "DLSS creation dimensions changed during NGX call (handle {}): returned render {}x{} -> output {}x{}; preserving submitted render {}x{} -> output {}x{}",
+               "NGX 调用期间 DLSS 创建尺寸发生变化（句柄 {}）：返回的渲染尺寸 {}x{} → 输出 {}x{}；保留已提交的渲染尺寸 {}x{} → 输出 {}x{}",
                static_cast<const void*>(handle), snapshot.render.width, snapshot.render.height, snapshot.output.width, snapshot.output.height,
                call.submitted->render.width, call.submitted->render.height, call.submitted->output.width, call.submitted->output.height);
     }
@@ -252,9 +252,9 @@ std::optional<ngx_hooks::FeatureRecord> NgxBridge::AdoptD3D11Upscaler(const NVSD
     // Final review: "not seen being created" is true of a feature made before the hooks and of one the game kept across an NGX shutdown that only dropped
     // a reference count; "HDR inferred" says the IsHDR flag is the Output's float format's, not the game's.
     nr::Logf(nr::LogLevel::INFO,
-             "Direct3D 11: adopted the game's DLSS feature at its first evaluate (not seen being created: created before Uplift's hooks, or kept across an NGX "
-             "shutdown; render {}x{} -> output {}x{}{})",
-             snapshot.render.width, snapshot.render.height, snapshot.output.width, snapshot.output.height, (hdr_inferred ? ", HDR inferred" : ""));
+             "Direct3D 11：首次评估时接管了游戏的 DLSS 功能（未观察到创建过程：该功能在 Uplift 挂钩安装前已创建，或在 NGX "
+             "关闭后仍被保留；渲染分辨率 {}x{} -> 输出分辨率 {}x{}{}）",
+             snapshot.render.width, snapshot.render.height, snapshot.output.width, snapshot.output.height, (hdr_inferred ? "，推断为 HDR" : ""));
   }
   return registry_.Find(handle);
 }
@@ -277,8 +277,8 @@ void NgxBridge::BeforeCoreShutdown(ngx_hooks::NgxApi api, void* device, const vo
       if (owner == nullptr) owner = &UNMARKED;
     }
     const size_t forgotten = registry_.OnCoreShutdown(ngx_hooks::NgxApi::D3D11, owner);
-    nr::Logf(nr::LogLevel::INFO, "Direct3D 11: the game shut NGX down on {} ({} DLSS feature(s) forgotten; NR on Uplift's private device is unaffected)",
-             (device == nullptr ? "every device" : "its device"), forgotten);
+    nr::Logf(nr::LogLevel::INFO, "Direct3D 11：游戏已在{}上关闭 NGX（已清除 {} 个 DLSS 功能的记录；Uplift 专用设备上的 NR 不受影响）",
+             (device == nullptr ? "所有设备" : "其设备"), forgotten);
     return;
   }
   // Never for Uplift's own code: the NR runtime's own teardown, which may reach the core, runs under the add-on's lock (the same rule as the creates').
@@ -295,11 +295,11 @@ void NgxBridge::BeforeCoreShutdown(ngx_hooks::NgxApi api, void* device, const vo
 
 std::string DlssUnavailableReason(const ui::Settings& settings, const std::optional<ModuleVersion>& reshade,
                                   bool hooks_started, std::string_view hook_error) {
-  if (settings.ngx_hooks == ui::NgxHooksMode::OFF) return "NGX hooks are off (NgxHooks = Off)";
-  if (!hooks_started) return std::format("NGX hooks could not start: {}", hook_error);
-  if (!reshade) return "ReShade's version could not be read: DLSS placement needs ReShade 6.1 or newer";
+  if (settings.ngx_hooks == ui::NgxHooksMode::OFF) return "NGX 挂钩已关闭（NgxHooks = Off）";
+  if (!hooks_started) return std::format("无法启动 NGX 挂钩：{}", hook_error);
+  if (!reshade) return "无法读取 ReShade 版本：DLSS 阶段需要 ReShade 6.1 或更高版本";
   if (!SupportsDlssPlacement(*reshade)) {
-    return std::format("DLSS placement needs ReShade 6.1 or newer (this is {})", FormatModuleVersion(*reshade));
+    return std::format("DLSS 阶段需要 ReShade 6.1 或更高版本（当前版本为 {}）", FormatModuleVersion(*reshade));
   }
   if (settings.dlss_placement_blocked) {
     return std::string(LATCH_UNAVAILABLE_REASON);

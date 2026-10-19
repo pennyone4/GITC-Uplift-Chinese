@@ -11,37 +11,37 @@
 namespace uplift::ui {
 namespace {
 
-constexpr std::array<std::string_view, 3> MODELS = {"Style A", "Style B", "Style C"};
-constexpr std::array<std::string_view, 3> NR_NETWORKS = {"Runtime default", "A: Legacy", "B: Small FP8"};
-constexpr std::array<std::string_view, 3> PASS_NETWORKS = {"Same as pass 1", "A: Legacy", "B: Small FP8"};
-constexpr std::array<std::string_view, 3> SOURCES = {"Auto", "After DLSS", "Present"};
-constexpr std::array<std::string_view, 5> MOTION_VECTORS = {"Auto", "DLSS", "Launchpad", "None", "Lumenite"};  // stored-index order (Setup shows Lumenite after Launchpad)
-constexpr std::array<std::string_view, 7> QUALITY_MODES = {"Game", "Performance", "Balanced", "Quality",
-                                                           "Ultra Performance", "Ultra Quality", "DLAA"};
-constexpr std::array<std::string_view, 5> PRESETS = {"Game", "J", "K", "L", "M"};
-constexpr std::array<std::string_view, 3> AUTO_EXPOSURE = {"Game", "Off", "On"};
-constexpr std::array<std::string_view, 6> ENCODINGS = {"Auto", "Linear BT.709", "sRGB", "BT.2100 PQ", "scRGB", "scRGB-nl"};
-constexpr std::array<std::string_view, 3> DEPTH_DIRECTIONS = {"Game", "Normal", "Inverted"};
-constexpr std::array<std::string_view, 2> STATE_RESTORE_MODES = {"Full", "Minimal"};
-constexpr std::array<std::string_view, 4> LOG_LEVELS = {"Error", "Warning", "Info", "Debug"};
-constexpr std::array<std::string_view, 2> NGX_HOOK_MODES = {"Auto", "Off (safe mode)"};
-constexpr std::array<std::string_view, 2> FOREIGN_NR_MODES = {"Yield", "Observe"};
-constexpr std::array<std::string_view, 3> VRAM_CHECKS = {"Careful", "Relaxed", "Off"};  // 2026-10-09
-constexpr std::array<std::string_view, 3> VULKAN_NR_MODES = {"Native", "Direct3D 12", "Helper"};  // Plan 19; T5: Helper
-constexpr std::array<std::string_view, 6> RESOLUTION_MODES = {"Full", "Quality (67 %)", "Balanced (58 %)",
-                                                              "Performance (50 %)", "Match game", "Custom"};
-constexpr std::array<std::string_view, 2> UPSAMPLING_MODES = {"Classic", "Edge-aware"};
+constexpr std::array<std::string_view, 3> MODELS = {"风格 A", "风格 B", "风格 C"};
+constexpr std::array<std::string_view, 3> NR_NETWORKS = {"运行时默认", "A：旧版（Legacy）", "B：小型 FP8（Small FP8）"};
+constexpr std::array<std::string_view, 3> PASS_NETWORKS = {"与第 1 层相同", "A：旧版（Legacy）", "B：小型 FP8（Small FP8）"};
+constexpr std::array<std::string_view, 3> SOURCES = {"自动", "DLSS 后", "后处理"};
+constexpr std::array<std::string_view, 5> MOTION_VECTORS = {"自动", "DLSS", "LaunchPad", "无", "Lumenite"};  // stored-index order (Setup shows Lumenite after Launchpad)
+constexpr std::array<std::string_view, 7> QUALITY_MODES = {"游戏默认", "性能", "均衡", "质量",
+                                                           "极致性能", "极致质量", "DLAA"};
+constexpr std::array<std::string_view, 5> PRESETS = {"游戏默认", "J", "K", "L", "M"};
+constexpr std::array<std::string_view, 3> AUTO_EXPOSURE = {"游戏默认", "关闭", "开启"};
+constexpr std::array<std::string_view, 6> ENCODINGS = {"自动", "线性 BT.709", "sRGB", "BT.2100 PQ", "scRGB", "scRGB-nl"};
+constexpr std::array<std::string_view, 3> DEPTH_DIRECTIONS = {"游戏默认", "正向", "反向"};
+constexpr std::array<std::string_view, 2> STATE_RESTORE_MODES = {"完整", "最小"};
+constexpr std::array<std::string_view, 4> LOG_LEVELS = {"错误", "警告", "信息", "调试"};
+constexpr std::array<std::string_view, 2> NGX_HOOK_MODES = {"自动", "关闭（安全模式）"};
+constexpr std::array<std::string_view, 2> FOREIGN_NR_MODES = {"让出", "观察"};
+constexpr std::array<std::string_view, 3> VRAM_CHECKS = {"保守", "宽松", "关闭"};  // 2026-10-09
+constexpr std::array<std::string_view, 3> VULKAN_NR_MODES = {"原生", "Direct3D 12", "辅助进程"};  // Plan 19; T5: Helper
+constexpr std::array<std::string_view, 6> RESOLUTION_MODES = {"全分辨率", "质量（67 %）", "均衡（58 %）",
+                                                              "性能（50 %）", "匹配游戏", "自定义"};
+constexpr std::array<std::string_view, 2> UPSAMPLING_MODES = {"经典", "边缘感知"};
 // Split chain (2026-10-10): a pass's Runs at after its first choice, "Same as pass n-1" (PassStageChoices), in stored-index order.
-constexpr std::array<std::string_view, 3> PASS_STAGES = {"Before upscaling", "After DLSS", "Present"};
-constexpr std::array<std::string_view, 2> MASK_MODES = {"Auto (UPLIFT_MASK)", "Off"};
-constexpr std::array<std::string_view, 3> UI_CORRECTION_MODES = {"Auto", "Off", "On"};
-constexpr std::array<std::string_view, 3> STABILIZE_MODES = {"Off", "Static", "Motion"};
-constexpr std::array<std::string_view, 4> INPUT_EXPOSURES = {"Auto", "Game", "Metered", "Manual"};
-constexpr std::array<std::string_view, 2> AUTO_EXPOSURE_MODES = {"Blend", "Switch"};  // 2026-10-09
-constexpr std::array<std::string_view, 2> ADAPT_MODES = {"Off", "Smooth"};
-constexpr std::array<std::string_view, 4> PRIMARIES = {"Auto", "BT.709", "BT.2020", "AP1 (ACEScg)"};
-constexpr std::array<std::string_view, 2> NEURAL_TRANSFERS = {"Bounded ratio", "Consistent"};
-constexpr std::array<std::string_view, 3> PEDESTAL_MODES = {"Off", "Auto", "Always"};
+constexpr std::array<std::string_view, 3> PASS_STAGES = {"DLSS 前", "DLSS 后", "后处理"};
+constexpr std::array<std::string_view, 2> MASK_MODES = {"自动（UPLIFT_MASK）", "关闭"};
+constexpr std::array<std::string_view, 3> UI_CORRECTION_MODES = {"自动", "关闭", "开启"};
+constexpr std::array<std::string_view, 3> STABILIZE_MODES = {"关闭", "静态", "运动"};
+constexpr std::array<std::string_view, 4> INPUT_EXPOSURES = {"自动", "游戏曝光", "测光", "手动"};
+constexpr std::array<std::string_view, 2> AUTO_EXPOSURE_MODES = {"混合", "切换"};  // 2026-10-09
+constexpr std::array<std::string_view, 2> ADAPT_MODES = {"关闭", "平滑"};
+constexpr std::array<std::string_view, 4> PRIMARIES = {"自动", "BT.709", "BT.2020", "AP1 (ACEScg)"};
+constexpr std::array<std::string_view, 2> NEURAL_TRANSFERS = {"有界比率", "一致"};
+constexpr std::array<std::string_view, 3> PEDESTAL_MODES = {"关闭", "自动", "始终"};
 
 using setting_flags::APPLY_ON_RELEASE;
 using setting_flags::BOOKKEEPING;
@@ -69,15 +69,15 @@ double Flag(bool value) {
 }
 
 constexpr std::string_view PRESET_TOOLTIP =
-    "The DLSS render preset for this quality mode (J-M). Applies when the game next creates its DLSS feature.";
+    "此质量模式（J-M）对应的 DLSS 渲染预设。游戏下次创建 DLSS 功能时生效。";
 
 const auto BASE_ROWS = std::to_array<SettingDescriptor>({
     {
         .key = ENABLED_KEY,
         .kind = SettingKind::BOOL,
         .section = SettingSection::TOP,
-        .label = "Enable",
-        .tooltip = "Runs DLSS-NR. Switching it off returns all of NR's video memory after the grace period.",
+        .label = "启用",
+        .tooltip = "运行 DLSS-NR。关闭后，宽限期结束时会释放 NR 占用的全部显存。",
         .get = [](const Settings& s) { return Flag(s.enabled); },
         .set = [](Settings& s, double v) { s.enabled = (v != 0.0); },
     },
@@ -85,8 +85,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "EnableKey",
         .kind = SettingKind::KEY,
         .section = SettingSection::HOTKEYS,
-        .label = "Enable hotkey",
-        .tooltip = "Toggles Enable. Click, then press a key; right-click clears it.",
+        .label = "启用快捷键",
+        .tooltip = "切换“启用”状态。点击此处后按下一个按键；右键点击可清除快捷键。",
         .min = 0.0,
         .max = 255.0,
         .get = [](const Settings& s) { return static_cast<double>(s.enable_key); },
@@ -96,10 +96,9 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ResolutionMode",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::PLACEMENT,
-        .label = "Resolution",
-        .tooltip = "The size NR works at. Lower sizes cost less GPU time and video memory, and NR's change is upsampled. "
-                   "Match game follows the game's DLSS render size. NR never works below " UPLIFT_NR_FLOOR_TEXT ". A change applies "
-                   "after half a second and restarts NR's history.",
+        .label = "分辨率",
+        .tooltip = "NR 的处理分辨率。分辨率越低，GPU 开销和显存占用越小，NR 的处理结果会升采样回原尺寸。“匹配游戏”会跟随游戏的 DLSS 渲染尺寸。"
+                   "NR 的处理尺寸不会低于 " UPLIFT_NR_FLOOR_TEXT "。更改后会延迟半秒生效，并重置 NR 的时序历史。",
         .choices = RESOLUTION_MODES,
         .flags = RESTARTS_HISTORY,
         .get = [](const Settings& s) { return Index(s.resolution_mode); },
@@ -109,9 +108,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Intensity",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LOOK,
-        .label = "Intensity",
-        .tooltip = "How strongly NR changes the image, from 0 (off) to 1 (full). NR goes no further than 1: for a stronger result, raise "
-                   "Edit strength in Result shaping.",
+        .label = "强度",
+        .tooltip = "控制 NR 对画面的处理强度，范围为 0（关闭）至 1（最大）。如需更强效果，可提高“处理结果调整”中的“调整强度”。",
         .min = 0.0,
         .max = 10.0,
         .ui_max = 1.0,
@@ -122,8 +120,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Style",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::LOOK,
-        .label = "Style",
-        .tooltip = "Processing style A/B/C (0/1/2), separate from the network preset in Setup. A change restarts NR's temporal history.",
+        .label = "风格",
+        .tooltip = "选择处理风格 A/B/C（0/1/2），与“设置”中的网络预设相互独立。更改后会重置 NR 的时序历史。",
         .choices = MODELS,
         .flags = RESTARTS_HISTORY,
         .get = [](const Settings& s) { return static_cast<double>(s.style); },
@@ -133,8 +131,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "LocalStructure",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LOOK,
-        .label = "Structure",
-        .tooltip = "Fine structure NR adds. A change restarts NR's temporal history.",
+        .label = "结构",
+        .tooltip = "控制 NR 添加的精细结构。更改后会重置 NR 的时序历史。",
         .min = 0.0,
         .max = 1.0,
         .flags = RESTARTS_HISTORY,
@@ -145,8 +143,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "LocalTone",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LOOK,
-        .label = "Local tone",
-        .tooltip = "Local contrast NR adds. A change restarts NR's temporal history.",
+        .label = "局部色调",
+        .tooltip = "控制 NR 添加的局部对比度。更改后会重置 NR 的时序历史。",
         .min = 0.0,
         .max = 1.0,
         .flags = RESTARTS_HISTORY,
@@ -157,8 +155,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "AutoMask",
         .kind = SettingKind::BOOL,
         .section = SettingSection::LOOK,
-        .label = "Character mask",
-        .tooltip = "Protects characters with NR's own mask. A change restarts NR's temporal history.",
+        .label = "角色遮罩",
+        .tooltip = "使用 NR 自带的蒙版保护角色。更改后会重置 NR 的时序历史。",
         .flags = RESTARTS_HISTORY,
         .get = [](const Settings& s) { return Flag(s.auto_mask); },
         .set = [](Settings& s, double v) { s.auto_mask = (v != 0.0); },
@@ -167,8 +165,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "SkinStructure",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LOOK,
-        .label = "Skin structure",
-        .tooltip = "Structure on skin; -1 follows Structure. A change restarts NR's temporal history.",
+        .label = "皮肤结构",
+        .tooltip = "控制皮肤区域的结构强度；-1 表示跟随“结构”设置。更改后会重置 NR 的时序历史。",
         .min = 0.0,
         .max = 1.0,
         .special = static_cast<double>(SKIN_SAME_AS_STRUCTURE),
@@ -180,10 +178,9 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "KeepFaces",
         .kind = SettingKind::BOOL,
         .section = SettingSection::LOOK,
-        .label = "Keep faces",
-        .tooltip = "Keeps NR's lighting and shading on characters, but stops NR reshaping their faces. NR runs one more time per frame for "
-                   "this (a little more GPU time and video memory), whatever the pass count. With passes at several stages it protects pass 1's "
-                   "stage; a later stage has its own Keep faces here.",
+        .label = "保护面部",
+        .tooltip = "保留 NR 对角色光照和阴影的处理，同时避免 NR 改变角色面部形状。为此每帧会额外运行一次 NR（增加少量 GPU 开销和显存占用），与层数无关。"
+                   "如果不同层运行在多个阶段，此项保护第 1 层所在阶段；后续阶段可单独设置“保护面部”。",
         .get = [](const Settings& s) { return Flag(s.keep_faces); },
         .set = [](Settings& s, double v) { s.keep_faces = (v != 0.0); },
     },
@@ -191,9 +188,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "FaceProtection",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LOOK,
-        .label = "Face protection",
-        .tooltip = "How much of NR's fine structure faces still get: 0 leaves faces as the game drew them, 1 lets NR's structure through. "
-                   "A change restarts the extra run's history.",
+        .label = "面部保护",
+        .tooltip = "控制面部保留 NR 精细结构的程度：0 保留游戏原本的面部，1 则完全应用 NR 的结构变化。更改后会重置额外处理层的时序历史。",
         .min = 0.0,
         .max = 1.0,
         .flags = RESTARTS_HISTORY,
@@ -204,9 +200,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "LightingScale",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LOOK,
-        .label = "Lighting scale (% of height)",
-        .tooltip = "On characters, NR's change broader than this counts as lighting and is kept; anything finer is left out. Larger keeps only "
-                   "the broadest lighting, smaller keeps more of NR's change on faces.",
+        .label = "光照尺度（画面高度百分比）",
+        .tooltip = "角色身上尺度大于此值的 NR 变化会被视为光照并保留；更细微的变化不会保留。数值越大，仅保留范围更广的光照变化；数值越小，面部保留的 NR 变化越多。",
         .min = 0.5,
         .max = 10.0,
         .get = [](const Settings& s) { return static_cast<double>(s.lighting_scale); },
@@ -216,10 +211,9 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Mask",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::MASK,
-        .label = "NR mask",
-        .tooltip = "Auto: an effect that writes a texture named UPLIFT_MASK limits NR by its red channel: 0 keeps the "
-                   "game's image, 1 is full NR, 0.5 half of NR's change. It is the previous frame's mask. Uplift ships "
-                   "fx/UpliftMask.fx as an example.",
+        .label = "NR 蒙版",
+        .tooltip = "自动：如果某个效果写入名为 UPLIFT_MASK 的纹理，NR 会根据其红色通道限制处理范围：0 保留游戏画面，1 完全应用 NR，0.5 表示应用一半的 NR 变化。"
+                   "使用上一帧的蒙版。Uplift 附带的 fx/UpliftMask.fx 可供参考。",
         .choices = MASK_MODES,
         .get = [](const Settings& s) { return Index(s.mask); },
         .set = [](Settings& s, double v) { s.mask = FromIndex<MaskMode>(v); },
@@ -228,9 +222,9 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "MaskBlendMode",
         .kind = SettingKind::UINT,
         .section = SettingSection::PLACEMENT,
-        .label = "Native mask blend mode",
-        .tooltip = "Experimental NR 310.9.16 control, modes 0-3; default 1. Mode 0 uses a different mask combination and can produce little visible change. "
-                   "This is separate from Uplift's NR mask. NR 310.8 ignores it. Full mask-combination behavior on the Ada compatibility runtime remains under validation.",
+        .label = "原生蒙版混合模式",
+        .tooltip = "NR 310.9.16 的实验性选项，模式为 0–3，默认值为 1。模式 0 使用不同的蒙版组合方式，画面变化可能不明显。此项与 Uplift 的 NR 蒙版相互独立；NR 310.8 会忽略此项。"
+                   "Ada 兼容运行时的完整蒙版组合行为仍在验证中。",
         .min = 0.0,
         .max = 3.0,
         .flags = RESTARTS_HISTORY,
@@ -241,10 +235,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "UICorrection",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::MASK,
-        .label = "UI correction",
-        .tooltip = "NR's UI correction needs the HUD-less image, which Uplift does not capture: after DLSS it is not "
-                   "needed (the HUD is drawn after NR); on the presented image use the NR mask. On forwards the "
-                   "runtime's switch only.",
+        .label = "UI 校正",
+        .tooltip = "NR 的 UI 校正需要不含 HUD 的画面，而 Uplift 不会捕获这类画面：在“DLSS 后”阶段无需校正（HUD 会在 NR 之后绘制）；处理后处理画面时请使用 NR 蒙版。开启时仅会将此开关传递给运行时。",
         .choices = UI_CORRECTION_MODES,
         .get = [](const Settings& s) { return Index(s.ui_correction); },
         .set = [](Settings& s, double v) { s.ui_correction = FromIndex<UiCorrection>(v); },
@@ -253,9 +245,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ShapeResult",
         .kind = SettingKind::BOOL,
         .section = SettingSection::RESULT,
-        .label = "Shape result",
-        .tooltip = "Reshapes NR's result live, without restarting its history. Off leaves NR's output exactly as it is. With passes at "
-                   "several stages it shapes only what the last stage changes; earlier stages' changes pass through as they are.",
+        .label = "处理结果调整",
+        .tooltip = "实时调整 NR 的处理结果，不会重置时序历史。关闭时保留 NR 的原始输出。若各层位于不同阶段，只调整最后阶段产生的变化；较早阶段的变化会原样保留。",
         .get = [](const Settings& s) { return Flag(s.look.enabled); },
         .set = [](Settings& s, double v) { s.look.enabled = (v != 0.0); },
     },
@@ -263,8 +254,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "EditStrength",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::RESULT,
-        .label = "Edit strength",
-        .tooltip = "0 removes NR's change, 1 keeps it, 2 doubles it, in stops and in colour.",
+        .label = "调整强度",
+        .tooltip = "0 表示移除 NR 的变化，1 表示保持原样，2 表示将其加倍；亮度以档位为单位，颜色以比例为单位。",
         .min = 0.0,
         .max = 2.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.edit_strength); },
@@ -274,8 +265,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Brighten",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::RESULT,
-        .label = "Brightening",
-        .tooltip = "How much of NR's brightening is kept.",
+        .label = "提亮",
+        .tooltip = "控制保留多少 NR 的提亮效果。",
         .min = 0.0,
         .max = 2.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.brighten); },
@@ -285,8 +276,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Darken",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::RESULT,
-        .label = "Darkening",
-        .tooltip = "How much of NR's darkening is kept, including the dark halos it can leave around bright objects.",
+        .label = "压暗",
+        .tooltip = "控制保留多少 NR 的压暗效果，包括其在高亮物体周围可能产生的暗色光晕。",
         .min = 0.0,
         .max = 2.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.darken); },
@@ -296,8 +287,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ResultColor",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::RESULT,
-        .label = "Colour",
-        .tooltip = "How far NR moves colours toward or away from grey; 0 keeps the game's saturation.",
+        .label = "色彩",
+        .tooltip = "控制 NR 将颜色向灰色靠近或远离的程度；0 表示保留游戏原有的饱和度。",
         .min = 0.0,
         .max = 2.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.color); },
@@ -307,8 +298,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "HueShift",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::RESULT,
-        .label = "Hue shift",
-        .tooltip = "How far NR turns hues; 0 keeps the game's hues.",
+        .label = "色相偏移",
+        .tooltip = "控制 NR 改变色相的程度；0 表示保留游戏原有的色相。",
         .min = 0.0,
         .max = 2.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.hue); },
@@ -318,8 +309,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Shadows",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::RESULT,
-        .label = "Shadows",
-        .tooltip = "Scales NR's change where the game's image is dark.",
+        .label = "阴影",
+        .tooltip = "调整 NR 在游戏画面暗部区域产生的变化。",
         .min = 0.0,
         .max = 2.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.shadows); },
@@ -329,8 +320,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Midtones",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::RESULT,
-        .label = "Midtones",
-        .tooltip = "Scales NR's change in the game's midtones.",
+        .label = "中间调",
+        .tooltip = "调整 NR 在游戏画面中间调区域产生的变化。",
         .min = 0.0,
         .max = 2.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.midtones); },
@@ -340,8 +331,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Highlights",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::RESULT,
-        .label = "Highlights",
-        .tooltip = "Scales NR's change where the game's image is bright.",
+        .label = "高光",
+        .tooltip = "调整 NR 在游戏画面高亮区域产生的变化。",
         .min = 0.0,
         .max = 2.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.highlights); },
@@ -351,8 +342,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "MaxBrighten",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LIMITS,
-        .label = "Max brightening (stops)",
-        .tooltip = "A soft cap on how far a pixel is brightened; 0 is no cap.",
+        .label = "最大提亮幅度（档）",
+        .tooltip = "限制单个像素可被提亮的最大幅度；0 表示不限制。",
         .min = 0.0,
         .max = 3.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.max_brighten); },
@@ -362,8 +353,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "MaxDarken",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LIMITS,
-        .label = "Max darkening (stops)",
-        .tooltip = "A soft cap on how far a pixel is darkened; 0 is no cap.",
+        .label = "最大压暗幅度（档）",
+        .tooltip = "限制单个像素可被压暗的最大幅度；0 表示不限制。",
         .min = 0.0,
         .max = 3.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.max_darken); },
@@ -373,8 +364,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "MaxColorChange",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LIMITS,
-        .label = "Max colour change",
-        .tooltip = "A soft cap on colour movement, in normalised chroma; 0 is no cap.",
+        .label = "最大色彩变化",
+        .tooltip = "限制颜色移动幅度，以归一化色度表示；0 表示不限制。",
         .min = 0.0,
         .max = 0.5,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.max_color); },
@@ -384,8 +375,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "LargeScaleTone",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LIMITS,
-        .label = "Large-scale tone",
-        .tooltip = "Scales NR's broad lighting change.",
+        .label = "大范围色调",
+        .tooltip = "调整 NR 造成的大范围光照变化。",
         .min = 0.0,
         .max = 2.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.tone); },
@@ -395,8 +386,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "FineDetail",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LIMITS,
-        .label = "Fine detail",
-        .tooltip = "Scales NR's small-scale change.",
+        .label = "精细细节",
+        .tooltip = "调整 NR 造成的小范围变化。",
         .min = 0.0,
         .max = 2.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.detail); },
@@ -406,9 +397,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "DetailRadius",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LIMITS,
-        .label = "Detail radius (% of height)",
-        .tooltip = "Where broad change ends and fine detail begins, as a share of the image height; also how far halo "
-                   "suppression reaches. A change restarts the stabiliser.",
+        .label = "细节半径（画面高度百分比）",
+        .tooltip = "控制大范围变化与精细细节的分界（相对于画面高度的比例），同时决定光晕抑制的作用范围。更改后会重置时序稳定的历史记录。",
         .min = 0.25,
         .max = 10.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.detail_radius); },
@@ -418,9 +408,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "HaloSuppression",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LIMITS,
-        .label = "Halo suppression",
-        .tooltip = "Reduces the dark rings NR leaves next to bright objects. Even darkening across a surface, and "
-                   "shadows beside dark objects, are left alone.",
+        .label = "光晕抑制",
+        .tooltip = "减少 NR 在明亮物体周围留下的暗环；不会影响表面上均匀的暗部变化，也不会影响暗物体旁的阴影。",
         .min = 0.0,
         .max = 1.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.shape.halo); },
@@ -430,9 +419,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Stabilize",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::LIMITS,
-        .label = "Stabilise",
-        .tooltip = "Smooths NR's broad change over time. Static suits still views; Motion follows the motion vectors "
-                   "and, without them, drops history where the image changes. Both add a little lag to lighting changes.",
+        .label = "时序稳定",
+        .tooltip = "平滑 NR 的大范围变化。“静态”适合静止画面；“运动”会跟随运动矢量，并在没有运动矢量且图像发生变化时丢弃历史信息。两种模式都会略微延迟光照变化。",
         .choices = STABILIZE_MODES,
         .get = [](const Settings& s) { return Index(s.look.stabilize); },
         .set = [](Settings& s, double v) { s.look.stabilize = FromIndex<look::StabilizeMode>(v); },
@@ -441,8 +429,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "StabilizeMs",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::LIMITS,
-        .label = "Stabilise time (ms)",
-        .tooltip = "Longer is steadier but slower to follow lighting.",
+        .label = "稳定时间（毫秒）",
+        .tooltip = "数值越大，画面越稳定，但跟随光照变化的速度越慢。",
         .min = 16.0,
         .max = 2000.0,
         .get = [](const Settings& s) { return static_cast<double>(s.look.stabilize_ms); },
@@ -452,8 +440,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "StabilizeDetail",
         .kind = SettingKind::BOOL,
         .section = SettingSection::LIMITS,
-        .label = "Stabilise detail",
-        .tooltip = "Also smooths NR's small-scale change.",
+        .label = "稳定细节",
+        .tooltip = "同时平滑 NR 造成的小范围变化。",
         .get = [](const Settings& s) { return Flag(s.look.stabilize_detail); },
         .set = [](Settings& s, double v) { s.look.stabilize_detail = (v != 0.0); },
     },
@@ -461,9 +449,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Source",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::PLACEMENT,
-        .label = "NR stage",
-        .tooltip = "Where NR runs. Auto: right after the game's DLSS once the game uses DLSS, else on the presented frame. "
-                   "After DLSS needs ReShade 6.1 or newer. A change applies at once.",
+        .label = "NR 阶段",
+        .tooltip = "NR 的运行阶段。“自动”：游戏启用 DLSS 后，在其后立即运行；否则处理后处理画面。需 ReShade 6.1 或更新版本才能选择“DLSS 后”。更改后立即生效。",
         .choices = SOURCES,
         .get = [](const Settings& s) { return Index(s.source); },
         .set = [](Settings& s, double v) { s.source = FromIndex<PlacementSource>(v); },
@@ -472,9 +459,9 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "PreUpscale",
         .kind = SettingKind::BOOL,
         .section = SettingSection::PLACEMENT,
-        .label = "Before upscaling (pre-SR)",
-        .tooltip = "NR enhances the game's render-resolution image, and the game's DLSS upscales the result. With Ray Reconstruction, NR works "
-                   "on its input, before it denoises and upscales it. A render below " UPLIFT_NR_FLOOR_TEXT " is padded, so NR never runs below that size.",
+        .label = "DLSS 前",
+        .tooltip = "NR 先增强游戏原生渲染分辨率的画面，再由游戏的 DLSS 将结果升频。使用光线重建（Ray Reconstruction）时，NR 会处理其输入画面，在降噪和升频之前运行。"
+                   "如果渲染分辨率低于 " UPLIFT_NR_FLOOR_TEXT "，画面会先补齐至该尺寸，因此 NR 不会在更低分辨率下运行。",
         .get = [](const Settings& s) { return Flag(s.pre_upscale); },
         .set = [](Settings& s, double v) { s.pre_upscale = (v != 0.0); },
     },
@@ -482,8 +469,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ResolutionScale",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::PLACEMENT,
-        .label = "Custom scale (%)",
-        .tooltip = "The work size for Resolution = Custom, in percent of the output. Applies when the slider is released.",
+        .label = "自定义比例（%）",
+        .tooltip = "“分辨率”设为“自定义”时使用的处理尺寸，占输出分辨率的百分比。松开滑块后生效。",
         .min = 25.0,
         .max = 100.0,
         .flags = SLIDER_RANGE_ONLY,  // a share of the output: 100 % at most
@@ -494,9 +481,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Upsampling",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::PLACEMENT,
-        .label = "Upsampling",
-        .tooltip = "How NR's change returns to full size below Full. Edge-aware keeps it on the side of an edge where NR "
-                   "made it; Classic is bilinear and slightly cheaper.",
+        .label = "升采样",
+        .tooltip = "选择如何将低于全分辨率时的 NR 变化还原至原尺寸。“边缘感知”会沿 NR 处理后的边缘还原变化；“经典”使用双线性插值，开销略低。",
         .choices = UPSAMPLING_MODES,
         .get = [](const Settings& s) { return Index(s.upsampling); },
         .set = [](Settings& s, double v) { s.upsampling = FromIndex<color::Upsampling>(v); },
@@ -506,9 +492,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ResolutionAfterDlss",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::PLACEMENT,
-        .label = "Resolution at After DLSS",
-        .tooltip = "The size NR works at for the passes at After DLSS. Setup's Resolution sets pass 1's stage. Lower it if these passes cost "
-                   "too much. A change restarts NR.",
+        .label = "DLSS 后的分辨率",
+        .tooltip = "设置在“DLSS 后”阶段运行各层的处理分辨率。“设置”中的“分辨率”控制第 1 层所在阶段的分辨率。如果这些层开销过高，可调低此值。更改后会重置 NR。",
         .choices = RESOLUTION_MODES,
         .flags = RESTARTS_HISTORY,
         .get = [](const Settings& s) { return Index(s.resolution_mode_after_dlss); },
@@ -518,8 +503,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ResolutionScaleAfterDlss",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::PLACEMENT,
-        .label = "Custom scale at After DLSS (%)",
-        .tooltip = "The work size for Resolution at After DLSS = Custom, in percent of the output. Applies when the slider is released.",
+        .label = "DLSS 后自定义比例（%）",
+        .tooltip = "“DLSS 后的分辨率”设为“自定义”时使用的处理尺寸，占输出分辨率的百分比。松开滑块后生效。",
         .min = 25.0,
         .max = 100.0,
         .flags = SLIDER_RANGE_ONLY,  // a share of the output: 100 % at most
@@ -530,9 +515,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ResolutionPresent",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::PLACEMENT,
-        .label = "Resolution at Present",
-        .tooltip = "The size NR works at for the passes at Present. Setup's Resolution sets pass 1's stage. Lower it if these passes cost "
-                   "too much. A change restarts NR.",
+        .label = "后处理阶段分辨率",
+        .tooltip = "设置在后处理阶段运行各层的处理分辨率。“设置”中的“分辨率”控制第 1 层所在阶段的分辨率。如果这些层开销过高，可调低此值。更改后会重置 NR。",
         .choices = RESOLUTION_MODES,
         .flags = RESTARTS_HISTORY,
         .get = [](const Settings& s) { return Index(s.resolution_mode_present); },
@@ -542,8 +526,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ResolutionScalePresent",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::PLACEMENT,
-        .label = "Custom scale at Present (%)",
-        .tooltip = "The work size for Resolution at Present = Custom, in percent of the output. Applies when the slider is released.",
+        .label = "后处理阶段自定义比例（%）",
+        .tooltip = "“后处理阶段分辨率”设为“自定义”时使用的处理尺寸，占输出分辨率的百分比。松开滑块后生效。",
         .min = 25.0,
         .max = 100.0,
         .flags = SLIDER_RANGE_ONLY,  // a share of the output: 100 % at most
@@ -555,8 +539,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "KeepFacesAfterDlss",
         .kind = SettingKind::BOOL,
         .section = SettingSection::PLACEMENT,
-        .label = "Keep faces here",
-        .tooltip = "Also protects faces in the passes at After DLSS. Costs one more NR run per frame.",
+        .label = "在此阶段保护面部",
+        .tooltip = "同时保护 DLSS 后运行的层中的角色面部。每帧会额外运行一次 NR。",
         .get = [](const Settings& s) { return Flag(s.keep_faces_after_dlss); },
         .set = [](Settings& s, double v) { s.keep_faces_after_dlss = (v != 0.0); },
     },
@@ -564,8 +548,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "KeepFacesPresent",
         .kind = SettingKind::BOOL,
         .section = SettingSection::PLACEMENT,
-        .label = "Keep faces here",
-        .tooltip = "Also protects faces in the passes at Present. Costs one more NR run per frame.",
+        .label = "在此阶段保护面部",
+        .tooltip = "同时保护后处理阶段运行的层中的角色面部。每帧会额外运行一次 NR。",
         .get = [](const Settings& s) { return Flag(s.keep_faces_present); },
         .set = [](Settings& s, double v) { s.keep_faces_present = (v != 0.0); },
     },
@@ -573,12 +557,9 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "MotionVectors",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::PLACEMENT,
-        .label = "Motion vectors",
-        .tooltip = "Inside the game's frame (NR stage After DLSS or Before upscaling), Auto and DLSS use the game's own DLSS motion "
-                   "vectors, and None uses none. On the presented frame (NR stage Present), Auto and DLSS use copies of them where "
-                   "Uplift can make them; otherwise NR runs there without them. Launchpad uses iMMERSE Launchpad's motion on the "
-                   "presented image, through Uplift.fx's Uplift technique placed below Launchpad. Lumenite does the same with LumeniteFX's "
-                   "Kernel: turn Kernel on and put Uplift below it. Auto takes DLSS's, then Launchpad's, then Lumenite's.",
+        .label = "运动矢量",
+        .tooltip = "在游戏帧内运行（NR 阶段为“DLSS 后”或“DLSS 前”）时，“自动”和“DLSS”使用游戏 DLSS 提供的运动矢量；“无”则不使用。NR 在后处理阶段运行时，“自动”和“DLSS”会在 Uplift 能复制运动矢量时使用副本，否则不使用运动矢量。"
+                   "“LaunchPad”使用 iMMERSE LaunchPad 提供的运动矢量：请启用 Uplift.fx 中的 Uplift 技术，并将其放在 LaunchPad 下方。“Lumenite”同理：启用 LumeniteFX 的 Kernel，并将 Uplift 放在其下方。“自动”会依次尝试 DLSS、LaunchPad 和 Lumenite。",
         .choices = MOTION_VECTORS,
         .get = [](const Settings& s) { return Index(s.motion_vectors); },
         .set = [](Settings& s, double v) { s.motion_vectors = FromIndex<MotionVectorSource>(v); },
@@ -587,9 +568,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "PassCount",
         .kind = SettingKind::UINT,
         .section = SettingSection::LOOK,
-        .label = "Pass count",
-        .tooltip = "Each extra pass runs NR again on the previous pass's output, at the full cost of one more pass. "
-                   "Applies when the slider is released.",
+        .label = "层数",
+        .tooltip = "每增加一层，NR 就会对上一层的输出再次处理，开销相当于多运行一层 NR。松开滑块后生效。",
         .min = 1.0,
         .max = 10.0,
         .flags = APPLY_ON_RELEASE,
@@ -603,9 +583,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "DLSSQualityMode",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::HIDDEN,
-        .label = "DLSS quality mode",
-        .tooltip = "Overrides the quality mode the game creates DLSS-SR with. Applies when the game next creates its DLSS "
-                   "feature; a restart or a resolution change may be needed.",
+        .label = "DLSS 质量模式",
+        .tooltip = "覆盖游戏创建 DLSS-SR 时使用的质量模式。游戏下次创建 DLSS 功能时生效；可能需要重启游戏或更改分辨率。",
         .choices = QUALITY_MODES,
         .flags = NEXT_DLSS_CREATE,
         .get = [](const Settings& s) { return Index(s.dlss_quality_mode); },
@@ -615,7 +594,7 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "DLSSPresetDLAA",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::HIDDEN,
-        .label = "DLAA preset",
+        .label = "DLAA 预设",
         .tooltip = PRESET_TOOLTIP,
         .choices = PRESETS,
         .flags = NEXT_DLSS_CREATE,
@@ -626,7 +605,7 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "DLSSPresetUltraQuality",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::HIDDEN,
-        .label = "Ultra Quality preset",
+        .label = "超高质量预设",
         .tooltip = PRESET_TOOLTIP,
         .choices = PRESETS,
         .flags = NEXT_DLSS_CREATE,
@@ -637,7 +616,7 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "DLSSPresetQuality",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::HIDDEN,
-        .label = "Quality preset",
+        .label = "质量预设",
         .tooltip = PRESET_TOOLTIP,
         .choices = PRESETS,
         .flags = NEXT_DLSS_CREATE,
@@ -648,7 +627,7 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "DLSSPresetBalanced",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::HIDDEN,
-        .label = "Balanced preset",
+        .label = "均衡预设",
         .tooltip = PRESET_TOOLTIP,
         .choices = PRESETS,
         .flags = NEXT_DLSS_CREATE,
@@ -659,7 +638,7 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "DLSSPresetPerformance",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::HIDDEN,
-        .label = "Performance preset",
+        .label = "性能预设",
         .tooltip = PRESET_TOOLTIP,
         .choices = PRESETS,
         .flags = NEXT_DLSS_CREATE,
@@ -670,7 +649,7 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "DLSSPresetUltraPerformance",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::HIDDEN,
-        .label = "Ultra Performance preset",
+        .label = "超高性能预设",
         .tooltip = PRESET_TOOLTIP,
         .choices = PRESETS,
         .flags = NEXT_DLSS_CREATE,
@@ -681,8 +660,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "DLSSAutoExposure",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::HIDDEN,
-        .label = "DLSS auto-exposure",
-        .tooltip = "Forces DLSS-SR's auto-exposure on or off. Applies when the game next creates its DLSS feature.",
+        .label = "DLSS 自动曝光",
+        .tooltip = "强制开启或关闭 DLSS-SR 的自动曝光。游戏下次创建 DLSS 功能时生效。",
         .choices = AUTO_EXPOSURE,
         .flags = NEXT_DLSS_CREATE,
         .get = [](const Settings& s) { return Index(s.dlss_auto_exposure); },
@@ -692,9 +671,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "PresentWithFrameGen",
         .kind = SettingKind::BOOL,
         .section = SettingSection::ADVANCED,
-        .label = "Present with frame generation",
-        .tooltip = "Lets the Present placement run NR while frame generation is on: on every presented frame, generated "
-                   "ones included, at twice the cost or more. Its result on generated frames is not guaranteed.",
+        .label = "帧生成期间处理后处理",
+        .tooltip = "允许帧生成开启时在后处理阶段运行 NR：每个后处理帧（包括生成帧）都会处理，开销至少翻倍。生成帧上的处理结果不作保证。",
         .get = [](const Settings& s) { return Flag(s.present_with_frame_gen); },
         .set = [](Settings& s, double v) { s.present_with_frame_gen = (v != 0.0); },
     },
@@ -702,8 +680,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Encoding",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Encoding",
-        .tooltip = "How the image is encoded. Auto follows the swap chain; After DLSS reads DLSS's HDR flag.",
+        .label = "编码格式",
+        .tooltip = "选择画面的编码格式。“自动”会跟随交换链；“DLSS 后”会读取 DLSS 的 HDR 标志。",
         .choices = ENCODINGS,
         .get = [](const Settings& s) { return Index(s.encoding); },
         .set = [](Settings& s, double v) { s.encoding = FromIndex<color::Encoding>(v); },
@@ -712,8 +690,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "DiffuseWhiteNits",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Diffuse white (nits)",
-        .tooltip = "The brightness NR treats as paper white. Higher gives NR a darker input with more headroom.",
+        .label = "漫反射白（尼特）",
+        .tooltip = "NR 将此亮度视为纸白。数值越高，NR 接收到的输入越暗，可用亮度余量越大。",
         .min = 48.0,
         .max = 500.0,
         .special = 0.0,
@@ -724,8 +702,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "TransferStrength",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Transfer strength",
-        .tooltip = "How much of NR's brightness change reaches the image.",
+        .label = "亮度传递强度",
+        .tooltip = "控制 NR 造成的亮度变化有多少会应用到画面。",
         .min = 0.0,
         .max = 1.0,
         .get = [](const Settings& s) { return static_cast<double>(s.transfer_strength); },
@@ -735,8 +713,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ColorStrength",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Colour strength",
-        .tooltip = "How much of NR's colour change reaches the image.",
+        .label = "色彩传递强度",
+        .tooltip = "控制 NR 造成的色彩变化有多少会应用到画面。",
         .min = 0.0,
         .max = 1.0,
         .get = [](const Settings& s) { return static_cast<double>(s.color_strength); },
@@ -746,11 +724,9 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "InputExposure",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Input exposure",
-        .tooltip = "Where NR's input brightness comes from on scene-linear images. Auto: the game's DLSS exposure, or a blend "
-                   "of it with Uplift's meter, while it looks right, else the meter (Details says which). Game: DLSS's "
-                   "exposure (none on the presented image). Metered: Uplift's own meter. Manual: Diffuse white alone. sRGB, "
-                   "scRGB and HDR10 images are never metered.",
+        .label = "输入曝光",
+        .tooltip = "设置场景线性画面中 NR 输入亮度的来源。“自动”：优先使用游戏 DLSS 曝光；若该曝光看起来正常，则与 Uplift 测光值混合，否则使用测光值（实际来源见“详细信息”）。"
+                   "“游戏曝光”：使用 DLSS 曝光（后处理画面不提供此值）；“测光”：使用 Uplift 自带的测光；“手动”：仅使用“漫反射白”设置。sRGB、scRGB 和 HDR10 画面不会进行测光。",
         .choices = INPUT_EXPOSURES,
         .get = [](const Settings& s) { return Index(s.input_exposure); },
         .set = [](Settings& s, double v) { s.input_exposure = FromIndex<color::InputExposure>(v); },
@@ -760,9 +736,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "AutoExposureMode",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Auto exposure",
-        .tooltip = "How Auto uses the game's exposure. Blend: a mix of the game's exposure and Uplift's meter, set by the "
-                   "slider below. Switch: the game's own exposure. A broken game exposure always falls back to the meter.",
+        .label = "自动曝光",
+        .tooltip = "自动模式下的曝光处理方式。“混合”会按下方滑块混合游戏曝光和 Uplift 测光值；“切换”则使用游戏自身曝光。若游戏曝光异常，始终回退到测光值。",
         .choices = AUTO_EXPOSURE_MODES,
         .get = [](const Settings& s) { return Index(s.auto_exposure_mode); },
         .set = [](Settings& s, double v) { s.auto_exposure_mode = FromIndex<color::AutoExposureMode>(v); },
@@ -772,9 +747,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "AutoExposureBlend",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Blend (game to meter)",
-        .tooltip = "0 % is the game's exposure, 100 % Uplift's meter. Lower stays closer to the game's own look; higher "
-                   "is more even between scenes. A broken game exposure always falls back to the meter.",
+        .label = "混合比例（游戏曝光至测光值）",
+        .tooltip = "0% 表示使用游戏曝光，100% 表示使用 Uplift 测光值。数值越低越接近游戏原有观感；数值越高，不同场景间的曝光越平稳。若游戏曝光异常，始终回退到测光值。",
         .min = 0.0,
         .max = 1.0,
         .flags = SLIDER_RANGE_ONLY,  // a blend: 100 % is the meter alone
@@ -785,8 +759,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ExposureAdapt",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Adaptation",
-        .tooltip = "When the meter is used (Metered, or Auto). Smooth adapts at the rates below, with a small dead band; Off follows every frame.",
+        .label = "曝光适应",
+        .tooltip = "在使用测光值时生效（“测光”或“自动”模式）。“平滑”会按照下方速率调整，并设置较小的死区；“关闭”则逐帧跟随变化。",
         .choices = ADAPT_MODES,
         .get = [](const Settings& s) { return Index(s.exposure_adapt); },
         .set = [](Settings& s, double v) { s.exposure_adapt = FromIndex<ExposureAdapt>(v); },
@@ -795,8 +769,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "AdaptBrighterStops",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Adapt to brighter scenes (stops/s)",
-        .tooltip = "When the meter is used (Metered, or Auto).",
+        .label = "适应更亮场景（档/秒）",
+        .tooltip = "在使用测光值时生效（“测光”或“自动”模式）。",
         .min = 0.1,
         .max = 20.0,
         .get = [](const Settings& s) { return static_cast<double>(s.adapt_brighter_stops); },
@@ -806,8 +780,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "AdaptDarkerStops",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Adapt to darker scenes (stops/s)",
-        .tooltip = "When the meter is used (Metered, or Auto).",
+        .label = "适应更暗场景（档/秒）",
+        .tooltip = "在使用测光值时生效（“测光”或“自动”模式）。",
         .min = 0.1,
         .max = 20.0,
         .get = [](const Settings& s) { return static_cast<double>(s.adapt_darker_stops); },
@@ -817,9 +791,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "LinearUnitNits",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Linear unit (nits)",
-        .tooltip = "Nits per 1.0 of a linear or scRGB image; 0 is automatic (100 for linear BT.709, 80 for scRGB). The "
-                   "reset arrow returns to automatic.",
+        .label = "线性单位（尼特）",
+        .tooltip = "线性或 scRGB 图像每单位值（1.0）对应的亮度（尼特）；设为 0 时自动选择（线性 BT.709 为 100，scRGB 为 80）。点击重置箭头可恢复自动。",
         .min = 1.0,
         .max = 10000.0,
         .special = 0.0,
@@ -830,9 +803,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "SourcePrimaries",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Primaries",
-        .tooltip = "The image's colour primaries, converted to BT.709 for NR and back. Auto is BT.709, and BT.2020 for "
-                   "HDR10.",
+        .label = "色彩原色",
+        .tooltip = "输入图像的色彩原色会先转换为 BT.709 供 NR 处理，再转换回原格式。“自动”会对普通画面使用 BT.709，对 HDR10 使用 BT.2020。",
         .choices = PRIMARIES,
         .get = [](const Settings& s) { return Index(s.source_primaries); },
         .set = [](Settings& s, double v) { s.source_primaries = FromIndex<color::Primaries>(v); },
@@ -841,9 +813,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "NeuralTransfer",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Neural transfer",
-        .tooltip = "How NR's edit returns to HDR. Consistent undoes the proxy curve's compression in highlights, up to "
-                   "4x.",
+        .label = "神经渲染传递方式",
+        .tooltip = "控制 NR 的处理结果如何还原到 HDR 画面。“一致”会补偿代理曲线对高光的压缩，最高可补偿 4 倍。",
         .choices = NEURAL_TRANSFERS,
         .get = [](const Settings& s) { return Index(s.neural_transfer); },
         .set = [](Settings& s, double v) { s.neural_transfer = FromIndex<color::NeuralTransfer>(v); },
@@ -852,8 +823,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ChromaClamp",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Chroma clamp (stops)",
-        .tooltip = "Holds each colour channel's change within this many stops of the brightness change; 0 is off.",
+        .label = "色度限制（档）",
+        .tooltip = "限制各颜色通道的变化幅度，使其不超过亮度变化对应的档数；0 表示关闭。",
         .min = 0.0,
         .max = 3.0,
         .get = [](const Settings& s) { return static_cast<double>(s.chroma_clamp); },
@@ -863,9 +834,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "NearBlackGuard",
         .kind = SettingKind::BOOL,
         .section = SettingSection::FIXES_COLOR,
-        .label = "Near-black colour guard",
-        .tooltip = "Fades NR's colour change where the image is near black, so noise does not turn into green or grey "
-                   "specks.",
+        .label = "近黑区域色彩保护",
+        .tooltip = "在接近黑色的区域逐渐减弱 NR 的色彩变化，避免噪点变成绿色或灰色斑点。",
         .get = [](const Settings& s) { return Flag(s.near_black_guard); },
         .set = [](Settings& s, double v) { s.near_black_guard = (v != 0.0); },
     },
@@ -873,9 +843,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "PedestalRemoval",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::HIDDEN,
-        .label = "Dark pedestal removal",
-        .tooltip = "Not needed so far: Uplift's HDR transfer applies NR's change as a ratio, so black stays black. It "
-                   "is checked in game before anything is built.",
+        .label = "暗部基底移除",
+        .tooltip = "目前无需启用：Uplift 的 HDR 传递会按比例应用 NR 的变化，因此黑色仍保持为黑色。此选项会在游戏中、构建流程开始前进行检查。",
         .choices = PEDESTAL_MODES,
         .flags = GREYED,
         .get = [](const Settings& s) { return Index(s.pedestal_removal); },
@@ -885,8 +854,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "MotionScaleX",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::FIXES_GUIDES,
-        .label = "Motion scale X",
-        .tooltip = "Multiplies the horizontal motion NR is given; a negative value flips the axis.",
+        .label = "运动矢量 X 缩放",
+        .tooltip = "缩放提供给 NR 的水平运动矢量；负值会反转该轴。",
         .min = -4.0,
         .max = 4.0,
         .get = [](const Settings& s) { return static_cast<double>(s.motion_scale_x); },
@@ -896,8 +865,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "MotionScaleY",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::FIXES_GUIDES,
-        .label = "Motion scale Y",
-        .tooltip = "Multiplies the vertical motion NR is given; a negative value flips the axis.",
+        .label = "运动矢量 Y 缩放",
+        .tooltip = "缩放提供给 NR 的垂直运动矢量；负值会反转该轴。",
         .min = -4.0,
         .max = 4.0,
         .get = [](const Settings& s) { return static_cast<double>(s.motion_scale_y); },
@@ -907,8 +876,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "DepthDirection",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::HIDDEN,
-        .label = "Depth direction (no effect in NR 310.8)",
-        .tooltip = "Forwarded as DLSSNR.DepthInverted. NR 310.8 reads depth but never uses it.",
+        .label = "深度方向（NR 310.8 中无效）",
+        .tooltip = "作为 DLSSNR.DepthInverted 传递。NR 310.8 会读取深度信息，但不会使用。",
         .choices = DEPTH_DIRECTIONS,
         .flags = GREYED,
         .get = [](const Settings& s) { return Index(s.depth_direction); },
@@ -918,8 +887,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ChainedHistory",
         .kind = SettingKind::BOOL,
         .section = SettingSection::FIXES_GUIDES,
-        .label = "Chained history",
-        .tooltip = "Off resets the history of passes 2 and later every frame (a diagnostic).",
+        .label = "串联时序历史",
+        .tooltip = "关闭后，每帧都会重置第 2 层及后续层的历史信息（仅用于诊断）。",
         .get = [](const Settings& s) { return Flag(s.chained_history); },
         .set = [](Settings& s, double v) { s.chained_history = (v != 0.0); },
     },
@@ -927,9 +896,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "StateRestore",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::FIXES_GUIDES,
-        .label = "Game state after NR",
-        .tooltip = "After NR runs inside the game's frame. Full replays the game's compute state; Minimal restores only "
-                   "the descriptor heaps and root signature.",
+        .label = "NR 运行后的游戏状态",
+        .tooltip = "NR 在游戏帧内运行后需要恢复游戏的图形状态。“完整”会重放游戏的计算状态；“最小”仅恢复描述符堆和根签名。",
         .choices = STATE_RESTORE_MODES,
         .get = [](const Settings& s) { return Index(s.state_restore); },
         .set = [](Settings& s, double v) { s.state_restore = FromIndex<StateRestore>(v); },
@@ -938,8 +906,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "GlobalTone",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::HIDDEN,
-        .label = "Global Tone Intensity",
-        .tooltip = "Stored and forwarded; NR 310.8 never reads it.",
+        .label = "全局色调强度",
+        .tooltip = "此值会被保存并传递，但 NR 310.8 不会读取。",
         .min = 0.0,
         .max = 1.0,
         .flags = GREYED,
@@ -950,10 +918,9 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Preset",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::PLACEMENT,
-        .label = "Network preset",
-        .tooltip = "NR 310.9.16: preset A (1) selects Legacy; preset B (2) selects Small FP8. Runtime default uses B. C-G have no weights in this DLL. "
-                   "Changing the network recreates NR and resets history. Details shows the runtime-confirmed name and recorded evaluations. "
-                   "NR 310.8 always uses Legacy. This is separate from Style A/B/C in Look.",
+        .label = "网络预设",
+        .tooltip = "NR 310.9.16：预设 A（1）选择旧版网络（Legacy）；预设 B（2）选择小型 FP8 网络（Small FP8）。“运行时默认”会使用 B。此 DLL 不包含 C–G 的权重。"
+                   "更改网络会重新创建 NR 并重置时序历史。“详细信息”会显示运行时确认的网络名称和已记录的评估次数。NR 310.8 始终使用旧版网络（Legacy）。此项与“外观”中的风格 A/B/C 相互独立。",
         .choices = NR_NETWORKS,
         .flags = RESTARTS_HISTORY | NETWORK_PRESET,
         .get = [](const Settings& s) { return static_cast<double>(s.preset); },
@@ -963,8 +930,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "Performance",
         .kind = SettingKind::UINT,
         .section = SettingSection::HIDDEN,
-        .label = "Performance",
-        .tooltip = "Stored and forwarded; no effect in NR 310.8.",
+        .label = "性能",
+        .tooltip = "此值会被保存并传递，但在 NR 310.8 中无效。",
         .min = 1.0,
         .max = 6.0,
         .flags = GREYED,
@@ -975,8 +942,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "GraceSeconds",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::ADVANCED,
-        .label = "Grace (seconds)",
-        .tooltip = "How long NR keeps its memory after being switched off, so a quick toggle does not reload it.",
+        .label = "显存保留时间（秒）",
+        .tooltip = "关闭 NR 后保留其显存的时长，避免短暂切换开关时重新加载。",
         .min = 0.0,
         .max = 60.0,
         .get = [](const Settings& s) { return static_cast<double>(s.grace_seconds); },
@@ -986,8 +953,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "BudgetMarginMB",
         .kind = SettingKind::UINT,
         .section = SettingSection::ADVANCED,
-        .label = "VRAM margin (MiB, 0 = automatic)",
-        .tooltip = "Video memory NR always leaves free for the game. 0 = automatic, 512 MiB.",
+        .label = "显存余量（MiB，0 = 自动）",
+        .tooltip = "NR 始终为游戏预留的显存。0 表示自动，默认预留 512 MiB。",
         .min = 0.0,
         .max = 65536.0,
         .get = [](const Settings& s) { return static_cast<double>(s.budget_margin_mb); },
@@ -998,10 +965,9 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "VramCheck",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::ADVANCED,
-        .label = "Video memory check",
-        .tooltip = "Careful leaves the game its budget and pauses NR when the game needs the memory back. Relaxed lets NR go about 1 GB past the "
-                   "game's budget. Off never checks, like other DLSS-NR add-ons. Relaxed and Off can stutter in games that really use all their "
-                   "video memory.",
+        .label = "显存检查",
+        .tooltip = "“保守”会为游戏保留其显存预算，并在游戏需要显存时暂停 NR。“宽松”允许 NR 超出游戏预算约 1 GB。“关闭”则不检查，与其他 DLSS-NR 插件相同。"
+                   "如果游戏确实占满显存，“宽松”和“关闭”可能导致卡顿。",
         .choices = VRAM_CHECKS,
         .get = [](const Settings& s) { return Index(s.vram_check); },
         .set = [](Settings& s, double v) { s.vram_check = FromIndex<nr::VramCheck>(v); },
@@ -1010,8 +976,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "AutoResume",
         .kind = SettingKind::BOOL,
         .section = SettingSection::ADVANCED,
-        .label = "Resume when VRAM frees up",
-        .tooltip = "After NR suspended itself because the game needed video memory.",
+        .label = "显存释放后恢复",
+        .tooltip = "当 NR 因游戏需要显存而暂停后，显存有空余时自动恢复。",
         .get = [](const Settings& s) { return Flag(s.auto_resume); },
         .set = [](Settings& s, double v) { s.auto_resume = (v != 0.0); },
     },
@@ -1019,8 +985,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ShowNvIndicator",
         .kind = SettingKind::BOOL,
         .section = SettingSection::ADVANCED,
-        .label = "Show the NVIDIA indicator (from the next load)",
-        .tooltip = "NVIDIA's on-screen NR indicator.",
+        .label = "显示 NVIDIA 指示器（下次加载时生效）",
+        .tooltip = "显示 NVIDIA 的屏幕内 NR 指示器。",
         .get = [](const Settings& s) { return Flag(s.show_nv_indicator); },
         .set = [](Settings& s, double v) { s.show_nv_indicator = (v != 0.0); },
     },
@@ -1028,8 +994,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ShowFaceMask",
         .kind = SettingKind::BOOL,
         .section = SettingSection::ADVANCED,
-        .label = "Show the face mask",
-        .tooltip = "Tints what Keep faces protects in magenta, to check what it finds while you tune it. Turn it off to see the result.",
+        .label = "显示面部蒙版",
+        .tooltip = "将“面部保护”识别并保护的区域染成洋红色，便于调试蒙版。关闭后即可查看实际效果。",
         .get = [](const Settings& s) { return Flag(s.show_face_mask); },
         .set = [](Settings& s, double v) { s.show_face_mask = (v != 0.0); },
     },
@@ -1038,9 +1004,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "FaceMaskThreshold",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::ADVANCED,
-        .label = "Mask threshold (% of brightness)",
-        .tooltip = "How much NR's change on a pixel, against the pixel's own brightness, still counts as noise. Raise it if the face mask speckles "
-                   "the background or bright glints; lower it if faces are only faintly tinted.",
+        .label = "蒙版阈值（亮度百分比）",
+        .tooltip = "像素亮度相对变化仍视为噪声的阈值。若背景或高亮反光处出现零散蒙版，请调高；若面部着色太淡，请调低。",
         .min = 0.0,
         .max = 10.0,
         .get = [](const Settings& s) { return static_cast<double>(s.face_tuning.threshold); },
@@ -1050,9 +1015,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "FaceMaskFull",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::ADVANCED,
-        .label = "Full protection at (% of brightness)",
-        .tooltip = "The change, against the pixel's own brightness, from which a pixel counts fully as face. Lower it if faces are tinted only in "
-                   "patches; raise it if hair or clothes are tinted too. Always counts as above Mask threshold.",
+        .label = "完全保护阈值（亮度百分比）",
+        .tooltip = "像素变化达到此阈值后，会被视为完整的面部区域。若面部着色不完整，请调低；若头发或衣物也被着色，请调高。此值始终高于“蒙版阈值”。",
         .min = 1.0,
         .max = 30.0,
         .get = [](const Settings& s) { return static_cast<double>(s.face_tuning.full); },
@@ -1062,8 +1026,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "FaceMaskStrength",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::ADVANCED,
-        .label = "Mask strength",
-        .tooltip = "Raise it if the mask has holes inside faces; lower it if it spreads past them.",
+        .label = "蒙版强度",
+        .tooltip = "如果面部内部的蒙版有缺口，请调高；如果蒙版扩散到面部以外，请调低。",
         .min = 0.5,
         .max = 4.0,
         .get = [](const Settings& s) { return static_cast<double>(s.face_tuning.strength); },
@@ -1073,8 +1037,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "FaceMaskSoftness",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::ADVANCED,
-        .label = "Mask softness (% of height)",
-        .tooltip = "Raise it if the mask looks blotchy or flickers; lower it if it spreads past faces.",
+        .label = "蒙版柔和度（画面高度百分比）",
+        .tooltip = "如果蒙版呈斑驳状或闪烁，请调高；如果蒙版扩散到面部以外，请调低。",
         .min = 0.1,
         .max = 2.0,
         .get = [](const Settings& s) { return static_cast<double>(s.face_tuning.softness); },
@@ -1084,8 +1048,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "FaceEdgeFalloff",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::ADVANCED,
-        .label = "Edge falloff (% of height)",
-        .tooltip = "Lower it if light glows past a character's outline; raise it if outlines show a dark rim.",
+        .label = "边缘衰减（画面高度百分比）",
+        .tooltip = "如果光晕越过角色轮廓，请调低；如果轮廓边缘出现暗边，请调高。",
         .min = 0.05,
         .max = 1.0,
         .get = [](const Settings& s) { return static_cast<double>(s.face_tuning.edge_falloff); },
@@ -1096,9 +1060,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "FaceLightingDensity",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::ADVANCED,
-        .label = "Lighting density",
-        .tooltip = "How densely a region must be face before NR's lighting comes back in full there. Raise it if glints or bright edges leave "
-                   "glowing spots on characters; lower it if the lighting fades near the edges of faces.",
+        .label = "光照密度",
+        .tooltip = "只有蒙版密度达到此值的区域，才会完整恢复 NR 的光照。若高光或明亮边缘使角色出现亮点，请调高；若面部边缘附近的光照消失，请调低。",
         .min = 0.05,
         .max = 1.0,
         .get = [](const Settings& s) { return static_cast<double>(s.face_tuning.density); },
@@ -1109,9 +1072,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "FaceFillSkin",
         .kind = SettingKind::BOOL,
         .section = SettingSection::ADVANCED,
-        .label = "Fill skin by colour",
-        .tooltip = "Grows the face mask over nearby skin of the same colour that NR's change did not mark, such as skin in shadow, so a second pass "
-                   "cannot reshape it either. Turn it off if clothes or hair of a skin-like colour turn magenta.",
+        .label = "按颜色填充皮肤",
+        .tooltip = "将面部蒙版扩展到 NR 变化未能标记的邻近同色皮肤（例如阴影中的皮肤），避免后续层再次改变这些区域。若肤色相近的衣物或头发变成洋红色，请关闭。",
         .get = [](const Settings& s) { return Flag(s.face_tuning.fill_skin); },
         .set = [](Settings& s, double v) { s.face_tuning.fill_skin = (v != 0.0); },
     },
@@ -1119,9 +1081,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "FaceFillRadius",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::ADVANCED,
-        .label = "Fill radius (% of height)",
-        .tooltip = "How far the fill reaches from marked skin. Raise it if broad patches of skin are still uncovered; lower it if the fill spreads onto "
-                   "nearby surfaces.",
+        .label = "填充半径（画面高度百分比）",
+        .tooltip = "控制填充从已标记皮肤向外扩展的距离。大片皮肤仍未覆盖时请调高；填充扩散到邻近表面时请调低。",
         .min = 0.5,
         .max = 10.0,
         .get = [](const Settings& s) { return static_cast<double>(s.face_tuning.fill_radius); },
@@ -1131,9 +1092,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "FaceFillTolerance",
         .kind = SettingKind::FLOAT,
         .section = SettingSection::ADVANCED,
-        .label = "Colour tolerance",
-        .tooltip = "How far a pixel's colour may be from the nearby skin colour and still be filled. Raise it if skin in shadow is still uncovered; lower "
-                   "it if clothes or hair turn magenta.",
+        .label = "颜色容差",
+        .tooltip = "控制邻近皮肤颜色与待填充像素之间允许的最大色差。阴影中的皮肤仍未覆盖时请调高；衣物或头发变成洋红色时请调低。",
         .min = 0.005,
         .max = 0.2,
         .get = [](const Settings& s) { return static_cast<double>(s.face_tuning.fill_tolerance); },
@@ -1144,9 +1104,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "FaceSpeckSize",
         .kind = SettingKind::UINT,
         .section = SettingSection::ADVANCED,
-        .label = "Remove specks (px)",
-        .tooltip = "Lets bright specks up to about this size (glints, sparkles) keep NR's normal result instead of the protected one. Larger sizes also stop "
-                   "protecting tiny face details of that size, such as a catchlight or a far-away eye. 0 turns it off.",
+        .label = "移除亮点（像素）",
+        .tooltip = "不超过此尺寸的亮点（反光、闪光）会保留 NR 的常规处理结果，而不应用保护效果。值越大，也越容易停止保护该尺寸的微小面部细节（如眼睛高光或远处的人眼）。0 表示关闭。",
         .min = 0.0,
         .max = 3.0,
         .get = [](const Settings& s) { return static_cast<double>(s.face_tuning.speck_size); },
@@ -1156,8 +1115,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "LogLevel",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::ADVANCED,
-        .label = "Log level",
-        .tooltip = "How much Uplift writes to ReShade.log.",
+        .label = "日志级别",
+        .tooltip = "设置 Uplift 写入 ReShade.log 的信息量。",
         .choices = LOG_LEVELS,
         .get = [](const Settings& s) { return Index(s.log_level); },
         .set = [](Settings& s, double v) { s.log_level = FromIndex<nr::LogLevel>(v); },
@@ -1166,8 +1125,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "SnippetPath",
         .kind = SettingKind::TEXT,
         .section = SettingSection::ADVANCED,
-        .label = "Runtime path (from the next game start)",
-        .tooltip = "nvngx_dlssnr.dll. Empty looks next to gitc-uplift.addon64, then next to the game.",
+        .label = "运行时路径（下次启动游戏时生效）",
+        .tooltip = "指定 nvngx_dlssnr.dll 的路径。留空时会先在 gitc-uplift.addon64 所在目录查找，再在游戏目录查找。",
         .flags = NEXT_START,
         .get_text = [](const Settings& s) { return std::string_view(s.snippet_path); },
         .set_text = [](Settings& s, std::string_view v) { s.snippet_path = std::string(v); },
@@ -1176,8 +1135,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "NgxHooks",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::ADVANCED,
-        .label = "NGX hooks (from the next game start)",
-        .tooltip = "Off is safe mode: nothing is hooked, and only the Present placement exists.",
+        .label = "NGX 挂钩（下次启动游戏时生效）",
+        .tooltip = "关闭即安全模式：不启用任何挂钩，NR 仅能在后处理阶段运行。",
         .choices = NGX_HOOK_MODES,
         .flags = NEXT_START,
         .get = [](const Settings& s) { return Index(s.ngx_hooks); },
@@ -1187,8 +1146,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ForeignNr",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::ADVANCED,
-        .label = "When another NR producer runs",
-        .tooltip = "Yield stands down while another tool runs NR in this game; Observe keeps running.",
+        .label = "其他 NR 生产者运行时",
+        .tooltip = "“让出”会在其他工具为此游戏运行 NR 时暂停；“观察”则继续运行。",
         .choices = FOREIGN_NR_MODES,
         .get = [](const Settings& s) { return Index(s.foreign_nr); },
         .set = [](Settings& s, double v) { s.foreign_nr = FromIndex<ForeignNrMode>(v); },
@@ -1199,13 +1158,10 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "VulkanNr",
         .kind = SettingKind::CHOICE,
         .section = SettingSection::ADVANCED,
-        .label = "Vulkan NR at Present",
-        .tooltip = "64-bit Vulkan games. Native runs NR on the game's own Vulkan device; where it cannot, NR uses a private Direct3D 12 device, and "
-                   "where that cannot either, Uplift's helper process; Details says why. Direct3D 12 starts at the private device. Helper always runs "
-                   "NR in Uplift's helper process. Only Native runs NR inside the game's DLSS: Direct3D 12 and Helper run it at Present, so picking one "
-                   "moves After DLSS or Before upscaling to Present. Uplift adds NGX's extensions to the game's device only when this is Native at the "
-                   "game's start. "
-                   "After native NR's first use the driver keeps about 0.6 GB with the game's device until the game exits.",
+        .label = "Vulkan 后处理阶段 NR",
+        .tooltip = "仅适用于 64 位 Vulkan 游戏。“原生”会在游戏自己的 Vulkan 设备上运行 NR；无法运行时会依次回退到独立的 Direct3D 12 设备和 Uplift 辅助进程，原因会显示在“详情”中。“Direct3D 12”从独立设备开始；“辅助进程”始终通过 Uplift 辅助进程运行 NR。"
+                   "只有“原生”能在游戏的 DLSS 流程内运行 NR；选择“Direct3D 12”或“辅助进程”后，NR 会改在后处理阶段运行，因此“DLSS 后”或“DLSS 前”会随之移至后处理。只有游戏启动时选择“原生”，Uplift 才会向游戏设备添加 NGX 扩展。"
+                   "原生 NR 首次运行后，驱动会在游戏退出前为游戏设备保留约 0.6 GB 显存。",
         .choices = VULKAN_NR_MODES,
         .get = [](const Settings& s) { return Index(s.vulkan_nr); },
         .set = [](Settings& s, double v) { s.vulkan_nr = FromIndex<VulkanNrMode>(v); },
@@ -1214,8 +1170,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "AutoRetry",
         .kind = SettingKind::BOOL,
         .section = SettingSection::ADVANCED,
-        .label = "Retry automatically after a failure",
-        .tooltip = "After NR fails it retries after 1, 2, 4, 8, 16 and 30 s, then waits for a settings change or Retry now.",
+        .label = "失败后自动重试",
+        .tooltip = "NR 失败后会分别等待 1、2、4、8、16 和 30 秒后重试；之后将等待设置更改或手动点击“立即重试”。",
         .get = [](const Settings& s) { return Flag(s.auto_retry); },
         .set = [](Settings& s, double v) { s.auto_retry = (v != 0.0); },
     },
@@ -1223,9 +1179,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "UseD3D9Ex",
         .kind = SettingKind::BOOL,
         .section = SettingSection::ADVANCED,
-        .label = "Use Direct3D 9Ex (faster; restart the game)",
-        .tooltip = "Asks ReShade to create the game's Direct3D 9 device as 9Ex, so frames reach NR on the GPU. Some games "
-                   "misbehave on 9Ex: if this one does not start, Uplift turns this off by itself.",
+        .label = "使用 Direct3D 9Ex（速度更快；需重启游戏）",
+        .tooltip = "请 ReShade 将游戏的 Direct3D 9 设备创建为 9Ex，使帧可通过 GPU 传给 NR。部分游戏无法正常使用 9Ex；如果游戏因此无法启动，Uplift 会自动关闭此选项。",
         .flags = NEXT_START,
         .get = [](const Settings& s) { return Flag(s.use_d3d9ex); },
         .set = [](Settings& s, double v) { s.use_d3d9ex = (v != 0.0); },
@@ -1234,9 +1189,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "AdjustVulkanDevices",
         .kind = SettingKind::BOOL,
         .section = SettingSection::HIDDEN,
-        .label = "Adjust Vulkan devices when the game creates them (restart the game)",
-        .tooltip = "1 adds the sharing extensions NR needs to the game's Vulkan device at creation; 0 leaves the device as the game asked "
-                   "and NR runs CPU-ordered. Uplift sets 0 itself when the last start with 1 never reached its first frame.",
+        .label = "游戏创建 Vulkan 设备时进行调整（需重启游戏）",
+        .tooltip = "设为 1 时，Uplift 会在游戏创建 Vulkan 设备时添加 NR 所需的共享扩展；设为 0 时保留游戏原始设备，NR 将使用 CPU 同步。若上次启用此项后游戏未能进入第一帧，Uplift 会自动将其设为 0。",
         .flags = NEXT_START,
         .get = [](const Settings& s) { return Flag(s.adjust_vulkan_devices); },
         .set = [](Settings& s, double v) { s.adjust_vulkan_devices = (v != 0.0); },
@@ -1246,10 +1200,9 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "AdjustVulkanDevicesForNgx",
         .kind = SettingKind::BOOL,
         .section = SettingSection::HIDDEN,
-        .label = "Add NGX's extensions to Vulkan devices when the game creates them (restart the game)",
-        .tooltip = "64-bit Vulkan games, with AdjustVulkanDevices = 1. 1 also adds the extensions and bufferDeviceAddress NGX needs to run NR natively "
-                   "on the game's device; 0 leaves them out, and NR at Present uses the Direct3D 12 route. Uplift sets 0 itself when the last start "
-                   "with them never reached its first frame.",
+        .label = "游戏创建 Vulkan 设备时添加 NGX 扩展（需重启游戏）",
+        .tooltip = "适用于 64 位 Vulkan 游戏，且需启用 AdjustVulkanDevices。设为 1 时，也会添加 NGX 在游戏设备上原生运行 NR 所需的扩展和 bufferDeviceAddress；设为 0 时不添加这些扩展，后处理阶段的 NR 会使用 Direct3D 12 路径。"
+                   "若上次启用这些扩展后游戏未能进入第一帧，Uplift 会自动将此项设为 0。",
         .flags = NEXT_START,
         .get = [](const Settings& s) { return Flag(s.adjust_vulkan_devices_for_ngx); },
         .set = [](Settings& s, double v) { s.adjust_vulkan_devices_for_ngx = (v != 0.0); },
@@ -1259,10 +1212,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "VulkanNativeNr",
         .kind = SettingKind::BOOL,
         .section = SettingSection::HIDDEN,
-        .label = "Allow native Vulkan NR at Present (restart the game)",
-        .tooltip = "64-bit Vulkan games. 1 lets NR at Present run natively on the game's Vulkan device when Vulkan NR at Present allows it; 0 starts the "
-                   "route at the next one. Uplift sets 0 itself when the last start with native NR ended before it had run for a few seconds, or the "
-                   "game's device was lost while it ran.",
+        .label = "允许 Vulkan 后处理阶段原生运行 NR（需重启游戏）",
+        .tooltip = "适用于 64 位 Vulkan 游戏。设为 1 时，如果“Vulkan 后处理阶段 NR”允许，便可在游戏自己的 Vulkan 设备上原生运行；设为 0 时会从下一种方式开始尝试。如果上次启用原生 NR 后，游戏在其运行数秒前就启动失败，或运行期间设备丢失，Uplift 会自动将此项设为 0。",
         .flags = NEXT_START,
         .get = [](const Settings& s) { return Flag(s.vulkan_native_nr); },
         .set = [](Settings& s, double v) { s.vulkan_native_nr = (v != 0.0); },
@@ -1272,10 +1223,8 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "DiagnosticRemoveDevice",
         .kind = SettingKind::UINT,
         .section = SettingSection::HIDDEN,
-        .label = "Diagnostic: remove Uplift's private device after this many frames",
-        .tooltip = "Diagnostic only. N > 0 removes Uplift's own private Direct3D 12 device (ID3D12Device5::RemoveDevice; never the game's device, so "
-                   "Direct3D 12 games are untouched) once NR has run N frames on it, and presses Retry now itself about a second after each stop "
-                   "that may still be retried. 0 (the default) is off.",
+        .label = "诊断：运行指定帧数后移除 Uplift 独立设备",
+        .tooltip = "仅供诊断。N > 0 时，NR 在 Uplift 自有的独立 Direct3D 12 设备上运行 N 帧后，将移除此设备（ID3D12Device5::RemoveDevice；不会移除游戏设备，因此 Direct3D 12 游戏不受影响），并在每次可能重试的停止后约一秒自动点击“立即重试”。0（默认值）表示关闭。",
         .min = 0.0,
         .max = 1000000.0,
         .get = [](const Settings& s) { return static_cast<double>(s.diagnostic_remove_device); },
@@ -1285,7 +1234,7 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "DlssPlacementBlocked",
         .kind = SettingKind::BOOL,
         .section = SettingSection::HIDDEN,
-        .label = "DLSS placement blocked after a device removal",
+        .label = "设备移除后阻止 DLSS 阶段运行",
         .flags = BOOKKEEPING,
         .get = [](const Settings& s) { return Flag(s.dlss_placement_blocked); },
         .set = [](Settings& s, double v) { s.dlss_placement_blocked = (v != 0.0); },
@@ -1294,7 +1243,7 @@ const auto BASE_ROWS = std::to_array<SettingDescriptor>({
         .key = "ConfigVersion",
         .kind = SettingKind::UINT,
         .section = SettingSection::HIDDEN,
-        .label = "Settings version",
+        .label = "设置版本",
         .min = 1.0,
         .max = 65535.0,
         .flags = BOOKKEEPING,
@@ -1358,7 +1307,7 @@ const std::array<std::array<std::string_view, 4>, LATER_PASS_COUNT>& PassStageCh
   static const std::array<std::string, LATER_PASS_COUNT> same_labels = [] {
     std::array<std::string, LATER_PASS_COUNT> result;
     for (size_t index = 0u; index < LATER_PASS_COUNT; ++index) {
-      result[index] = std::format("Same as pass {}", index + 1u);
+      result[index] = std::format("与第 {} 层相同", index + 1u);
     }
     return result;
   }();
@@ -1383,8 +1332,8 @@ std::array<SettingDescriptor, PASS_ROW_COUNT> PassRows() {
           .key = key(0),
           .kind = SettingKind::BOOL,
           .section = SettingSection::PASSES,
-          .label = "Same look as pass 1",
-          .tooltip = "Off gives this pass its own look settings. Runs at and Network preset are independent.",
+          .label = "沿用第 1 层外观",
+          .tooltip = "关闭后，此层可单独设置外观；运行阶段和网络预设仍可独立选择。",
           .flags = PASS_SWITCH,
           .get = &PassGet<Index, &PassSettings::follow_pass1>,
           .set = &PassSet<Index, &PassSettings::follow_pass1>,
@@ -1394,9 +1343,8 @@ std::array<SettingDescriptor, PASS_ROW_COUNT> PassRows() {
           .key = key(1),
           .kind = SettingKind::FLOAT,
           .section = SettingSection::PASSES,
-          .label = "Intensity",
-          .tooltip = "How strongly this pass changes the image, from 0 (off) to 1 (full). NR goes no further than 1: for a stronger "
-                     "result, raise Edit strength in Result shaping.",
+          .label = "强度",
+          .tooltip = "控制此层对画面的处理强度，范围为 0（关闭）至 1（最大）。如需更强效果，可提高“处理结果调整”中的“调整强度”。",
           .min = 0.0,
           .max = 10.0,
           .ui_max = 1.0,
@@ -1408,8 +1356,8 @@ std::array<SettingDescriptor, PASS_ROW_COUNT> PassRows() {
           .key = key(2),
           .kind = SettingKind::CHOICE,
           .section = SettingSection::PASSES,
-          .label = "Style",
-          .tooltip = "This pass's processing style A/B/C (0/1/2), separate from the network preset. A change restarts its history.",
+          .label = "风格",
+          .tooltip = "选择此层的处理风格 A/B/C（0/1/2），与网络预设相互独立。更改后会重置此层的时序历史。",
           .choices = MODELS,
           .flags = RESTARTS_HISTORY,
           .get = &PassGet<Index, &PassSettings::style>,
@@ -1420,8 +1368,8 @@ std::array<SettingDescriptor, PASS_ROW_COUNT> PassRows() {
           .key = key(3),
           .kind = SettingKind::FLOAT,
           .section = SettingSection::PASSES,
-          .label = "Local tone",
-          .tooltip = "Local contrast this pass adds. A change restarts its history.",
+          .label = "局部色调",
+          .tooltip = "控制此层添加的局部对比度。更改后会重置此层的时序历史。",
           .min = 0.0,
           .max = 1.0,
           .flags = RESTARTS_HISTORY,
@@ -1433,8 +1381,8 @@ std::array<SettingDescriptor, PASS_ROW_COUNT> PassRows() {
           .key = key(4),
           .kind = SettingKind::FLOAT,
           .section = SettingSection::PASSES,
-          .label = "Structure",
-          .tooltip = "Fine structure this pass adds. A change restarts its history.",
+          .label = "结构",
+          .tooltip = "控制此层添加的精细结构。更改后会重置此层的时序历史。",
           .min = 0.0,
           .max = 1.0,
           .flags = RESTARTS_HISTORY,
@@ -1446,8 +1394,8 @@ std::array<SettingDescriptor, PASS_ROW_COUNT> PassRows() {
           .key = key(5),
           .kind = SettingKind::FLOAT,
           .section = SettingSection::PASSES,
-          .label = "Skin structure",
-          .tooltip = "Structure on skin for this pass; -1 follows its Structure. A change restarts its history.",
+          .label = "皮肤结构",
+          .tooltip = "控制此层的皮肤区域结构强度；-1 表示跟随此层的“结构”设置。更改后会重置此层的时序历史。",
           .min = 0.0,
           .max = 1.0,
           .special = static_cast<double>(SKIN_SAME_AS_STRUCTURE),
@@ -1460,8 +1408,8 @@ std::array<SettingDescriptor, PASS_ROW_COUNT> PassRows() {
           .key = key(6),
           .kind = SettingKind::BOOL,
           .section = SettingSection::PASSES,
-          .label = "Character mask",
-          .tooltip = "This pass protects characters with NR's own mask. A change restarts its history.",
+          .label = "角色遮罩",
+          .tooltip = "使用 NR 自带的蒙版保护此层中的角色。更改后会重置此层的时序历史。",
           .flags = RESTARTS_HISTORY,
           .get = &PassGet<Index, &PassSettings::auto_mask>,
           .set = &PassSet<Index, &PassSettings::auto_mask>,
@@ -1471,8 +1419,8 @@ std::array<SettingDescriptor, PASS_ROW_COUNT> PassRows() {
           .key = key(7),
           .kind = SettingKind::FLOAT,
           .section = SettingSection::PASSES,
-          .label = "Transfer strength",
-          .tooltip = "How much of this pass's brightness change it passes on.",
+          .label = "亮度传递强度",
+          .tooltip = "控制此层的亮度变化有多少会传递到画面。",
           .min = 0.0,
           .max = 1.0,
           .get = &PassGet<Index, &PassSettings::transfer_strength>,
@@ -1483,8 +1431,8 @@ std::array<SettingDescriptor, PASS_ROW_COUNT> PassRows() {
           .key = key(8),
           .kind = SettingKind::FLOAT,
           .section = SettingSection::PASSES,
-          .label = "Colour strength",
-          .tooltip = "How much of this pass's colour change it passes on.",
+          .label = "色彩传递强度",
+          .tooltip = "控制此层的色彩变化有多少会传递到画面。",
           .min = 0.0,
           .max = 1.0,
           .get = &PassGet<Index, &PassSettings::color_strength>,
@@ -1496,10 +1444,8 @@ std::array<SettingDescriptor, PASS_ROW_COUNT> PassRows() {
           .key = key(9),
           .kind = SettingKind::CHOICE,
           .section = SettingSection::PASSES,
-          .label = "Runs at",
-          .tooltip = "Where in the game's frame this pass runs. Before upscaling is cheapest: NR works at the game's render size, and DLSS "
-                     "upscales the result. After DLSS and Present work on the upscaled image (Present with the HUD). A pass never runs before "
-                     "the pass before it.",
+          .label = "运行阶段",
+          .tooltip = "选择此层在游戏帧中的运行阶段。“DLSS 前”的开销最低：NR 在游戏渲染分辨率下运行，再由 DLSS 升频。“DLSS 后”和“后处理”会处理升频后的画面（后处理阶段包含 HUD）。任何一层都不会早于它的前一层运行。",
           .choices = PassStageChoices()[Index],
           .flags = PASS_SWITCH | PASS_STAGE,
           .get = &PassGet<Index, &PassSettings::stage>,
@@ -1510,9 +1456,8 @@ std::array<SettingDescriptor, PASS_ROW_COUNT> PassRows() {
           .key = key(10),
           .kind = SettingKind::CHOICE,
           .section = SettingSection::PASSES,
-          .label = "Network preset",
-          .tooltip = "Same as pass 1 inherits the Setup network. A selects Legacy; B selects Small FP8. Independent of look sharing. "
-                     "Changing the network recreates NR and resets history. Details reports each pass's runtime-confirmed network. NR 310.8 only provides Legacy.",
+          .label = "网络预设",
+          .tooltip = "“与第 1 层相同”会沿用“设置”中的网络预设（默认值，也适用于已有配置）。A：选择旧版（Legacy）；B：选择小型 FP8（Small FP8）。网络选择与是否沿用第 1 层外观相互独立。更改网络会重新创建 NR 并重置时序历史。“详细信息”会显示各层经运行时确认的网络。NR 310.8 仅提供旧版（Legacy）。",
           .choices = PASS_NETWORKS,
           .flags = PASS_SWITCH | NETWORK_PRESET | RESTARTS_HISTORY,
           .get = &PassGet<Index, &PassSettings::preset>,
@@ -1616,20 +1561,20 @@ void RestoreAllDefaults(Settings* settings) {
 std::string FormatSettingValue(const SettingDescriptor& descriptor, const Settings& settings) {
   if (descriptor.kind == SettingKind::TEXT) {
     const std::string_view text = descriptor.get_text(settings);
-    return (text.empty() ? std::string("empty") : std::string(text));
+    return (text.empty() ? std::string("空") : std::string(text));
   }
   const double value = descriptor.get(settings);
   switch (descriptor.kind) {
-    case SettingKind::BOOL:   return (value != 0.0 ? "on" : "off");
+    case SettingKind::BOOL:   return (value != 0.0 ? "开启" : "关闭");
     case SettingKind::UINT:   return std::format("{}", static_cast<uint32_t>(value));
-    case SettingKind::KEY:    return (value == 0.0 ? std::string("none") : std::format("key {:#04x}", static_cast<uint32_t>(value)));
+    case SettingKind::KEY:    return (value == 0.0 ? std::string("未设置") : std::format("按键 {:#04x}", static_cast<uint32_t>(value)));
     case SettingKind::CHOICE: {
       const auto index = static_cast<size_t>(value);
       return (index < descriptor.choices.size() ? std::string(descriptor.choices[index]) : std::string("?"));
     }
     case SettingKind::FLOAT:
       if (descriptor.special.has_value() && value == *descriptor.special) {
-        return (value < 0.0 ? std::string("same as Structure") : std::string("automatic"));
+        return (value < 0.0 ? std::string("与 Structure 相同") : std::string("自动"));
       }
       if (descriptor.key == "AutoExposureBlend") return std::format("{:.0f} %", value * 100.0);  // 2026-10-09: stored 0..1
       return std::format("{:.2f}", value);

@@ -47,12 +47,12 @@ NrHeartbeat::Figures NrHeartbeat::FiguresAt(Clock::time_point now) const {
 
 std::string_view MotionSourceWords(sources::MotionSource source) {
   switch (source) {
-    case sources::MotionSource::NONE:         return "no motion vectors";
-    case sources::MotionSource::DIRECT:       return "the game's DLSS motion vectors";
-    case sources::MotionSource::PRESENT_COPY: return "DLSS's motion vectors (copied for Present)";
-    case sources::MotionSource::LAUNCHPAD:    return "Launchpad's motion vectors";
+    case sources::MotionSource::NONE:         return "无运动矢量";
+    case sources::MotionSource::DIRECT:       return "游戏提供的 DLSS 运动矢量";
+    case sources::MotionSource::PRESENT_COPY: return "DLSS 运动矢量（已复制至后处理）";
+    case sources::MotionSource::LAUNCHPAD:    return "LaunchPad 提供的运动矢量";
   }
-  return "no motion vectors";
+  return "无运动矢量";
 }
 
 std::string HeartbeatLine(std::string_view lead, const NrHeartbeat::Figures& figures, std::optional<uint64_t> private_mib,

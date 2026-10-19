@@ -30,11 +30,11 @@ bool ExclusiveFullscreenSwapchainSeen() {
 
 std::string BackBufferProblem(const ImageInfo& back_buffer, bool memory_win32) {
   if (!back_buffer.copy_dest) return (ExclusiveFullscreenSwapchainSeen() ? EXCLUSIVE_FULLSCREEN_PROBLEM : COPY_ACCESS_PROBLEM);
-  if (back_buffer.samples != 1u) return "Multisampled back buffers are not supported on Vulkan";
+  if (back_buffer.samples != 1u) return "Vulkan 不支持多重采样后备缓冲区";
   if (!color::DescribeFormat(back_buffer.format) || VkFormatOf(SharedFormatOf(back_buffer.format)) == VK_FORMAT_UNDEFINED) {
-    return std::format("Unsupported back-buffer format (DXGI_FORMAT {})", static_cast<int>(back_buffer.format));
+    return std::format("不支持此后备缓冲区格式（DXGI_FORMAT {}）", static_cast<int>(back_buffer.format));
   }
-  if (!memory_win32) return "This Vulkan device cannot import Uplift's textures (VK_KHR_external_memory_win32 is not enabled)";
+  if (!memory_win32) return "此 Vulkan 设备无法导入 Uplift 的纹理（未启用 VK_KHR_external_memory_win32）";
   return {};
 }
 

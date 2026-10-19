@@ -43,18 +43,18 @@ std::unique_ptr<D3D11Bridge> D3D11Bridge::Create(ID3D11Device* device, ComPtr<ID
   ComPtr<ID3D11DeviceContext> immediate;
   device->GetImmediateContext(&immediate);
   if (FAILED(device->QueryInterface(IID_PPV_ARGS(&bridge->device11_))) || FAILED(immediate.As(&bridge->context11_))) {
-    return fail("Direct3D 11 fences need Windows 10 1703 or newer and a current driver");
+    return fail("Direct3D 11 栅栏需要 Windows 10 1703 或更高版本以及较新的显卡驱动");
   }
   ComPtr<IDXGIDevice> dxgi_device;
   ComPtr<IDXGIAdapter> adapter;
   DXGI_ADAPTER_DESC adapter_description = {};
   if (FAILED(device->QueryInterface(IID_PPV_ARGS(&dxgi_device))) || FAILED(dxgi_device->GetAdapter(&adapter))
       || FAILED(adapter->GetDesc(&adapter_description))) {
-    return fail("the game's adapter could not be read");
+    return fail("无法读取游戏使用的显卡");
   }
   // WARP and other vendors are refused, as on D3D12 (addon::IsNvidiaDevice); cross-adapter sharing is out of scope.
   if (adapter_description.VendorId != addon::NVIDIA_VENDOR_ID) {
-    return fail("Uplift needs an NVIDIA GPU; this game renders on another adapter");
+    return fail("Uplift 需要 NVIDIA GPU；此游戏正在另一块显卡上渲染");
   }
   // Plan 9: the private device, queue, ring, list and progress fence are D3D12Side's; `created` is the device as it made it (on the fallback,
   // D3D12CreateDevice's: under ReShade its proxy, whose last release raises destroy_device).
@@ -64,12 +64,12 @@ std::unique_ptr<D3D11Bridge> D3D11Bridge::Create(ID3D11Device* device, ComPtr<ID
                                                                    {&bridge->to11_, bridge->to11_11_.GetAddressOf()}};
   for (const auto& [fence, fence11] : fences) {
     HANDLE fence_handle = nullptr;
-    if (FAILED(bridge->side_->CreateSharedFence(fence, &fence_handle))) return fail("the shared fence could not be created");
+    if (FAILED(bridge->side_->CreateSharedFence(fence, &fence_handle))) return fail("无法创建共享栅栏");
     const HRESULT opened = bridge->device11_->OpenSharedFence(fence_handle, IID_PPV_ARGS(fence11));
     CloseHandle(fence_handle);  // the opened fence keeps it alive
-    if (FAILED(opened)) return fail("the Direct3D 11 device could not open the shared fence");
+    if (FAILED(opened)) return fail("Direct3D 11 设备无法打开共享栅栏");
   }
-  nr::Logf(nr::LogLevel::INFO, "{}: NR runs on a private Direct3D 12 device", bridge->label_);
+  nr::Logf(nr::LogLevel::INFO, "{}：NR 在专用 Direct3D 12 设备上运行", bridge->label_);
   return bridge;
 }
 
@@ -139,7 +139,7 @@ void D3D11Bridge::CheckWatchdog(std::chrono::steady_clock::time_point now) {
   // Both directions count as progress, so a frame shows two steps: the game's work up to the copy-in, then NR's.
   const uint64_t completed = to11_->GetCompletedValue();
   if (const std::optional<std::string_view> stopped = watchdog_.Check(completed, completed + to12_->GetCompletedValue(), now)) {
-    std::string reason = std::format("The {} bridge stopped: {}", label_, *stopped);
+    std::string reason = std::format("{} 中继已停止：{}", label_, *stopped);
     nr::Log(nr::LogLevel::ERR, reason);
     Stop(std::move(reason));
   }
@@ -189,12 +189,12 @@ BridgeFrame D3D11Bridge::BeginFrame(ID3D11Resource* back_buffer, bool enabled, b
   const std::optional<color::FormatInfo> format = (description ? color::DescribeFormat(description->Format) : std::nullopt);
   const nr::Size size = (description ? nr::Size{description->Width, description->Height} : nr::Size{});
   if (!description) {
-    problem = "The back buffer is not a 2D texture";
+    problem = "后备缓冲区不是二维纹理";
   } else if (description->SampleDesc.Count != 1u) {
     // ReShade renders effects into its own resolved copy of these (design §1.3); rare in D3D11.
-    problem = std::format("Multisampled back buffers are not supported on {}", label_);
+    problem = std::format("{} 不支持多重采样后备缓冲区", label_);
   } else if (!format) {
-    problem = std::format("Unsupported back-buffer format (DXGI_FORMAT {})", static_cast<int>(description->Format));
+    problem = std::format("不支持此后备缓冲区格式（DXGI_FORMAT {}）", static_cast<int>(description->Format));
   } else {
     if (running && present_copy && !(color_failure_ && color_failure_->Matches(size, description->Format))
         && (!color_.d3d12 || color_.size != size || color_.format != description->Format)) {
@@ -209,7 +209,7 @@ BridgeFrame D3D11Bridge::BeginFrame(ID3D11Resource* back_buffer, bool enabled, b
     }
     // Reported while NR is off too, so the Session does not load for a back buffer the bridge cannot share.
     if (color_failure_ && color_failure_->Matches(size, description->Format)) {
-      problem = std::format("The back buffer could not be shared with the private Direct3D 12 device (DXGI_FORMAT {}, HRESULT {:#010x})",
+      problem = std::format("无法将后备缓冲区共享至专用 Direct3D 12 设备（DXGI_FORMAT {}，HRESULT {:#010x}）",
                             static_cast<int>(description->Format), static_cast<uint32_t>(color_failure_->result));
     }
   }
@@ -228,10 +228,10 @@ void D3D11Bridge::GrowRingForSplit() {
   const size_t before = side_->RingSize();
   if (before >= D3D12Side::RING_MAX) return;
   if (side_->GrowRing(D3D12Side::RING_MAX)) {
-    nr::Logf(nr::LogLevel::INFO, "Direct3D 11 bridge: the private command allocators grow from {} to {} for the split chain's hand-offs", before,
+    nr::Logf(nr::LogLevel::INFO, "Direct3D 11 中继：为分阶段处理的交接，专用命令分配器数量从 {} 增至 {}", before,
              side_->RingSize());
   } else if (!std::exchange(ring_growth_failed_, true)) {
-    nr::Log(nr::LogLevel::WARN, "Direct3D 11 bridge: the private command allocators could not grow for the split chain; some frames may skip NR");
+    nr::Log(nr::LogLevel::WARN, "Direct3D 11 中继：无法为分阶段处理扩充专用命令分配器；部分帧可能会跳过 NR");
   }
 }
 
@@ -276,7 +276,7 @@ bool D3D11Bridge::Run(ID3D11Resource* back_buffer, ID3D11Resource* motion, const
         } else {
           // Logged once: not retried for this size (final review Minor 3).
           motion_failure_ = ShareFailure{.size = size, .format = DXGI_FORMAT_R16G16_FLOAT, .result = share_result};
-          nr::Logf(nr::LogLevel::WARN, "UPLIFT_MV could not be shared with the private Direct3D 12 device (HRESULT {:#010x}); NR runs without LaunchPad's motion",
+          nr::Logf(nr::LogLevel::WARN, "无法向专用 Direct3D 12 设备共享 UPLIFT_MV（HRESULT {:#010x}）；NR 将不使用 LaunchPad 提供的运动矢量",
                    static_cast<uint32_t>(share_result));
         }
       }
@@ -332,7 +332,7 @@ bool D3D11Bridge::Run(ID3D11Resource* back_buffer, ID3D11Resource* motion, const
         *wrote = record_(list, targets);
       } catch (...) {
         // Half a recording never executes; the queue still signals, so D3D11 never waits in vain.
-        nr::Log(nr::LogLevel::ERR, "NR's recording on the private Direct3D 12 device threw; this frame goes without NR");
+        nr::Log(nr::LogLevel::ERR, "在专用 Direct3D 12 设备上记录 NR 命令时发生异常；本帧将不运行 NR");
         recorded = false;
         *wrote = false;
       }
@@ -392,7 +392,7 @@ bool D3D11Bridge::Run(ID3D11Resource* back_buffer, ID3D11Resource* motion, const
     watchdog_.Submitted(out, std::chrono::steady_clock::now());  // final review I-2: from submission, after recording
   }
   if (!frame.failure.empty()) {
-    latch_ = std::format("The {} bridge stopped: {}", label_, frame.failure);
+    latch_ = std::format("{} 中继已停止：{}", label_, frame.failure);
     nr::Log(nr::LogLevel::ERR, latch_);
   }
   return frame.wrote;
@@ -422,7 +422,7 @@ MaskCopy D3D11Bridge::CopyMask(ID3D11Resource* mask) {
                       format->bytes_per_pixel, L"Uplift shared mask", &mask_, &share_result)) {
       // Logged once: not retried for this size and format (final review Minor 3).
       mask_failure_ = ShareFailure{.size = size, .format = format->view_format, .result = share_result};
-      nr::Logf(nr::LogLevel::WARN, "UPLIFT_MASK could not be shared with the private Direct3D 12 device (DXGI_FORMAT {}, HRESULT {:#010x})",
+      nr::Logf(nr::LogLevel::WARN, "无法向专用 Direct3D 12 设备共享 UPLIFT_MASK（DXGI_FORMAT {}，HRESULT {:#010x}）",
                static_cast<int>(format->view_format), static_cast<uint32_t>(share_result));
       return {};
     }
@@ -477,16 +477,16 @@ uint64_t D3D11Bridge::RingBytes() const {
 
 std::string D3D11Bridge::StatusLine(addon::Placement placement) const {
   // Plan 18 (design §5): the Details line names the DLSS stage NR runs at.
-  const std::string_view where = (placement == addon::Placement::AFTER_DLSS        ? "NR after DLSS on Uplift's private Direct3D 12 device"
-                                  : placement == addon::Placement::BEFORE_UPSCALING ? "NR before upscaling on Uplift's private Direct3D 12 device"
-                                                                                    : "NR runs on a private Direct3D 12 device");
-  std::string line = std::format("{}: {} (shared {:.1f} MiB)", label_, where, static_cast<double>(SharedBytes()) / (1024.0 * 1024.0));
+  const std::string_view where = (placement == addon::Placement::AFTER_DLSS        ? "NR 在 DLSS 后通过 Uplift 的专用 Direct3D 12 设备运行"
+                                  : placement == addon::Placement::BEFORE_UPSCALING ? "NR 在 DLSS 前通过 Uplift 的专用 Direct3D 12 设备运行"
+                                                                                    : "NR 在专用 Direct3D 12 设备上运行");
+  std::string line = std::format("{}：{}（共享资源 {:.1f} MiB）", label_, where, static_cast<double>(SharedBytes()) / (1024.0 * 1024.0));
   if (busy_skips_ > 0u) {
-    line += std::format(", {} frame(s) without NR while the bridge was busy", busy_skips_);
+    line += std::format("；桥接繁忙期间有 {} 帧未运行 NR", busy_skips_);
   }
   if (const uint64_t ring = RingBytes(); ring > 0u) {
     // Plan 18 (design §4): as Vulkan's Details line says its copies.
-    line += std::format("; DLSS's motion vectors copied in the game's frame ({:.1f} MiB)", static_cast<double>(ring) / (1024.0 * 1024.0));
+    line += std::format("；在游戏帧内复制了 DLSS 运动矢量（{:.1f} MiB）", static_cast<double>(ring) / (1024.0 * 1024.0));
   }
   return line;
 }

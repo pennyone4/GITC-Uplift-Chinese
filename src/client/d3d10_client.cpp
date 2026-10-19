@@ -25,7 +25,7 @@ std::unique_ptr<D3D10Client> D3D10Client::Create(ID3D10Device* device, ComPtr<ID
   // inside the D3D11 client, as Plan 9 does for a D3D11 game.
   client->d3d11_ = D3D11Client::Create(client->relay_->Relay(), true, error, "Direct3D 10");
   if (!client->d3d11_) return nullptr;  // `error` says why
-  nr::Log(nr::LogLevel::INFO, "Direct3D 10: frames cross through a Direct3D 11 relay device (keyed mutex)");
+  nr::Log(nr::LogLevel::INFO, "Direct3D 10：帧通过 Direct3D 11 中继设备传递（键控互斥体）");
   return client;
 }
 
@@ -86,7 +86,7 @@ ipc::Target D3D10Client::Describe(ID3D10Resource* back_buffer, bool enabled, boo
   // What only this side knows: the relay could not share the colour, or it stopped (its latch reaches the D3D11 client at the next Apply).
   std::string problem;
   if (usable && color_failure_ && color_failure_->Matches(size, back_buffer_format)) {
-    problem = std::format("The back buffer could not be shared with the Direct3D 11 relay (DXGI_FORMAT {}, HRESULT {:#010x})",
+    problem = std::format("无法通过 Direct3D 11 中继设备共享后备缓冲区（DXGI_FORMAT {}，HRESULT {:#010x}）",
                           static_cast<int>(back_buffer_format), static_cast<uint32_t>(color_failure_->result));
   } else if (relay_->Stopped() && d3d11_->Latch().empty()) {
     problem = bridge::KeyedRelay::Sentence(relay_->Reason());
@@ -131,7 +131,7 @@ bool D3D10Client::Run(ID3D10Resource* back_buffer, ID3D10Resource* motion, addon
         // Logged once: not retried for this size.
         motion_failure_ = ShareFailure{.size = size, .format = DXGI_FORMAT_R16G16_FLOAT, .result = result};
         nr::Logf(nr::LogLevel::WARN,
-                 "UPLIFT_MV could not be shared with the Direct3D 11 relay (HRESULT {:#010x}); NR runs without LaunchPad's motion",
+                 "无法通过 Direct3D 11 中继共享 UPLIFT_MV（HRESULT {:#010x}）；NR 将不使用 LaunchPad 提供的运动矢量",
                  static_cast<uint32_t>(result));
       }
     }
@@ -197,7 +197,7 @@ MaskCopy D3D10Client::CopyMask(ID3D10Resource* mask, NrLink& link) {
     if (!relay_->CreateKeyed(size, format->view_format, format->bytes_per_pixel, &mask_, &result)) {
       // Logged once: not retried for this size and format.
       mask_failure_ = ShareFailure{.size = size, .format = format->view_format, .result = result};
-      nr::Logf(nr::LogLevel::WARN, "UPLIFT_MASK could not be shared with the Direct3D 11 relay (DXGI_FORMAT {}, HRESULT {:#010x})",
+      nr::Logf(nr::LogLevel::WARN, "无法向 Direct3D 11 中继共享 UPLIFT_MASK（DXGI_FORMAT {}，HRESULT {:#010x}）",
                static_cast<int>(format->view_format), static_cast<uint32_t>(result));
       return {.relay_failed = true};
     }
@@ -252,8 +252,8 @@ void D3D10Client::ReleaseAll() {
 }
 
 std::string D3D10Client::Line() const {
-  const std::string_view transport = (d3d11_->Kind() == ipc::Transport::FENCED ? "shared textures and fences" : "shared texture, CPU-ordered");
-  return std::format("Direct3D 10 ({}): NR runs in Uplift's 64-bit helper through a Direct3D 11 relay ({}, {:.1f} MiB)", BITNESS, transport,
+  const std::string_view transport = (d3d11_->Kind() == ipc::Transport::FENCED ? "共享纹理和栅栏" : "共享纹理，按 CPU 顺序同步");
+  return std::format("Direct3D 10（{} 位）：NR 通过 Direct3D 11 中继设备在 Uplift 的 64 位辅助进程中运行（{}，{:.1f} MiB）", BITNESS, transport,
                      static_cast<double>(SharedBytes()) / MIB);
 }
 

@@ -100,14 +100,14 @@ float InputScale(Encoding encoding, float diffuse_white_nits, float linear_unit_
 
 std::string_view EncodingName(Encoding encoding) {
   switch (encoding) {
-    case Encoding::AUTO:         return "Auto";
-    case Encoding::LINEAR_BT709: return "Linear BT.709";
+    case Encoding::AUTO:         return "自动";
+    case Encoding::LINEAR_BT709: return "线性 BT.709";
     case Encoding::SRGB:         return "sRGB";
     case Encoding::PQ_BT2100:    return "BT.2100 PQ";
     case Encoding::SCRGB:        return "scRGB";
     case Encoding::SCRGB_NL:     return "scRGB-nl";
   }
-  return "Auto";
+  return "自动";
 }
 
 Primaries ResolvePrimaries(Primaries setting, Encoding encoding) {

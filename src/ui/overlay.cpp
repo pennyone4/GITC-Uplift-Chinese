@@ -53,7 +53,7 @@ int RadioRow(const char* label, std::span<const char* const> options, std::span<
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
       std::string tooltip;
       if (!why[index].empty()) {
-        tooltip = std::format("Unavailable here: {}", why[index]);
+        tooltip = std::format("此处不可用：{}", LocalizeStatusReason(why[index]));
         if (!tips[index].empty()) {
           tooltip += "\n";
         }
@@ -73,7 +73,7 @@ int RadioRow(const char* label, std::span<const char* const> options, std::span<
 
 // Plan 14 (R90): the tooltip line of a highlighted option while the highlight is not the stored preference (what runs differs from what ReShade.ini holds).
 std::string SavedNote(std::string_view preference) {
-  return std::format("Saved: {}; it runs again by itself when it can.", preference);
+  return std::format("已保存：{}；条件允许时会自动恢复运行。", preference);
 }
 
 // One schema row. Returns true when the value changed. Called both from DrawOverlay (the Enable
@@ -131,20 +131,20 @@ bool DrawRow(const SettingDescriptor& descriptor, const OverlayView& view, Setti
   const bool keep_faces_row = (descriptor.key == "KeepFaces" || descriptor.key == "FaceProtection" || descriptor.key == "LightingScale"
                                || descriptor.key == "ShowFaceMask" || keep_faces_tuning || keep_faces_here);
   const std::string_view disabled_reason =
-      ((descriptor.flags & setting_flags::NETWORK_PRESET) != 0u && view.legacy_runtime)                   ? std::string_view("NR 310.8 only provides the Legacy network.")
-      : (descriptor.key == "MaskBlendMode" && view.legacy_runtime)            ? std::string_view("NR 310.8 does not support native mask blend mode.")
+      ((descriptor.flags & setting_flags::NETWORK_PRESET) != 0u && view.legacy_runtime)                   ? std::string_view("NR 310.8 仅提供旧版网络（Legacy）。")
+      : (descriptor.key == "MaskBlendMode" && view.legacy_runtime)            ? std::string_view("NR 310.8 不支持原生蒙版混合模式。")
       : (descriptor.key == "StateRestore" && !view.dlss_unavailable.empty())   ? std::string_view(view.dlss_unavailable)
       : (descriptor.key == "UseD3D9Ex" && !view.d3d9ex_unavailable.empty())    ? std::string_view(view.d3d9ex_unavailable)
       : (descriptor.key == "VulkanNr" && !view.vulkan_nr_unavailable.empty()) ? std::string_view(view.vulkan_nr_unavailable)
       : (keep_faces_row && !view.keep_faces_unavailable.empty())               ? std::string_view(view.keep_faces_unavailable)
-      : (descriptor.key == "ShowFaceMask" && !settings->keep_faces)            ? std::string_view("Turn on Keep faces (Look) first")
+      : (descriptor.key == "ShowFaceMask" && !settings->keep_faces)            ? std::string_view("请先在“外观”中启用“保护面部”。")
                                                                                : std::string_view();
   ImGui::BeginDisabled(!disabled_reason.empty() || read_only);
   bool changed = false;
   std::string saved_note;  // Plan 14 (R90): the Resolution combo's tooltip, while the mode that runs is not the stored one
   if (descriptor.key == "SkinStructure") {
     bool follows = (settings->skin_structure < 0.f);
-    if (ImGui::Checkbox("Skin follows Structure", &follows)) {
+    if (ImGui::Checkbox("皮肤结构跟随“结构”", &follows)) {
       settings->skin_structure = (follows ? SKIN_SAME_AS_STRUCTURE : settings->local_structure);
       changed = true;
     }
@@ -160,7 +160,7 @@ bool DrawRow(const SettingDescriptor& descriptor, const OverlayView& view, Setti
     // ui-review.md §3 rule 2 (the Skin pattern): an Automatic checkbox, the control greyed at the value
     // in use -- shown, not hidden, so the effective value always reads even while it is automatic.
     bool automatic = (settings->diffuse_white_nits <= 0.f);
-    if (ImGui::Checkbox("Automatic diffuse white", &automatic)) {
+    if (ImGui::Checkbox("自动设置漫反射白", &automatic)) {
       settings->diffuse_white_nits = (automatic ? 0.f : std::clamp(view.effective_diffuse_white_nits, 48.f, 500.f));
       changed = true;
     }
@@ -312,7 +312,8 @@ bool DrawRow(const SettingDescriptor& descriptor, const OverlayView& view, Setti
               }
               ImGui::EndDisabled();
               if (!option.why.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-                ImGui::SetTooltip("Unavailable here: %s", std::string(option.why).c_str());
+                const std::string reason(LocalizeStatusReason(option.why));
+                ImGui::SetTooltip("此处不可用：%s", reason.c_str());
               }
             }
             ImGui::EndCombo();
@@ -345,7 +346,7 @@ bool DrawRow(const SettingDescriptor& descriptor, const OverlayView& view, Setti
   if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled) && (!descriptor.tooltip.empty() || !disabled_reason.empty())) {
     std::string tooltip;
     if (!disabled_reason.empty()) {
-      tooltip = std::format("Greyed: {}", disabled_reason);
+      tooltip = std::format("已禁用：{}", disabled_reason);
       if (!descriptor.tooltip.empty()) {
         tooltip += "\n";
       }
@@ -377,7 +378,7 @@ bool DrawRow(const SettingDescriptor& descriptor, const OverlayView& view, Setti
     ImGui::SameLine();
     const bool reset_clicked = ImGui::SmallButton("<");
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-      ImGui::SetTooltip("Reset to default (%s)", FormatSettingValue(descriptor, DefaultSettings()).c_str());
+      ImGui::SetTooltip("恢复默认值（%s）", FormatSettingValue(descriptor, DefaultSettings()).c_str());
     }
     if (reset_clicked) {
       ResetSetting(settings, descriptor);
@@ -398,27 +399,23 @@ bool DrawRow(const SettingDescriptor& descriptor, const OverlayView& view, Setti
 // PreUpscale) as one composite choice, and it carries the DLSS-placement latch's Clear latch button.
 bool DrawSourceRow(const OverlayView& view, Settings* settings, OverlayState* state) {
   ImGui::PushID("Source");
-  static constexpr std::array<const char*, 3> OPTIONS = {"Before upscaling", "After DLSS", "Present"};
+  static constexpr std::array<const char*, 3> OPTIONS = {"DLSS 前", "DLSS 后", "后处理"};
   const std::array<std::string_view, 3> direct3d_tips = {
-      "NR works on the game's render-size image, and the game's DLSS upscales the result. Cheaper. Experimental.",
-      "NR works on DLSS's output inside the game's frame, before the HUD, post-processing and frame "
-      "generation. Runs on Present until the game runs DLSS.",
-      "NR works on the finished frame, HUD included. Works in every game. Uplift.fx's Uplift technique "
-      "sets where among your effects.",
+      "NR 处理游戏原生渲染分辨率的画面，再由游戏的 DLSS 将结果升频。开销较低；此功能为实验性功能。",
+      "NR 在游戏帧内处理 DLSS 输出，早于 HUD、后处理和帧生成。需 ReShade 6.1 或更新版本才能使用“DLSS 后”。游戏尚未运行 DLSS 时，NR 会暂时在后处理阶段运行。",
+      "NR 处理包含 HUD 的最终画面，适用于所有游戏。可通过 Uplift.fx 中的 Uplift 技术调整其在效果列表中的位置。",
   };
   // Plan 13 (the user's decision 1): on Vulkan the DLSS placements are explicit choices, and their tips name what stays after the first use.
   const std::array<std::string_view, 3> vulkan_tips = {
-      "NR works on the game's render-size image, natively on the game's Vulkan device, and the game's DLSS upscales the result. Experimental. About "
-      "0.6 GB of VRAM stays with the game's device after the first use, until the game exits.",
-      "NR works on DLSS's output inside the game's frame, natively on the game's Vulkan device, before the HUD and post-processing. Runs on "
-      "Present until the game runs DLSS. About 0.6 GB of VRAM stays with the game's device after the first use, until the game exits.",
-      "NR works on the finished frame, HUD included. The default on Vulkan. Uplift.fx's Uplift technique sets where among your effects.",
+      "NR 在游戏自己的 Vulkan 设备上处理游戏原生渲染分辨率的画面，再由游戏的 DLSS 将结果升频。此功能为实验性功能。首次使用后，游戏退出前，游戏设备会一直占用约 0.6 GB 显存。",
+      "NR 在游戏自己的 Vulkan 设备上，于游戏帧内处理 DLSS 输出，早于 HUD 和后处理。需 ReShade 6.1 或更新版本。游戏尚未运行 DLSS 时，NR 会暂时在后处理阶段运行。首次使用后，游戏退出前，游戏设备会一直占用约 0.6 GB 显存。",
+      "NR 处理包含 HUD 的最终画面，这是 Vulkan 下的默认阶段。可通过 Uplift.fx 中的 Uplift 技术调整其在效果列表中的位置。",
   };
   std::array<std::string_view, 3> tips = (view.dlss_explicit ? vulkan_tips : direct3d_tips);
   // Split-chain design 11 (the owner, 2026-10-15): with Ray Reconstruction, Before upscaling works on RR's input.
   std::string before_tip;
   if (view.setup.before_upscaling_on_rr) {
-    before_tip = std::format("{}\nThe game's DLSS is Ray Reconstruction: NR works on its input, before it denoises and upscales it.", tips[0]);
+    before_tip = std::format("{}\n游戏使用光线重建（Ray Reconstruction）：NR 会处理其输入画面，在降噪和升频之前运行。", tips[0]);
     tips[0] = before_tip;
   }
   std::array<std::string_view, 3> why = {};
@@ -434,7 +431,7 @@ bool DrawSourceRow(const OverlayView& view, Settings* settings, OverlayState* st
     tips[static_cast<size_t>(shown)] = saved_tip;
   }
   bool changed = false;
-  if (const int clicked = RadioRow("NR stage", OPTIONS, why, tips, shown); clicked >= 0) {
+  if (const int clicked = RadioRow("NR 阶段", OPTIONS, why, tips, shown); clicked >= 0) {
     SetSourcePick(settings, static_cast<SourcePick>(clicked), view.dlss_explicit);
     state->setup_settle.Clicked(SetupRow::STAGE, static_cast<uint32_t>(clicked));
     changed = true;
@@ -443,7 +440,7 @@ bool DrawSourceRow(const OverlayView& view, Settings* settings, OverlayState* st
     ImGui::SameLine();
     const bool reset_clicked = ImGui::SmallButton("<");
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-      ImGui::SetTooltip(view.dlss_explicit ? "Reset to default (Present on Vulkan)" : "Reset to default (After DLSS)");
+      ImGui::SetTooltip(view.dlss_explicit ? "恢复默认值（Vulkan 下为后处理）" : "恢复默认值（DLSS 后）");
     }
     if (reset_clicked) {
       // The defaults themselves (Auto, PreUpscale off): After DLSS on Direct3D 12, Present on Vulkan.
@@ -456,7 +453,7 @@ bool DrawSourceRow(const OverlayView& view, Settings* settings, OverlayState* st
   // ui-review.md §4.1: the latch's one surviving Clear latch button, unless the status card already shows it.
   if (view.dlss_latched && view.card.button != CardButton::CLEAR_LATCH) {
     ImGui::SameLine();
-    if (ImGui::SmallButton("Clear latch")) {
+    if (ImGui::SmallButton("清除锁定")) {
       settings->dlss_placement_blocked = false;
       settings->vulkan_native_nr = true;  // Plan 19 fix round (I-C): native Vulkan NR's latch too, from the next start
       changed = true;
@@ -488,7 +485,8 @@ bool DrawPassStageRow(const SettingDescriptor& descriptor, const OverlayView& vi
       }
       ImGui::EndDisabled();
       if (!option.why.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Unavailable here: %s", option.why.c_str());
+        const std::string why = std::format("此处不可用：{}", LocalizeStatusReason(option.why));
+        ImGui::SetTooltip("%s", why.c_str());
       }
     }
     ImGui::EndCombo();
@@ -496,7 +494,7 @@ bool DrawPassStageRow(const SettingDescriptor& descriptor, const OverlayView& vi
   if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
     std::string tooltip(descriptor.tooltip);
     if (!view.setup.split_capable) {
-      tooltip = std::format("Greyed: {}\n{}", ONE_STAGE_REASON, descriptor.tooltip);
+      tooltip = std::format("已禁用：{}\n{}", ONE_STAGE_REASON, descriptor.tooltip);
     } else if (shown != stored && (row.options[stored].why.empty() || row.options[stored].temporary)) {  // a fixed cause never clears: no promise
       tooltip += "\n" + SavedNote(descriptor.choices[stored]);
     }
@@ -506,7 +504,7 @@ bool DrawPassStageRow(const SettingDescriptor& descriptor, const OverlayView& vi
     ImGui::SameLine();
     const bool reset_clicked = ImGui::SmallButton("<");
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-      ImGui::SetTooltip("Reset to default (%s)", descriptor.choices[0].data());
+      ImGui::SetTooltip("恢复默认值（%s）", descriptor.choices[0].data());
     }
     if (reset_clicked) {
       ResetSetting(settings, descriptor);
@@ -521,13 +519,12 @@ bool DrawPassStageRow(const SettingDescriptor& descriptor, const OverlayView& vi
 // Plan 14: the Motion vectors row -- Off / DLSS / Launchpad / Lumenite (2026-10-08) -- from Setup, as the NR stage row.
 bool DrawMotionRow(const OverlayView& view, Settings* settings, OverlayState* state) {
   ImGui::PushID("MotionVectors");
-  static constexpr std::array<const char*, 4> OPTIONS = {"Off", "DLSS", "Launchpad", "Lumenite"};
+  static constexpr std::array<const char*, 4> OPTIONS = {"关闭", "DLSS", "LaunchPad", "Lumenite"};
   std::array<std::string_view, 4> tips = {
-      "No motion vectors, anywhere.",
-      "The game's own DLSS motion vectors: bound directly inside the frame, and copied for Present when "
-      "NR stage is Present.",
-      "iMMERSE Launchpad on, and Uplift.fx's Uplift technique below it. The presented image only.",
-      "LumeniteFX's Kernel on, and Uplift.fx's Uplift technique below it. The presented image only. Auto uses Launchpad when both are on.",
+      "不使用任何运动矢量。",
+      "使用游戏自己的 DLSS 运动矢量：在游戏帧内直接绑定；NR 处于后处理阶段时，会复制运动矢量供其使用。",
+      "启用 iMMERSE LaunchPad，并将 Uplift.fx 中的 Uplift 技术放在其下方。仅适用于后处理阶段。",
+      "启用 LumeniteFX 的 Kernel，并将 Uplift.fx 中的 Uplift 技术放在其下方。仅适用于后处理阶段。两者都启用时，“自动”会优先使用 LaunchPad。",
   };
   std::array<std::string_view, 4> why = {};
   for (size_t index = 0u; index < why.size(); ++index) {
@@ -538,12 +535,12 @@ bool DrawMotionRow(const OverlayView& view, Settings* settings, OverlayState* st
   std::string saved_tip;
   const OptionState& stored_motion = view.setup.motion_options[static_cast<size_t>(preferred)];
   if (view.setup.motion != preferred && (stored_motion.why.empty() || stored_motion.temporary)) {  // a fixed cause never clears: no promise
-    const std::string_view stored = (settings->motion_vectors == MotionVectorSource::AUTO ? std::string_view("Auto") : std::string_view(OPTIONS[static_cast<size_t>(preferred)]));
+    const std::string_view stored = (settings->motion_vectors == MotionVectorSource::AUTO ? std::string_view("自动") : std::string_view(OPTIONS[static_cast<size_t>(preferred)]));
     saved_tip = std::format("{}\n{}", tips[static_cast<size_t>(shown)], SavedNote(stored));
     tips[static_cast<size_t>(shown)] = saved_tip;
   }
   bool changed = false;
-  if (const int clicked = RadioRow("Motion vectors", OPTIONS, why, tips, shown); clicked >= 0) {
+  if (const int clicked = RadioRow("运动矢量", OPTIONS, why, tips, shown); clicked >= 0) {
     SetMotionPick(settings, static_cast<MotionPick>(clicked));
     state->setup_settle.Clicked(SetupRow::MOTION, static_cast<uint32_t>(clicked));
     changed = true;
@@ -552,7 +549,7 @@ bool DrawMotionRow(const OverlayView& view, Settings* settings, OverlayState* st
     ImGui::SameLine();
     const bool reset_clicked = ImGui::SmallButton("<");
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-      ImGui::SetTooltip("Reset to default (DLSS)");
+      ImGui::SetTooltip("恢复默认值（DLSS）");
     }
     if (reset_clicked) {
       SetMotionPick(settings, MotionPick::DLSS);
@@ -568,10 +565,10 @@ bool DrawMotionRow(const OverlayView& view, Settings* settings, OverlayState* st
 std::string VramLine(const OverlayView& view) {
   constexpr double MIB = 1024.0 * 1024.0;
   if (view.runtime_bytes) {
-    return std::format("VRAM: NR runtime {:.0f} MiB, Uplift intermediates {:.0f} MiB", static_cast<double>(*view.runtime_bytes) / MIB,
+    return std::format("显存：NR 运行时 {:.0f} MiB，Uplift 中间缓冲区 {:.0f} MiB", static_cast<double>(*view.runtime_bytes) / MIB,
                        static_cast<double>(view.intermediate_bytes) / MIB);
   }
-  return std::format("VRAM: Uplift intermediates {:.0f} MiB", static_cast<double>(view.intermediate_bytes) / MIB);
+  return std::format("显存：Uplift 中间缓冲区 {:.0f} MiB", static_cast<double>(view.intermediate_bytes) / MIB);
 }
 
 // `text` cut with "..." (ASCII, so the strings stay Latin-1) to fit `width`; unchanged when it already fits.
@@ -649,7 +646,7 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
   // (capturing or not); Esc only cancels a capture. A capture whose overlay closed ends by itself (ExpireKeyCapture), so the hotkey never stays off.
   if (state->capturing_key) {
     state->capture_seen = std::chrono::steady_clock::now();
-    ImGui::Button("Press a key (right-click clears)");
+    ImGui::Button("请按下按键（右键点击可清除）");
     if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
       settings->enable_key = 0u;
       state->capturing_key = false;
@@ -663,15 +660,15 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
       state->key_captured_this_frame = true;
     }
   } else {
-    std::string key_label = "Hotkey: none";
+    std::string key_label = "快捷键：未设置";
     if (settings->enable_key >= VK_F1 && settings->enable_key <= VK_F24) {
-      key_label = std::format("Hotkey: F{}", settings->enable_key - VK_F1 + 1u);
+      key_label = std::format("快捷键：F{}", settings->enable_key - VK_F1 + 1u);
     } else if (settings->enable_key != 0u) {
       std::array<char, 64> key_name = {};
       const auto scan_code = static_cast<LONG>(MapVirtualKeyA(settings->enable_key, MAPVK_VK_TO_VSC) << 16u);
       key_label = (GetKeyNameTextA(scan_code, key_name.data(), static_cast<int>(key_name.size())) > 0
-                       ? std::format("Hotkey: {}", key_name.data())
-                       : std::format("Hotkey: key {:#04x}", settings->enable_key));
+                       ? std::format("快捷键：{}", key_name.data())
+                       : std::format("快捷键：按键 {:#04x}", settings->enable_key));
     }
     if (ImGui::Button(key_label.c_str())) {
       state->capturing_key = true;
@@ -681,7 +678,7 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
       changed = true;
     }
     if (ImGui::IsItemHovered()) {
-      ImGui::SetTooltip("Click, then press a key. Right-click clears it.");
+      ImGui::SetTooltip("点击后按下一个按键。右键点击可清除快捷键。");
     }
   }
 
@@ -698,18 +695,18 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
     // Plan 14 (design §1): green while NR works, three rows that say what Setup highlights (keys muted on the left, values in normal text from one column),
     // one muted Why line for a temporary fallback (else the note), and the footer. The height above is unchanged; whatever does not fit is left out.
     ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.45f, 1.f), "%s", card.title.c_str());
-    const float value_x = ImGui::GetCursorPosX() + ImGui::CalcTextSize("Motion vectors").x + 2.f * ImGui::GetStyle().ItemSpacing.x;
+    const float value_x = ImGui::GetCursorPosX() + ImGui::CalcTextSize("运动矢量").x + 2.f * ImGui::GetStyle().ItemSpacing.x;
     const auto row = [value_x](const char* key, const std::string& value) {
       ImGui::TextDisabled("%s", key);
       ImGui::SameLine(value_x);
       CardLine(value, false);
     };
-    row("Running at", view.live.stage);
-    row("Motion vectors", view.live.motion);
-    row("Resolution", view.live.resolution);
+    row("运行阶段", view.live.stage);
+    row("运动矢量", view.live.motion);
+    row("分辨率", view.live.resolution);
     if (!view.setup.why.empty()) {
       // Muted and wrapped: two lines in the card's spare height; the child clips anything longer, and the full text is the tooltip.
-      const std::string why = "Why: " + view.setup.why;
+      const std::string why = "当前原因：" + view.setup.why;
       ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
       ImGui::TextWrapped("%s", why.c_str());
       ImGui::PopStyleColor();
@@ -732,13 +729,13 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
   switch (card.button) {
     case CardButton::NONE: break;
     case CardButton::TURN_ON:
-      if (ImGui::Button("Turn on")) {
+      if (ImGui::Button("启用")) {
         settings->enabled = true;
         changed = true;
       }
       break;
     case CardButton::RETRY_NOW:
-      if (ImGui::Button(view.dlss_latched ? "Retry now and clear the latch" : "Retry now")) {
+      if (ImGui::Button(view.dlss_latched ? "立即重试并清除锁定" : "立即重试")) {
         state->retry_now = true;
         if (view.dlss_latched) {
           settings->dlss_placement_blocked = false;
@@ -748,7 +745,7 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
       }
       break;
     case CardButton::CLEAR_LATCH:
-      if (ImGui::Button("Clear latch##card")) {
+      if (ImGui::Button("清除锁定##card")) {
         settings->dlss_placement_blocked = false;
         settings->vulkan_native_nr = true;
         changed = true;
@@ -776,13 +773,13 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
     // section reset must not rewrite Mine's own settings while they are not even shown.
     if (!section_has_changed || state->defaults_view) return false;
     ImGui::SameLine();
-    return ImGui::SmallButton(std::format("Reset##{}", id).c_str());
+    return ImGui::SmallButton(std::format("重置##{}", id).c_str());
   };
 
   // ui-review.md §2 finding 1 / §3: the NR stage and Motion vectors toggles, in pipeline order, at the top
   // of the panel -- the decisions that shape everything else, instead of about the 45th line. Plan 14: Setup.
   const bool placement_changed = SectionChanged(*settings, SettingSection::PLACEMENT);
-  ImGui::SeparatorText(placement_changed ? "Setup (changed)" : "Setup");
+  ImGui::SeparatorText(placement_changed ? "设置（已更改）" : "设置");
   if (section_reset("placement", placement_changed)) {
     ResetSection(settings, SettingSection::PLACEMENT);
     const Settings defaults = DefaultSettings();  // the three highlights follow at once, each to the best option that can run (the stage first)
@@ -801,18 +798,18 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
 
   // ui-review.md §2 finding 7: Compare (Mine/Built-in) moves here, the first row of Look.
   const bool look_changed = SectionChanged(*settings, SettingSection::LOOK);
-  ImGui::SeparatorText(look_changed ? "Look (changed)" : "Look");
+  ImGui::SeparatorText(look_changed ? "外观（已更改）" : "外观");
   if (section_reset("look", look_changed)) {
     ResetSection(settings, SettingSection::LOOK);
     changed = true;
   }
-  ImGui::PushID("Compare");
-  static constexpr std::array<const char*, 2> COMPARE_OPTIONS = {"Mine", "Built-in"};
+  ImGui::PushID("对比");
+  static constexpr std::array<const char*, 2> COMPARE_OPTIONS = {"我的设置", "内置设置"};
   const std::array<std::string_view, 2> compare_why = {};
   const std::array<std::string_view, 2> compare_tips = {
-      std::string_view(), "The built-in look, read-only; your own settings are kept."};
+      std::string_view(), "当前显示内置外观（只读）；你的设置会保留。"};
   if (const int clicked =
-          RadioRow("Compare", COMPARE_OPTIONS, compare_why, compare_tips, (state->defaults_view ? 1 : 0));
+          RadioRow("对比", COMPARE_OPTIONS, compare_why, compare_tips, (state->defaults_view ? 1 : 0));
       clicked >= 0) {
     state->defaults_view = (clicked == 1);
   }
@@ -828,13 +825,13 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
     std::string_view runs_at;
     if (view.setup.chain_split) {
       switch (stage_row.runs) {
-        case SourcePick::BEFORE_UPSCALING: runs_at = " - Before upscaling"; break;
-        case SourcePick::AFTER_DLSS:       runs_at = " - After DLSS"; break;
-        case SourcePick::PRESENT:          runs_at = " - At Present"; break;
+        case SourcePick::BEFORE_UPSCALING: runs_at = " - DLSS 前"; break;
+        case SourcePick::AFTER_DLSS:       runs_at = " - DLSS 后"; break;
+        case SourcePick::PRESENT:          runs_at = " - 后处理阶段"; break;
       }
     }
     const std::string tree_label =
-        std::format("Pass {}{}{}###pass{}", pass, (follows ? " (same look as pass 1)" : ""), runs_at, pass);
+        std::format("第 {} 层{}{}###pass{}", pass, (follows ? "（外观同第 1 层）" : ""), runs_at, pass);
     if (ImGui::TreeNode(tree_label.c_str())) {
       const auto is_stage_row = [](const SettingDescriptor& descriptor) { return (descriptor.flags & setting_flags::PASS_STAGE) != 0u; };
       for (const SettingDescriptor& descriptor : SettingsSchema()) {
@@ -865,7 +862,7 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
   constexpr ImGuiTreeNodeFlags HEADER_FLAGS = ImGuiTreeNodeFlags_AllowOverlap;
   const bool shaping_changed = SectionChanged(*settings, SettingSection::RESULT) || SectionChanged(*settings, SettingSection::LIMITS);
   ImGui::SetNextItemOpen(settings->look.enabled, ImGuiCond_Once);
-  if (ImGui::CollapsingHeader(shaping_changed ? "Result shaping (changed)###shaping" : "Result shaping###shaping", HEADER_FLAGS)) {
+  if (ImGui::CollapsingHeader(shaping_changed ? "处理结果调整（已更改）###shaping" : "处理结果调整###shaping", HEADER_FLAGS)) {
     if (section_reset("shaping", shaping_changed)) {
       ResetSection(settings, SettingSection::RESULT);
       ResetSection(settings, SettingSection::LIMITS);
@@ -873,14 +870,14 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
     }
     changed |= draw_rows(SettingSection::RESULT);
     if (settings->look.enabled) {
-      ImGui::SeparatorText("Limits and stability");
+      ImGui::SeparatorText("限幅与稳定");
     }
     changed |= draw_rows(SettingSection::LIMITS);
   }
 
   // ui-review.md §2 finding 5: Mask and UI correction, which handle the HUD, get their own section.
   const bool mask_changed = SectionChanged(*settings, SettingSection::MASK);
-  if (ImGui::CollapsingHeader(mask_changed ? "Mask and HUD (changed)###mask" : "Mask and HUD###mask", HEADER_FLAGS)) {
+  if (ImGui::CollapsingHeader(mask_changed ? "蒙版与 HUD（已更改）###mask" : "蒙版与 HUD###mask", HEADER_FLAGS)) {
     if (section_reset("mask", mask_changed)) {
       ResetSection(settings, SettingSection::MASK);
       changed = true;
@@ -890,33 +887,33 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
 
   const bool fixes_changed = SectionChanged(*settings, SettingSection::FIXES_COLOR)
                              || SectionChanged(*settings, SettingSection::FIXES_GUIDES);
-  if (ImGui::CollapsingHeader(fixes_changed ? "Fixes (changed)###fixes" : "Fixes###fixes", HEADER_FLAGS)) {
+  if (ImGui::CollapsingHeader(fixes_changed ? "修正项（已更改）###fixes" : "修正项###fixes", HEADER_FLAGS)) {
     if (section_reset("fixes", fixes_changed)) {  // Plan 17: on the title's line, as Result shaping's and Mask and HUD's
       ResetSection(settings, SettingSection::FIXES_COLOR);
       ResetSection(settings, SettingSection::FIXES_GUIDES);
       changed = true;
     }
-    ImGui::TextDisabled("Only change these if you know what you are doing.");
-    ImGui::SeparatorText("Colour");
+    ImGui::TextDisabled("请仅在了解这些设置作用的情况下修改。");
+    ImGui::SeparatorText("色彩");
     changed |= draw_rows(SettingSection::FIXES_COLOR);
-    ImGui::SeparatorText("Motion and game state");
+    ImGui::SeparatorText("运动与游戏状态");
     changed |= draw_rows(SettingSection::FIXES_GUIDES);
   }
 
-  if (ImGui::CollapsingHeader("Advanced")) {
+  if (ImGui::CollapsingHeader("高级")) {
     changed |= draw_rows(SettingSection::ADVANCED);
   }
 
   // ui-review.md §2 finding 2: the wall of status text moves into one closed Details header. It always lists
   // everything, so its content does not depend on the card's state; a working card repeats its details lines.
-  if (ImGui::CollapsingHeader("Details")) {
+  if (ImGui::CollapsingHeader("详细信息")) {
     ImGui::TextUnformatted(view.status_line.c_str());
     if (!view.network_diagnostic.empty()) {
       ImGui::TextWrapped("%s", view.network_diagnostic.c_str());
-      ImGui::TextDisabled("Calls count successful command recordings; see ReShade.log for each feature and network change.");
+      ImGui::TextDisabled("调用次数统计的是成功录制的命令；各功能和网络的变化详见 ReShade.log。");
     }
-    ImGui::TextWrapped("Native inputs: depth and bidirectional distortion are not bound. Native guided upsampling is not enabled; reduced resolution uses Uplift's own upsampling.");
-    ImGui::TextWrapped("Native mask blend mode defaults to 1. Full mask-combination behavior on the Ada compatibility runtime remains under validation. Global tone and native Performance have no verified effect.");
+    ImGui::TextWrapped("原生输入：未绑定深度和双向畸变。未启用原生引导式升采样；降低分辨率时使用 Uplift 自带的升采样。");
+    ImGui::TextWrapped("原生蒙版混合模式默认为 1。Ada 兼容运行时的完整蒙版组合行为仍在验证中。全局色调和原生性能设置尚未确认有效。");
     // Plan 14: the engine's own lines, which the rows no longer show under themselves.
     for (const std::string* line : {&view.placement_line, &view.chain_line, &view.motion_line, &view.work_line, &view.exposure_line}) {
       if (!line->empty()) {
@@ -934,18 +931,18 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
 
   // G2: Restore all defaults, confirmed once before it takes effect.
   ImGui::Separator();
-  if (ImGui::Button("Restore all defaults")) {
+  if (ImGui::Button("恢复所有默认值")) {
     state->confirm_restore = true;
   }
   if (state->confirm_restore) {
-    ImGui::TextWrapped("Every setting returns to its default, the hotkey included; Enable stays as it is.");
-    if (ImGui::Button("Restore all")) {
+    ImGui::TextWrapped("所有设置都将恢复默认值，包括快捷键；“启用”状态保持不变。");
+    if (ImGui::Button("全部恢复")) {
       RestoreAllDefaults(settings);
       changed = true;
       state->confirm_restore = false;
     }
     ImGui::SameLine();
-    if (ImGui::Button("Keep my settings")) {
+    if (ImGui::Button("保留当前设置")) {
       state->confirm_restore = false;
     }
   }

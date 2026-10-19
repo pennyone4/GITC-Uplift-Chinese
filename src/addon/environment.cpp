@@ -131,10 +131,10 @@ std::optional<std::filesystem::path> PathFromUtf8(std::string_view text) {
 std::string Utf8FromPath(const std::filesystem::path& path) {
   const std::wstring& wide = path.native();
   if (wide.empty()) return {};
-  if (wide.size() > static_cast<size_t>(std::numeric_limits<int>::max())) return "<path too long to log>";
+  if (wide.size() > static_cast<size_t>(std::numeric_limits<int>::max())) return "<路径过长，无法写入日志>";
   const int length =
       WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wide.data(), static_cast<int>(wide.size()), nullptr, 0, nullptr, nullptr);
-  if (length <= 0) return "<path is not valid UTF-16>";
+  if (length <= 0) return "<路径不是有效的 UTF-16>";
   std::string utf8(static_cast<size_t>(length), '\0');
   WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wide.data(), static_cast<int>(wide.size()), utf8.data(), length, nullptr,
                       nullptr);
@@ -150,16 +150,16 @@ bool IsEnvironmentMarkerSet(const wchar_t* name) {
 
 std::optional<std::string> ForeignNrProducer(const ForeignNrSignals& signals) {
   if (signals.live_foreign_nr > 0u) {
-    return std::format("another tool created {} NR feature(s) through NVIDIA NGX in this game", signals.live_foreign_nr);
+    return std::format("其他工具已在此游戏中通过 NVIDIA NGX 创建 {} 个 NR 功能", signals.live_foreign_nr);
   }
   if (signals.runtime_mapped_elsewhere) {
-    std::string reason = "nvngx_dlssnr.dll is already mapped in this game by another component, or stayed mapped after Uplift unloaded it";
+    std::string reason = "nvngx_dlssnr.dll 已由此游戏中的其他组件加载，或在 Uplift 卸载后仍留在内存中";
     if (!signals.runtime_mapped_path.empty()) {
       reason += std::format(" ({})", signals.runtime_mapped_path);
     }
     return reason;
   }
-  if (signals.renodx_marker) return std::string("RenoDX DLSS5 is running NR in this game");
+  if (signals.renodx_marker) return std::string("RenoDX DLSS5 正在此游戏中运行 NR");
   return std::nullopt;
 }
 

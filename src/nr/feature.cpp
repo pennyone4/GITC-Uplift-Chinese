@@ -20,7 +20,7 @@ Feature::Feature(const Snippet& snippet) : snippet_(snippet) {}
 
 Feature::~Feature() {
   if (handle_ != nullptr) {
-    Log(LogLevel::ERR, "Feature destroyed while still created; the handle is leaked, not released unsafely");
+    Log(LogLevel::ERR, "Feature 销毁时仍处于已创建状态；为避免不安全释放，句柄已泄漏");
   }
   if (parameters_ != nullptr) {
     snippet_.DestroyParameters(parameters_);
@@ -42,7 +42,7 @@ NVSDK_NGX_Result Feature::Create(ID3D12GraphicsCommandList* list, const CreateIn
   parameters_->Set(keys::PERF_QUALITY_VALUE, static_cast<int>(info.performance) - 1);
   const NVSDK_NGX_Result result = snippet_.CreateFeature(list, parameters_, &handle_, &network_);
   if (NVSDK_NGX_FAILED(result) || handle_ == nullptr) {
-    Logf(LogLevel::ERR, "CreateFeature {}x{} failed: {:#010x}", info.capacity.width, info.capacity.height, static_cast<uint32_t>(result));
+    Logf(LogLevel::ERR, "NR 功能创建失败（{}x{}，错误码 {:#010x}）", info.capacity.width, info.capacity.height, static_cast<uint32_t>(result));
     handle_ = nullptr;
     return NVSDK_NGX_FAILED(result) ? result : NVSDK_NGX_Result_FAIL_PlatformError;
   }
@@ -50,9 +50,9 @@ NVSDK_NGX_Result Feature::Create(ID3D12GraphicsCommandList* list, const CreateIn
   enabled_evaluations_ = 0u;
   last_enabled_ = false;
   has_evaluation_ = false;
-  Logf(LogLevel::INFO, "NR feature created {}x{} (D3D12, preset request {}, handle {}); runtime network: {}",
+  Logf(LogLevel::INFO, "已创建 {}x{} 的 NR 功能（D3D12，预设请求值 {}，句柄 {}）；运行时网络：{}",
        capacity_.width, capacity_.height, info.preset, static_cast<const void*>(handle_),
-       network_.empty() ? std::string_view("unconfirmed: no native creation message") : std::string_view(network_));
+       network_.empty() ? std::string_view("未确认：没有原生创建消息") : std::string_view(network_));
   return result;
 }
 
@@ -64,7 +64,7 @@ NVSDK_NGX_Result Feature::Evaluate(ID3D12GraphicsCommandList* list, const Evalua
   const D3D12_RESOURCE_DESC output_desc = inputs.output->GetDesc();
   const Size output_size = {static_cast<uint32_t>(output_desc.Width), output_desc.Height};
   if (!MeetsNrFloor(output_size)) {
-    Logf(LogLevel::ERR, "NR refused a {}x{} output: the minimum is {}x{}", output_size.width, output_size.height,
+    Logf(LogLevel::ERR, "NR 拒绝处理 {}x{} 的输出画面：最低尺寸为 {}x{}", output_size.width, output_size.height,
          MIN_NR_LONG_SIDE, MIN_NR_SHORT_SIDE);
     return NVSDK_NGX_Result_FAIL_InvalidParameter;
   }
@@ -94,10 +94,10 @@ NVSDK_NGX_Result Feature::Evaluate(ID3D12GraphicsCommandList* list, const Evalua
     has_evaluation_ = true;
     const bool enabled = !inputs.bypass && controls.intensity > 0.f;
     if (enabled && (enabled_evaluations_ == 0u || !last_enabled_ || last_style_ != controls.style || last_mask_mode_ != controls.mask_blend_mode)) {
-      Logf(LogLevel::INFO, "NR diagnostic: enabled D3D12 evaluation recorded (NGX {:#010x}, handle {}, style {}, mask mode {}, intensity {}, character mask {}, motion {}, native control mask {}); runtime network: {}",
+      Logf(LogLevel::INFO, "NR 诊断：已录制启用状态下的 D3D12 评估调用（NGX {:#010x}，句柄 {}，风格 {}，蒙版混合模式 {}，强度 {}，自动角色遮罩 {}，运动矢量 {}，原生控制蒙版 {}）；运行时网络：{}",
            static_cast<uint32_t>(result), static_cast<const void*>(handle_), controls.style, controls.mask_blend_mode, controls.intensity,
            controls.auto_mask, inputs.motion.resource != nullptr, inputs.control_mask.resource != nullptr,
-           network_.empty() ? std::string_view("unconfirmed") : std::string_view(network_));
+           network_.empty() ? std::string_view("未确认") : std::string_view(network_));
     }
     if (enabled) ++enabled_evaluations_;
     last_enabled_ = enabled;
@@ -109,17 +109,17 @@ NVSDK_NGX_Result Feature::Evaluate(ID3D12GraphicsCommandList* list, const Evalua
 
 std::string Feature::Diagnostic(uint32_t pass) const {
   if (handle_ == nullptr) return {};
-  const std::string_view network = network_.empty() ? "unconfirmed (no native creation message)" : std::string_view(network_);
-  if (!has_evaluation_) return std::format("NR pass {} network: {} | awaiting evaluation", pass, network);
-  return std::format("NR pass {} network: {} | enabled calls recorded: {} | {} | style {} | native mask mode {}",
-                     pass, network, enabled_evaluations_, last_enabled_ ? "enabled" : "bypassed / zero intensity", last_style_, last_mask_mode_);
+  const std::string_view network = network_.empty() ? "未确认（没有原生创建消息）" : std::string_view(network_);
+  if (!has_evaluation_) return std::format("第 {} 层网络：{} | 等待评估", pass, network);
+  return std::format("第 {} 层网络：{} | 已记录的启用调用次数：{} | {} | 风格 {} | 原生蒙版混合模式 {}",
+                     pass, network, enabled_evaluations_, last_enabled_ ? "已启用" : "已旁路/强度为 0", last_style_, last_mask_mode_);
 }
 
 NVSDK_NGX_Result Feature::Release() {
   if (handle_ == nullptr) return NVSDK_NGX_Result_Success;
   const NVSDK_NGX_Result result = snippet_.ReleaseFeature(handle_);
   if (NVSDK_NGX_FAILED(result)) {
-    Logf(LogLevel::ERR, "ReleaseFeature failed: {:#010x}", static_cast<uint32_t>(result));
+    Logf(LogLevel::ERR, "ReleaseFeature 调用失败：{:#010x}", static_cast<uint32_t>(result));
   }
   handle_ = nullptr;
   capacity_ = {};

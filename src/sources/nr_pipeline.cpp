@@ -211,7 +211,7 @@ bool NrPipeline::EnsureFaces(nr::Size canvas) {
   };
   if (!created.twin || !created.detail || !created.atlas || !created.fill) {
     if (!allocation_failure_logged_) {
-      nr::Logf(nr::LogLevel::ERR, "could not allocate the {}x{} Keep faces surfaces", canvas.width, canvas.height);
+      nr::Logf(nr::LogLevel::ERR, "无法分配 {}x{} 的保护面部表面", canvas.width, canvas.height);
       allocation_failure_logged_ = true;
     }
     return false;  // `created` was never used by the GPU: freed here
@@ -347,7 +347,7 @@ std::string_view NrPipeline::EnsureIntermediates(const SetPlan& plan) {
                         && (!plan.canvas_motion || created.canvas_motion) && (!pre_sr || created.private_color);
   if (!complete) {
     if (!allocation_failure_logged_) {
-      nr::Logf(nr::LogLevel::ERR, "could not allocate the {}x{} NR surfaces", plan.canvas.width, plan.canvas.height);
+      nr::Logf(nr::LogLevel::ERR, "无法分配 {}x{} 的 NR 表面", plan.canvas.width, plan.canvas.height);
       allocation_failure_logged_ = true;
     }
     return "out of memory";
@@ -403,7 +403,7 @@ bool NrPipeline::EnsureLook(const LookPlan& plan) {
                         && (!plan.detail || (created.detail_history[0] && created.detail_history[1]));
   if (!complete) {
     if (!allocation_failure_logged_) {
-      nr::Logf(nr::LogLevel::ERR, "could not allocate the {}x{} look surfaces", plan.image.width, plan.image.height);
+      nr::Logf(nr::LogLevel::ERR, "无法分配 {}x{} 的处理结果调整表面", plan.image.width, plan.image.height);
       allocation_failure_logged_ = true;
     }
     return false;  // `created` was never used by the GPU: freed here
@@ -859,7 +859,8 @@ PipelineResult NrPipeline::RecordPresent(ID3D12GraphicsCommandList* list, const 
     if (counters.since == std::chrono::steady_clock::time_point{}) {
       counters.since = now;
     } else if (now - counters.since >= std::chrono::seconds(1)) {
-      nr::Logf(nr::LogLevel::TRACE, "Direct3D 12: Present motion: {} copy attempts for {} presents; {} copies, skipped {} (input) {} (ring slot) {} (slot's last use); presents bound {} own, {} older, {} none; max copy age {}, max GPU lag {}; {} pipeline reset hints; latest jitter correction {} x {} px",
+      nr::Logf(nr::LogLevel::TRACE, "Direct3D 12：后处理阶段运动矢量：{} 次复制尝试对应 {} 次呈现；复制 {} 次，跳过 {} 次（输入无效）、{} 次（环形槽位繁忙）、{} 次（槽位仍在使用）；"
+                             "已绑定的呈现帧：当前帧 {} 个、较旧帧 {} 个、缺失 {} 个；最大复制年龄 {} 帧，最大 GPU 延迟 {} 帧；流水线重置提示 {} 次；最近一次抖动校正量 {} x {} 像素",
                counters.evaluates, counters.presents, counters.copies, counters.skipped_input, counters.skipped_ring, counters.skipped_slot,
                counters.own, counters.older, counters.missed, counters.age_max, counters.lag_max, counters.resets, counters.offset_x, counters.offset_y);
       counters = {.since = now};
@@ -1239,7 +1240,7 @@ bool NrPipeline::RecordMotionCopy(ID3D12GraphicsCommandList* list, const nr::Bou
     // Fix round 1 (M6): the GPU runs too far behind for four slots (a lag past 3): the ring grows once, its new copies made beside the first ones (none of those is freed or
     // moved). This frame goes without its copy; its present binds an older one.
     if (PresentMotionGrows(motion_copies_.slots, PresentMotionWrite::SLOT_BUSY) && MakeMotionCopies(motion_copies_.slots, MOTION_COPY_SLOTS, size)) {
-      nr::Logf(nr::LogLevel::INFO, "Direct3D 12: the GPU runs too far behind for four slots: DLSS's motion copies for Present grow from {} to {} slots",
+      nr::Logf(nr::LogLevel::INFO, "Direct3D 12：GPU 处理延迟过大，4 个槽位已不足；后处理阶段的 DLSS 运动矢量副本槽位从 {} 个增至 {} 个",
                motion_copies_.slots, MOTION_COPY_SLOTS);
       motion_copies_.slots = MOTION_COPY_SLOTS;
     }
@@ -1282,7 +1283,7 @@ nr::BoundResource NrPipeline::ConvertDlssMotion(ID3D12GraphicsCommandList* list,
   if (dlss_present_motion_.size != size || !dlss_present_motion_.texture) {
     RetireDlssPresentMotion();
     dlss_present_motion_.texture = CreateTexture(size, DXGI_FORMAT_R16G16_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, COMPUTE_READ,
-                                                 L"Uplift DLSS motion for Present");
+                                                 L"Uplift DLSS 后处理运动矢量副本");
     if (!dlss_present_motion_.texture) {
       dlss_present_motion_ = {};
       return {};

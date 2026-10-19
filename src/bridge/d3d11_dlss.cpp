@@ -75,7 +75,7 @@ bool D3D11Bridge::EnsureShared(Shared* shared, std::optional<ShareFailure>* fail
   HRESULT result = S_OK;
   if (!CreateShared(size, format, flags, bytes_per_pixel, L"Uplift shared DLSS texture", shared, &result)) {
     *failure = ShareFailure{.size = size, .format = format, .result = result, .flags = flags};
-    nr::Logf(nr::LogLevel::WARN, "{} could not be shared with the private Direct3D 12 device (DXGI_FORMAT {}, HRESULT {:#010x})", what,
+    nr::Logf(nr::LogLevel::WARN, "无法向专用 Direct3D 12 设备共享 {}（DXGI_FORMAT {}，HRESULT {:#010x}）", what,
              static_cast<int>(format), static_cast<uint32_t>(result));
     return false;
   }
@@ -102,8 +102,8 @@ DlssHandoff D3D11Bridge::RunDlss(const DlssHandoffInput& input, const DlssRecord
   const auto unsupported = [&image](HRESULT result) {
     return DlssHandoff{
         .skipped = DlssSkip::UNSUPPORTED_FORMAT,
-        .problem = std::format("Direct3D 11 cannot share DLSS's image (DXGI_FORMAT {}{}) with Uplift's Direct3D 12 device", (image ? static_cast<int>(image->Format) : 0),
-                               (FAILED(result) ? std::format(", HRESULT {:#010x}", static_cast<uint32_t>(result)) : std::string()))};
+        .problem = std::format("Direct3D 11 无法将 DLSS 图像（DXGI_FORMAT {}{}）共享至 Uplift 的 Direct3D 12 设备", (image ? static_cast<int>(image->Format) : 0),
+                               (FAILED(result) ? std::format("，HRESULT {:#010x}", static_cast<uint32_t>(result)) : std::string()))};
   };
   if (!image || !format || image->SampleDesc.Count != 1u || image->ArraySize != 1u) return unsupported(S_OK);
   if (!side_->SlotFree()) {
@@ -131,7 +131,7 @@ DlssHandoff D3D11Bridge::RunDlss(const DlssHandoffInput& input, const DlssRecord
     return unsupported(result);
   }
   if (!after && !EnsureShared(&dlss_swap_, &dlss_swap_failure_, image_size, DXGI_FORMAT_R16G16B16A16_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, 8u,
-                              "Before upscaling's colour")) {
+                              "DLSS 前的颜色")) {
     return {.skipped = DlssSkip::SHARE_FAILED};
   }
   // DLSS's vectors and exposure cross when they can be shared; NR runs without them otherwise (EnsureShared logged why).
@@ -209,7 +209,7 @@ DlssHandoff D3D11Bridge::RunDlss(const DlssHandoffInput& input, const DlssRecord
         *wrote = record_(list, targets);
       } catch (...) {
         // Half a recording never executes; the queue still signals, so D3D11 never waits in vain.
-        nr::Log(nr::LogLevel::ERR, "NR's recording of a DLSS stage on the private Direct3D 12 device threw; this evaluate goes without NR");
+        nr::Log(nr::LogLevel::ERR, "在专用 Direct3D 12 设备上记录 DLSS 阶段的 NR 命令时发生异常；本次评估将不运行 NR");
         recorded = false;
         *wrote = false;
       }
@@ -276,7 +276,7 @@ DlssHandoff D3D11Bridge::RunDlss(const DlssHandoffInput& input, const DlssRecord
     watchdog_.Submitted(out, now);
   }
   if (!frame.failure.empty()) {
-    latch_ = std::format("The {} bridge stopped: {}", label_, frame.failure);
+    latch_ = std::format("{} 中继已停止：{}", label_, frame.failure);
     nr::Log(nr::LogLevel::ERR, latch_);
   }
   return {.wrote = frame.wrote, .executed = steps.executed, .color = ((!after && frame.wrote) ? dlss_swap_.d3d11.Get() : nullptr)};
@@ -293,7 +293,7 @@ bool D3D11Bridge::CopyPresentMotion(ID3D11Resource* motion, nr::Rect region, flo
   if (slot.shared.d3d12 && slot.shared.last_use > side_->Completed()) {
     // Still read: no copy this frame (its present binds an older one). Fix round 1 (M6): the ring grows once; the slots in use keep their copies and marks.
     if (sources::PresentMotionGrows(ring_slots_, sources::PresentMotionWrite::SLOT_BUSY)) {
-      nr::Logf(nr::LogLevel::INFO, "{}: the private queue runs too far behind for four slots: DLSS's motion copies for Present grow from {} to {} slots",
+      nr::Logf(nr::LogLevel::INFO, "{}：专用队列积压过多，无法继续使用 4 个槽位；后处理阶段的 DLSS 运动矢量副本缓冲区从 {} 个槽位扩至 {} 个",
                label_, ring_slots_, RING_SLOTS);
       ring_slots_ = RING_SLOTS;
     }
@@ -301,7 +301,7 @@ bool D3D11Bridge::CopyPresentMotion(ID3D11Resource* motion, nr::Rect region, flo
   }
   // Fix round 1 (M-4): at the vectors' whole size; the region is copied to (0, 0) and the slot keeps it, for the Present path's subrect.
   if (!EnsureShared(&slot.shared, &ring_failure_, {description->Width, description->Height}, format->format, SHARE_FLAGS, format->bytes_per_pixel,
-                    "DLSS's motion vectors for Present")) {
+                    "后处理阶段使用的 DLSS 运动矢量")) {
     return false;
   }
   const D3D11_BOX box = BoxOf(region);
@@ -318,7 +318,7 @@ void D3D11Bridge::ReleasePresentMotion() {
   // call finds nothing and logs nothing.
   if (const uint64_t bytes = RingBytes(); bytes > 0u) {
     const auto slots = std::count_if(ring_.begin(), ring_.end(), [](const RingSlot& slot) { return slot.shared.bytes > 0u; });
-    nr::Logf(nr::LogLevel::INFO, "{}: DLSS's motion vectors' copies for Present released ({} of {} slots, {:.1f} MiB)", label_, slots, ring_slots_,
+    nr::Logf(nr::LogLevel::INFO, "{}：后处理阶段的 DLSS 运动矢量副本已释放（{} / {} 个槽位，共 {:.1f} MiB）", label_, slots, ring_slots_,
              static_cast<double>(bytes) / (1024.0 * 1024.0));
   }
   for (RingSlot& slot : ring_) {

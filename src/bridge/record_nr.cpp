@@ -138,7 +138,7 @@ DlssHandoff RunDlssStage(D3D11Bridge& bridge, addon::DeviceContext& context, add
   if (handoff.skipped == DlssSkip::UNSUPPORTED_FORMAT) {
     context.NoteStageProblem(work, handoff.problem);
   } else if (recorded.reason == "unsupported format") {
-    context.NoteStageProblem(work, "the private Direct3D 12 device cannot write DLSS's output format");
+    context.NoteStageProblem(work, "专用 Direct3D 12 设备无法写入 DLSS 输出格式");
   }
   // Fix round 1 (I-1): an evaluate whose NR never came back says so, and owes NR's history a reset, as Direct3D 12's own skips do.
   if (const std::string_view reason = HandoffSkipReason(handoff, recorded.nr_applied); !reason.empty()) {
@@ -149,15 +149,15 @@ DlssHandoff RunDlssStage(D3D11Bridge& bridge, addon::DeviceContext& context, add
 
 std::string_view HandoffSkipReason(const DlssHandoff& handoff, bool nr_applied) {
   switch (handoff.skipped) {
-    case DlssSkip::STOPPED:            return "bridge stopped";
-    case DlssSkip::BUSY:               return "bridge busy";
-    case DlssSkip::NO_INPUT:           return "DLSS's region lies outside its texture";
-    case DlssSkip::UNSUPPORTED_FORMAT: return "unsupported format";
-    case DlssSkip::SHARE_FAILED:       return "the bridge could not share DLSS's image";
+    case DlssSkip::STOPPED:            return "中继已停止";
+    case DlssSkip::BUSY:               return "中继繁忙";
+    case DlssSkip::NO_INPUT:           return "DLSS 区域超出纹理范围";
+    case DlssSkip::UNSUPPORTED_FORMAT: return "不支持的格式";
+    case DlssSkip::SHARE_FAILED:       return "中继无法共享 DLSS 图像";
     case DlssSkip::NONE:               break;
   }
-  if (!handoff.executed) return "the private list was not submitted";  // the recording failed or threw: nothing ran
-  if (nr_applied && !handoff.wrote) return "NR's result did not come back";  // the game's wait was refused (the bridge stopped)
+  if (!handoff.executed) return "专用命令列表未提交";  // the recording failed or threw: nothing ran
+  if (nr_applied && !handoff.wrote) return "NR 结果未能传回游戏";  // the game's wait was refused (the bridge stopped)
   return {};
 }
 

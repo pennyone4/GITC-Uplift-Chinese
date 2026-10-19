@@ -12,7 +12,7 @@ ImportResult Interop::ImportImage(HANDLE nt_handle, DXGI_FORMAT format, nr::Size
   const VkFormat vk_format = VkFormatOf(format);
   if (vk_format == VK_FORMAT_UNDEFINED) {
     out.result = VK_ERROR_FORMAT_NOT_SUPPORTED;
-    out.step = "the format";
+    out.step = "格式";
     return out;
   }
   if (device_.vkGetMemoryWin32HandlePropertiesKHR == nullptr) {
@@ -61,7 +61,7 @@ ImportResult Interop::ImportImage(HANDLE nt_handle, DXGI_FORMAT format, nr::Size
     return fail(result, "vkGetMemoryWin32HandlePropertiesKHR");
   }
   const uint32_t allowed = requirements.memoryTypeBits & properties.memoryTypeBits;
-  if (allowed == 0u) return fail(VK_ERROR_FEATURE_NOT_PRESENT, "the memory type");
+  if (allowed == 0u) return fail(VK_ERROR_FEATURE_NOT_PRESENT, "内存类型");
   // Key decision e: the device-local type among the handle's and the image's bits when the record has the physical device, else the lowest.
   uint32_t memory_type = static_cast<uint32_t>(std::countr_zero(allowed));
   if (device_.record.physical != VK_NULL_HANDLE) {

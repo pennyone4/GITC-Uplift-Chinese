@@ -28,11 +28,11 @@ std::unique_ptr<HelperLauncher> HelperLauncher::Start(const std::filesystem::pat
     return std::unique_ptr<HelperLauncher>();
   };
   const auto failed_call = [&fail](const char* call, DWORD code) {
-    return fail(std::format("Uplift's 64-bit helper could not start ({} {:#010x})", call, static_cast<uint32_t>(code)));
+    return fail(std::format("无法启动 Uplift 的 64 位辅助进程（{}，错误码 {:#010x}）", call, static_cast<uint32_t>(code)));
   };
   std::error_code ignored;
   if (!std::filesystem::exists(exe, ignored)) {
-    return fail(std::format("{} was not found next to {}", exe.filename().string(), addon_file));
+    return fail(std::format("找不到辅助进程文件 {}（应与 {} 放在同一目录）", exe.filename().string(), addon_file));
   }
   // Every failure below returns with `launcher` going out of scope: its destructor closes what was opened, and closing the
   // job ends a helper that was already assigned to it.
@@ -106,7 +106,7 @@ std::unique_ptr<HelperLauncher> HelperLauncher::Start(const std::filesystem::pat
     const DWORD failure = GetLastError();
     TerminateProcess(process.hProcess, 1u);  // our own child, still suspended
     CloseHandle(process.hThread);
-    return fail(std::format("Uplift's 64-bit helper could not be tied to the game (AssignProcessToJobObject {:#010x})",
+    return fail(std::format("无法将 Uplift 的 64 位辅助进程关联到游戏（AssignProcessToJobObject 错误码 {:#010x}）",
                             static_cast<uint32_t>(failure)));
   }
   if (ResumeThread(process.hThread) == static_cast<DWORD>(-1)) {

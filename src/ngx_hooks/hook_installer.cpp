@@ -138,12 +138,12 @@ void LogObserverFailure(ObserverCall kind, const char* what) noexcept {
   static std::array<std::atomic<bool>, 4> logged{false, false, false, false};
   const size_t index = static_cast<size_t>(kind);
   if (logged[index].exchange(true)) return;
-  constexpr std::array<const char*, 4> NAMES = {"create", "evaluate", "release", "shutdown"};
+  constexpr std::array<const char*, 4> NAMES = {"创建", "评估", "释放", "关闭"};
   try {
     if (what != nullptr) {
-      nr::Logf(nr::LogLevel::ERR, "the NGX {} observer threw ({}); the call went to NGX unchanged", NAMES[index], what);
+      nr::Logf(nr::LogLevel::ERR, "NGX {}观察器发生异常（{}）；调用仍原样传递给 NGX", NAMES[index], what);
     } else {
-      nr::Logf(nr::LogLevel::ERR, "the NGX {} observer threw; the call went to NGX unchanged", NAMES[index]);
+      nr::Logf(nr::LogLevel::ERR, "NGX {}观察器发生异常；调用仍原样传递给 NGX", NAMES[index]);
     }
   } catch (...) {
     // No-op: logging here is best effort; the NGX call itself is never affected.
@@ -169,14 +169,14 @@ NVSDK_NGX_Result RunCreate(CreateCall call, NVSDK_NGX_Handle** out_handle, Origi
       if (!logged.exchange(true)) {
         try {
           nr::Logf(nr::LogLevel::ERR,
-                   "restoring the game's own NGX parameters threw ({}); some may not have been restored", e.what());
+                   "恢复游戏自己的 NGX 参数时发生异常（{}）；部分参数可能未能恢复", e.what());
         } catch (...) {
         }
       }
     } catch (...) {
       if (!logged.exchange(true)) {
         try {
-          nr::Logf(nr::LogLevel::ERR, "restoring the game's own NGX parameters threw; some may not have been restored");
+          nr::Logf(nr::LogLevel::ERR, "恢复游戏自己的 NGX 参数时发生异常；部分参数可能未能恢复");
         } catch (...) {
         }
       }
@@ -609,7 +609,7 @@ std::string HookedApis(const HookedModule& module) {
   if (module.vulkan) names.push_back("Vulkan");
   std::string text;
   for (size_t index = 0u; index < names.size(); ++index) {
-    text += (index == 0u ? "" : (index + 1u == names.size() ? " and " : ", "));
+    text += (index == 0u ? "" : (index + 1u == names.size() ? " 和 " : "、"));
     text += names[index];
   }
   return text;
@@ -623,13 +623,13 @@ bool HookInstaller::Start(NgxObserver* observer, std::string* error) {
   const std::unique_lock lock(mutex_);
   if (started_) return true;
   if (g_installer_running.exchange(true)) {
-    *error = "another NGX hook installer is already running";
+    *error = "另一个 NGX 挂钩安装程序正在运行";
     return false;
   }
   // Plan 11: one MH_Initialize per process, shared with the Vulkan device hook (which may have started it already).
   if (const MH_STATUS status = hooks::EnsureMinHook(); status != MH_OK) {
     g_installer_running.store(false);
-    *error = std::format("MinHook failed to start: {}", MH_StatusToString(status));
+    *error = std::format("MinHook 启动失败：{}", MH_StatusToString(status));
     return false;
   }
   // The detours and the DLL-load notification live in this module: it must outlive them (spec §10).
@@ -637,7 +637,7 @@ bool HookInstaller::Start(NgxObserver* observer, std::string* error) {
   if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
                          reinterpret_cast<LPCWSTR>(&OnDllNotification), &self)
       == FALSE) {
-    nr::Logf(nr::LogLevel::WARN, "could not pin Uplift's module ({})", GetLastError());
+    nr::Logf(nr::LogLevel::WARN, "无法固定 Uplift 模块（{}）", GetLastError());
   }
   g_observer.store(observer, std::memory_order_release);
   const auto register_notification =
@@ -645,7 +645,7 @@ bool HookInstaller::Start(NgxObserver* observer, std::string* error) {
   if (register_notification == nullptr
       || register_notification(0u, &OnDllNotification, &pending_, &notification_cookie_) < 0) {
     notification_cookie_ = nullptr;
-    nr::Log(nr::LogLevel::WARN, "no DLL-load notification: an NGX core loaded later is hooked only at an explicit Scan");
+    nr::Log(nr::LogLevel::WARN, "未能接收 DLL 加载通知：之后加载的 NGX 核心只能通过手动 Scan 扫描并挂接");
   }
   started_ = true;
   ScanLocked();
@@ -747,7 +747,7 @@ size_t HookInstaller::ScanLocked() {
     const bool d3d11_exported = (d3d11_create != nullptr && d3d11_evaluate != nullptr && d3d11_release != nullptr);  // Plan 18
     const bool vulkan_exported = ((vk_create != nullptr || vk_create1 != nullptr) && vk_evaluate != nullptr && vk_release != nullptr);
     if (!d3d12_exported && !d3d11_exported && !vulkan_exported) {
-      nr::Logf(nr::LogLevel::INFO, "{} exports no D3D12, D3D11 or Vulkan feature entry points; not hooked", name);
+      nr::Logf(nr::LogLevel::INFO, "{} 未导出 D3D12、D3D11 或 Vulkan 功能入口点；不会挂接", name);
       rejected_.push_back(module);
       continue;
     }
@@ -758,7 +758,7 @@ size_t HookInstaller::ScanLocked() {
     const bool hook_vulkan = (vulkan_exported && !hooked_already(vk_create) && !hooked_already(vk_create1) && !hooked_already(vk_evaluate)
                               && !hooked_already(vk_release));
     if (!hook_d3d12 && !hook_d3d11 && !hook_vulkan) {
-      nr::Logf(nr::LogLevel::INFO, "{} forwards to an NGX core that is hooked already", name);
+      nr::Logf(nr::LogLevel::INFO, "{} 转发至已挂接的 NGX 核心", name);
       rejected_.push_back(module);
       continue;
     }
@@ -774,7 +774,7 @@ size_t HookInstaller::ScanLocked() {
       }
     }
     if (slot == MAX_MODULES) {
-      nr::Logf(nr::LogLevel::WARN, "no free NGX hook slot for {} (at most {} module copies are hooked at once)", name,
+      nr::Logf(nr::LogLevel::WARN, "没有可用于挂接 NGX 的空闲槽位：{}（最多可同时挂接 {} 个模块副本）", name,
                MAX_MODULES);
       rejected_.push_back(module);
       continue;
@@ -826,7 +826,7 @@ size_t HookInstaller::ScanLocked() {
       if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
                              static_cast<LPCWSTR>(entry_point.target), &pinned_module)
           == FALSE) {
-        nr::Logf(nr::LogLevel::WARN, "could not pin {} ({}); not hooked", name, GetLastError());
+        nr::Logf(nr::LogLevel::WARN, "无法固定 {}（{}）；不会挂接", name, GetLastError());
         pinned_all = false;
         break;
       }
@@ -867,13 +867,13 @@ size_t HookInstaller::ScanLocked() {
         if (void* const chained = HotpatchChainTarget(entry_point.target); chained != nullptr) {
           status = MH_CreateHook(chained, entry_point.detour, &entry_point.original);
           if (status == MH_OK) {
-            nr::Logf(nr::LogLevel::INFO, "{}: an entry point another tool hotpatched is hooked through that tool's jump", name);
+            nr::Logf(nr::LogLevel::INFO, "{}：通过另一个工具的跳转挂接其已热补丁修改的入口点", name);
             entry_point.target = chained;
           }
         }
       }
       if (status != MH_OK) {
-        nr::Logf(nr::LogLevel::WARN, "MinHook could not hook {}: {}", name, MH_StatusToString(status));
+        nr::Logf(nr::LogLevel::WARN, "MinHook 无法挂接 {}：{}", name, MH_StatusToString(status));
         entry_point.original = nullptr;
         if (!entry_point.required) continue;
         if (d3d11_entry) {
@@ -912,13 +912,13 @@ size_t HookInstaller::ScanLocked() {
       originals.vk_shutdown1.store(reinterpret_cast<VkShutdown1Fn>(entry_points[16].original), std::memory_order_release);
       for (void* const target : created) {
         if (const MH_STATUS status = MH_QueueEnableHook(target); status != MH_OK) {
-          nr::Logf(nr::LogLevel::WARN, "MinHook could not queue {} for enabling: {}", name, MH_StatusToString(status));
+          nr::Logf(nr::LogLevel::WARN, "MinHook 无法将 {} 加入启用队列：{}", name, MH_StatusToString(status));
           ok = false;
         }
       }
       if (ok) {
         if (const MH_STATUS status = MH_ApplyQueued(); status != MH_OK) {
-          nr::Logf(nr::LogLevel::WARN, "MinHook could not apply the queued hooks on {}: {}", name, MH_StatusToString(status));
+          nr::Logf(nr::LogLevel::WARN, "MinHook 无法应用 {} 上已排队的挂钩：{}", name, MH_StatusToString(status));
           ok = false;
         }
       }
@@ -927,12 +927,12 @@ size_t HookInstaller::ScanLocked() {
       bool poisoned = false;
       for (void* const target : created) {
         if (const MH_STATUS status = MH_DisableHook(target); status != MH_OK) {
-          nr::Logf(nr::LogLevel::WARN, "MinHook could not disable a hook rolling back {}: {}", name,
+          nr::Logf(nr::LogLevel::WARN, "MinHook 回滚 {} 时无法禁用挂钩：{}", name,
                    MH_StatusToString(status));
           poisoned = true;
         }
         if (const MH_STATUS status = MH_RemoveHook(target); status != MH_OK) {
-          nr::Logf(nr::LogLevel::WARN, "MinHook could not remove a hook rolling back {}: {}", name,
+          nr::Logf(nr::LogLevel::WARN, "MinHook 回滚 {} 时无法移除挂钩：{}", name,
                    MH_StatusToString(status));
           poisoned = true;
         }
@@ -944,7 +944,7 @@ size_t HookInstaller::ScanLocked() {
       } else {
         g_originals[slot].Clear();
       }
-      nr::Logf(nr::LogLevel::WARN, "NGX hooks on {} failed; the DLSS placements cannot use it", name);
+      nr::Logf(nr::LogLevel::WARN, "{} 上的 NGX 挂钩失败；DLSS 阶段无法使用此模块", name);
       rejected_.push_back(module);
       continue;
     }
@@ -964,13 +964,13 @@ size_t HookInstaller::ScanLocked() {
                                      .d3d11_shutdown_all = with_d3d11_shutdown_all},
                           .targets = std::move(created),
                           .slot = slot});
-    nr::Logf(nr::LogLevel::INFO, "NGX hooks installed on {} ({} entry points; EvaluateFeature_C {}{}{}{})", name, HookedApis(installed_.back().module),
-             (with_evaluate_c ? "hooked" : (evaluate_c == nullptr ? "not exported" : "not hooked")),
-             (!hook_d3d12 ? "" : (with_d3d12_shutdown ? "; D3D12_Shutdown1 hooked" : "; D3D12_Shutdown1 not hooked")),
+    nr::Logf(nr::LogLevel::INFO, "{} 上已安装 NGX 挂钩（{} 个入口点；EvaluateFeature_C {}{}{}{})", name, HookedApis(installed_.back().module),
+             (with_evaluate_c ? "已挂接" : (evaluate_c == nullptr ? "未导出" : "未挂接")),
+             (!hook_d3d12 ? "" : (with_d3d12_shutdown ? "；D3D12_Shutdown1 已挂接" : "；D3D12_Shutdown1 未挂接")),
              (!d3d11_hooked ? std::string()
-                            : std::format("; D3D11_Shutdown1 {}; D3D11_Shutdown {}", (with_d3d11_shutdown ? "hooked" : "not hooked"),
-                                          (with_d3d11_shutdown_all ? "hooked" : "not hooked"))),
-             (!vulkan_hooked ? "" : (with_vulkan_shutdown ? "; VULKAN_Shutdown1 hooked" : "; VULKAN_Shutdown1 not hooked")));
+                            : std::format("；D3D11_Shutdown1 {}；D3D11_Shutdown {}", (with_d3d11_shutdown ? "已挂接" : "未挂接"),
+                                          (with_d3d11_shutdown_all ? "已挂接" : "未挂接"))),
+             (!vulkan_hooked ? "" : (with_vulkan_shutdown ? "；VULKAN_Shutdown1 已挂接" : "；VULKAN_Shutdown1 未挂接")));
     ++hooked;
   }
   return hooked;
@@ -992,12 +992,12 @@ void HookInstaller::Shutdown() {
     bool poisoned = false;
     for (void* const target : entry.targets) {
       if (const MH_STATUS status = MH_DisableHook(target); status != MH_OK) {
-        nr::Logf(nr::LogLevel::WARN, "MinHook could not disable a hook during shutdown (slot {}): {}", entry.slot,
+        nr::Logf(nr::LogLevel::WARN, "MinHook 关闭时无法禁用挂钩（槽位 {}）：{}", entry.slot,
                  MH_StatusToString(status));
         poisoned = true;
       }
       if (const MH_STATUS status = MH_RemoveHook(target); status != MH_OK) {
-        nr::Logf(nr::LogLevel::WARN, "MinHook could not remove a hook during shutdown (slot {}): {}", entry.slot,
+        nr::Logf(nr::LogLevel::WARN, "MinHook 关闭时无法移除挂钩（槽位 {}）：{}", entry.slot,
                  MH_StatusToString(status));
         poisoned = true;
       }
@@ -1014,7 +1014,7 @@ void HookInstaller::Shutdown() {
   rejected_.clear();
   // Plan 11: MinHook stays initialised while the Vulkan device hook (which lives for the process) holds it.
   if (const MH_STATUS status = hooks::ReleaseMinHook(); status != MH_OK) {
-    nr::Logf(nr::LogLevel::WARN, "MinHook failed to uninitialize: {}", MH_StatusToString(status));
+    nr::Logf(nr::LogLevel::WARN, "MinHook 反初始化失败：{}", MH_StatusToString(status));
   }
   pending_.store(false, std::memory_order_release);
   started_ = false;

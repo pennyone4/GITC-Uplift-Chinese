@@ -57,7 +57,7 @@ T* AsNative(uint64_t handle) {
 void HelperLog(std::string_view line) {
   if (line.empty()) return;
   const int level = std::clamp(line.front() - '0', 0, static_cast<int>(nr::LogLevel::TRACE));
-  nr::Log(static_cast<nr::LogLevel>(level), std::format("helper: {}", line.substr(1)));
+  nr::Log(static_cast<nr::LogLevel>(level), std::format("辅助进程：{}", line.substr(1)));
 }
 const std::function<void(std::string_view)> HELPER_LOG = &HelperLog;
 
@@ -117,7 +117,7 @@ std::string_view ApiName(api::device_api device_api) {
     case api::device_api::opengl: return "OpenGL";
     case api::device_api::vulkan: return "Vulkan";
   }
-  return "an unknown API";
+  return "未知 API";
 }
 
 // Design §2.9: ReShade's create_device event.
@@ -143,7 +143,7 @@ std::optional<std::string> HelperFront::CheckExMarker(ui::Settings* settings, ui
   ui::SaveSettings(*settings, config);
   DeleteLatchMarker(ex_marker_path_);
   ex_turned_off_ = true;
-  return std::string("Direct3D 9Ex turned off: the last start with it did not reach its first frame");
+  return std::string("已关闭 Direct3D 9Ex：上次启用后，游戏未能显示首帧");
 }
 
 void HelperFront::SettingsChanged(const ui::Settings& settings) {
@@ -154,7 +154,7 @@ void HelperFront::SettingsChanged(const ui::Settings& settings) {
   settings_text_ = store.Serialize();
   if (settings_text_.size() >= ipc::SETTINGS_BYTES && !warned_settings_size_) {
     warned_settings_size_ = true;
-    nr::Logf(nr::LogLevel::WARN, "the settings are larger than the helper's {} byte channel; the helper reads them cut short",
+    nr::Logf(nr::LogLevel::WARN, "设置数据超过辅助进程通道容量（{} 字节）；辅助进程读取到的数据将被截断",
              ipc::SETTINGS_BYTES);
   }
 }
@@ -167,7 +167,7 @@ void HelperFront::NotePresent(HelperDevice& device, api::device* owner, const ui
     if (settings.use_d3d9ex && !ex_event_seen_ && !warned_ex_event_) {
       warned_ex_event_ = true;
       nr::Log(nr::LogLevel::WARN,
-              "UseD3D9Ex is on, but this ReShade never raised the create_device add-on event: it cannot switch the game to Direct3D 9Ex");
+              "已启用 UseD3D9Ex，但当前 ReShade 从未触发 create_device 加载项事件，无法将游戏切换为 Direct3D 9Ex 设备");
     }
   }
   if (device.d3d9_ex && device.ex_presents < 2u) {
@@ -204,7 +204,7 @@ void HelperFront::RunClient(HelperDevice& device, api::device* game_device, api:
       if (device.present_queue != nullptr && queue != nullptr && device.present_queue != queue) {
         if (!device.vk_second_queue_logged) {
           device.vk_second_queue_logged = true;
-          nr::Log(nr::LogLevel::INFO, "Vulkan: the game presents from another queue than ReShade's effects; Uplift waits for it on the CPU before NR");
+          nr::Log(nr::LogLevel::INFO, "Vulkan：游戏使用的呈现队列与 ReShade 效果队列不同；Uplift 会在 NR 开始前由 CPU 等待游戏队列");
         }
         device.vulkan->NoteSecondQueue();
         present_host.emplace(game_device, device.present_queue, device.vulkan->VulkanDevice().vkQueueSubmit);
@@ -241,7 +241,7 @@ void HelperFront::RunClient(HelperDevice& device, api::device* game_device, api:
   if (returned && !device.nr_returned_logged) {
     // Once per attach: the e2e cases (and the checklist) read it as "NR ran here", e.g. again after a Direct3D 9 Reset.
     device.nr_returned_logged = true;
-    nr::Logf(nr::LogLevel::INFO, "NR ran on the game's frame ({}, {})",
+    nr::Logf(nr::LogLevel::INFO, "NR 已在游戏帧内运行（{}，{} 位）",
              (device.vulkan  ? "Vulkan"
               : device.gl    ? "OpenGL"
               : device.d3d12 ? "Direct3D 12"
@@ -308,10 +308,10 @@ void HelperFront::Present(HelperDevice& entry, const HelperFrame& frame, Microso
       if (VulkanAdapterLuid(device, &luid, &error)) {
         std::optional<vk::Device> functions = vk::Device::Open(VulkanHandleOf<VkDevice>(device->get_native()));
         if (!functions) {
-          error = "the Vulkan loader, or a Vulkan function every device has, is missing";
+          error = "缺少 Vulkan 加载器或所有设备都必需的 Vulkan 函数";
         } else {
           if (!functions->seen && !frame.vk_hook_error.empty()) {
-            functions->record.not_adjusted = std::format("Uplift's vkCreateDevice hook could not be installed ({})", frame.vk_hook_error);
+            functions->record.not_adjusted = std::format("无法安装 Uplift 的 vkCreateDevice 挂钩（{}）", frame.vk_hook_error);
           }
           entry.vulkan = std::make_unique<client::VkClient>(std::move(*functions), luid, true);
         }
@@ -326,8 +326,8 @@ void HelperFront::Present(HelperDevice& entry, const HelperFrame& frame, Microso
     }
     if (!entry.HasClient()) {
       entry.rejected = true;
-      entry.message = (opengl ? std::format("Uplift could not start on this OpenGL context: {}", error)
-                              : std::format("Uplift could not start on this {} device: {}", ApiName(device->get_api()), error));
+      entry.message = (opengl ? std::format("Uplift 无法在此 OpenGL 上下文中启动：{}", error)
+                              : std::format("Uplift 无法在此 {} 设备上启动：{}", ApiName(device->get_api()), error));
       nr::Log(nr::LogLevel::ERR, entry.message);
       return;
     }
@@ -339,7 +339,7 @@ void HelperFront::Present(HelperDevice& entry, const HelperFrame& frame, Microso
     const std::optional<std::filesystem::path> configured_path = PathFromUtf8(configured);
     if (!configured_path && !configured.empty() && !warned_invalid_snippet_path_) {
       warned_invalid_snippet_path_ = true;
-      nr::Log(nr::LogLevel::WARN, std::format("SnippetPath is not valid UTF-8; searching next to {} and the game instead", addon_file_));
+      nr::Log(nr::LogLevel::WARN, std::format("SnippetPath 不是有效的 UTF-8；将改为在 {} 及游戏文件旁搜索", addon_file_));
     }
     const std::optional<std::filesystem::path> snippet = LocateSnippet({
         .configured = configured_path.value_or(std::filesystem::path()),
@@ -348,8 +348,8 @@ void HelperFront::Present(HelperDevice& entry, const HelperFrame& frame, Microso
     });
     entry.snippet = snippet.value_or(std::filesystem::path());
     if (!snippet) {
-      entry.snippet_problem = (configured.empty() ? std::format("nvngx_dlssnr.dll not found next to {} or the game; copy it there or set Runtime path", addon_file_)
-                                                  : std::format("Runtime path not found: {}", configured));
+      entry.snippet_problem = (configured.empty() ? std::format("在插件目录（{}）或游戏目录中找不到 nvngx_dlssnr.dll；请将其复制到其中一个目录，或设置“运行库路径”", addon_file_)
+                                                  : std::format("找不到指定的运行库路径：{}", configured));
       nr::Log(nr::LogLevel::WARN, entry.snippet_problem);
     }
   }
@@ -412,12 +412,12 @@ void HelperFront::Present(HelperDevice& entry, const HelperFrame& frame, Microso
     if (!mask_running) {
       entry.ReleaseMask(hosts.Pointers());
       entry.mask_note = (settings.mask != ui::MaskMode::AUTO) ? ""
-                        : mask_declared                       ? "NR mask: the UPLIFT_MASK effect is off"
-                                                              : "NR mask: no effect writes UPLIFT_MASK";
+                        : mask_declared                       ? "NR 蒙版：UPLIFT_MASK 效果已关闭"
+                                                              : "NR 蒙版：没有效果写入 UPLIFT_MASK";
     }
   } else {
-    entry.mask_note = (d3d10 ? "NR mask: not available on this Direct3D 10 device (no fences)"
-                             : "NR mask: not available on this Direct3D 11 device (no fences)");
+    entry.mask_note = (d3d10 ? "NR 蒙版：此 Direct3D 10 设备不支持蒙版（无栅栏同步）"
+                             : "NR 蒙版：此 Direct3D 11 设备不支持蒙版（无栅栏同步）");
   }
   wire.mask_running = (mask_running ? 1u : 0u);
   if (frame.now - entry.last_memory_query >= MEMORY_PERIOD) {
@@ -464,7 +464,7 @@ void HelperFront::Present(HelperDevice& entry, const HelperFrame& frame, Microso
   if (remote.Attached() && remote.LastStatus().device_lost != 0u) {
     // Plan 17: the helper's own Direct3D 12 device was removed, so its NR would stay off for the session. The helper is ended as a hung one is, and Retry
     // now starts a fresh one with a new device, under the same 2-strike rule as a bridge's private device.
-    remote.Abort("Its Direct3D 12 device was removed (ReShade.log has the details)");
+    remote.Abort("辅助进程的 Direct3D 12 设备已移除（详情见 ReShade.log）");
     reply.reset();
   }
   if (remote_owner_ == device) {
@@ -561,7 +561,7 @@ void HelperFront::FinishEffects(HelperDevice& device, api::effect_runtime* runti
   Hosts hosts = HostsOf(device, runtime->get_device(), runtime->get_command_queue());  // OpenGL: no present queue in an effect event
   if (!MaskEffectRunning(runtime, variable)) {
     device.ReleaseMask(hosts.Pointers());
-    device.mask_note = "NR mask: the UPLIFT_MASK effect is off";
+    device.mask_note = "NR 蒙版：UPLIFT_MASK 效果已关闭";
     return;
   }
   api::resource_view view = {0u};
@@ -571,7 +571,7 @@ void HelperFront::FinishEffects(HelperDevice& device, api::effect_runtime* runti
   const api::resource mask = runtime->get_device()->get_resource_from_view(view);
   if (mask.handle == 0u || !remote_) return;
   if (remote_->LastStatus().session_state != static_cast<uint32_t>(nr::SessionState::ACTIVE)) {
-    device.mask_note = "NR mask: waiting for NR to run";
+    device.mask_note = "NR 蒙版：等待 NR 运行";
     return;
   }
   client::MaskCopy copied;
@@ -589,14 +589,14 @@ void HelperFront::FinishEffects(HelperDevice& device, api::effect_runtime* runti
     copied = device.d3d11->CopyMask(AsNative<ID3D11Resource>(mask.handle), *remote_);
   }
   if (copied.size) {
-    device.mask_note = std::format("NR mask: UPLIFT_MASK ({}x{})", copied.size->width, copied.size->height);
+    device.mask_note = std::format("NR 蒙版：UPLIFT_MASK（{}x{}）", copied.size->width, copied.size->height);
   } else if (copied.unsupported) {
-    device.mask_note = (device.d3d9 ? std::format("NR mask: UPLIFT_MASK's format is not supported on Direct3D 9 (D3DFMT {})", copied.d3d9_format)
-                                    : std::string("NR mask: UPLIFT_MASK's format is not supported"));
+    device.mask_note = (device.d3d9 ? std::format("NR 蒙版：Direct3D 9 不支持 UPLIFT_MASK 的格式（D3DFMT {}）", copied.d3d9_format)
+                                    : std::string("NR 蒙版：不支持 UPLIFT_MASK 的格式"));
   } else if (copied.relay_failed) {
-    device.mask_note = "NR mask: UPLIFT_MASK could not be shared with Uplift's relay device";  // Plan 8's text: the Direct3D 10 keyed share
+    device.mask_note = "NR 蒙版：无法通过 Uplift 中继设备共享 UPLIFT_MASK";  // Plan 8's text: the Direct3D 10 keyed share
   } else if (!copied.busy) {
-    device.mask_note = "NR mask: UPLIFT_MASK could not be shared with Uplift's helper";
+    device.mask_note = "NR 蒙版：无法向 Uplift 辅助进程共享 UPLIFT_MASK";
   }
 }
 
@@ -668,44 +668,44 @@ void HelperFront::Overlay(api::device* game_device, const HelperDevice* device, 
     facts.before_upscaling_fixed = view->vulkan_stages_off;
   }
   if (device != nullptr && !device->route_reason.empty()) {
-    facts.dlss_motion_fixed = "DLSS's motion vectors do not reach Uplift's helper process (Launchpad's and Lumenite's do)";
+    facts.dlss_motion_fixed = "DLSS 的运动矢量无法传送到 Uplift 辅助进程（LaunchPad 和 Lumenite 的运动矢量可以）";
   }
   facts.launchpad_ready = (device != nullptr && device->launchpad_ready);
   facts.lumenite_ready = (device != nullptr && device->lumenite_ready);
   facts.uplift_mv_lumenite = (device != nullptr && device->uplift_mv_lumenite);
   if (device != nullptr && device->HasClient() && !device->SharesImages()) {
     // Batch 1 review: a Direct3D 10 or 11 device on the CPU-ordered fallback shares no images with the helper, so UPLIFT_MV never reaches NR (Technique skips it).
-    facts.launchpad_fixed = (device->d3d10 ? "Launchpad's vectors are not available on this Direct3D 10 device (no fences)"
-                                           : "Launchpad's vectors are not available on this Direct3D 11 device (no fences)");
-    facts.lumenite_fixed = (device->d3d10 ? "Lumenite's vectors are not available on this Direct3D 10 device (no fences)"
-                                          : "Lumenite's vectors are not available on this Direct3D 11 device (no fences)");
+    facts.launchpad_fixed = (device->d3d10 ? "此 Direct3D 10 设备不支持 LaunchPad 运动矢量（缺少栅栏）"
+                                           : "此 Direct3D 11 设备不支持 LaunchPad 运动矢量（缺少栅栏）");
+    facts.lumenite_fixed = (device->d3d10 ? "此 Direct3D 10 设备不支持 Lumenite 运动矢量（缺少栅栏）"
+                                          : "此 Direct3D 11 设备不支持 Lumenite 运动矢量（缺少栅栏）");
   }
   if (d3d9 && !LUMENITE_ON_D3D9) {
     facts.lumenite_fixed = LUMENITE_D3D9_REASON;  // Uplift.fx's Lumenite pass is compiled from Direct3D 10 on
   }
-  std::string api_label = (addon_file_ == "gitc-uplift.addon32" ? std::format("{} (32-bit)", ApiName(device_api)) : std::string(ApiName(device_api)));
+  std::string api_label = (addon_file_ == "gitc-uplift.addon32" ? std::format("{}（32 位）", ApiName(device_api)) : std::string(ApiName(device_api)));
   if (device != nullptr && !device->route_reason.empty()) {
-    api_label = std::format("{} (helper)", ApiName(device_api));  // T5: a 64-bit Vulkan device's route, as "Vulkan (native NR)" and "Vulkan (Direct3D 12)"
+    api_label = std::format("{}（辅助进程）", ApiName(device_api));  // T5: a 64-bit Vulkan device's route, as "Vulkan (native NR)" and "Vulkan (Direct3D 12)"
   }
   facts.api = api_label;
   if (d3d9) {
     if (device != nullptr) {
       // Design §2.9: which case applies, from the device, the toggle, and whether ReShade ever raised create_device.
-      view->d3d9ex_readout = (device->d3d9_ex ? "Now: Direct3D 9Ex: frames reach NR on the GPU"
+      view->d3d9ex_readout = (device->d3d9_ex ? "当前状态：Direct3D 9Ex：帧通过 GPU 传送至 NR"
                               : !settings.use_d3d9ex
                                   ? (ex_turned_off_
-                                         ? "Now: plain Direct3D 9: 9Ex was turned off because the last start with it did not reach its first frame"
-                                         : "Now: plain Direct3D 9: frames reach NR through shared memory")
+                                         ? "当前状态：标准 Direct3D 9：已关闭 9Ex（上次启用后未能显示首帧）"
+                                         : "当前状态：标准 Direct3D 9：帧通过共享内存传送至 NR")
                               : ex_event_seen_
-                                  ? "Now: plain Direct3D 9 (the switch applies at the next game start)"
-                                  : "Now: plain Direct3D 9: this ReShade cannot switch games to 9Ex (it needs the create_device add-on event)");
+                                  ? "当前状态：标准 Direct3D 9（重启游戏后切换才会生效）"
+                                  : "当前状态：标准 Direct3D 9：此 ReShade 无法将游戏切换为 9Ex（需要 create_device 插件事件）");
     }
     if (!LAUNCHPAD_ON_D3D9) {
-      view->motion_line = "Motion vectors: none (Launchpad does not run on Direct3D 9)";
+      view->motion_line = "运动矢量：无（LaunchPad 不支持 Direct3D 9）";
     }
   }
   if (device == nullptr) {
-    view->card = ui::BuildStatusCard({.device_problem = "Waiting for the game's first frame"});
+    view->card = ui::BuildStatusCard({.device_problem = "等待游戏的首帧"});
     ui::FinishSetup(view, state, game_device, facts, now);
     return;
   }
@@ -771,10 +771,10 @@ void HelperFront::Overlay(api::device* game_device, const HelperDevice* device, 
     }
     view->intermediate_bytes += client_bytes;
     std::string line = ((remote != nullptr && owner && remote->Running()) ? std::move(client_line)
-                                                                          : std::format("{} ({}): Uplift's 64-bit helper starts when NR is turned on", api_name, client::BITNESS));
+                                                                          : std::format("{}（{} 位）：开启 NR 后，Uplift 的 64 位辅助进程将启动", api_name, client::BITNESS));
     const uint64_t busy = (status != nullptr ? status->busy_skips : 0u) + (owner ? remote->BusyFrames() : 0u);
     if (busy > 0u) {
-      line += std::format(", {} frame(s) without NR while the helper was busy", busy);
+      line += std::format("；辅助进程繁忙期间有 {} 帧未进行 NR 处理", busy);
     }
     view->api_line = std::move(line);
   }
@@ -808,7 +808,7 @@ void HelperFront::Overlay(api::device* game_device, const HelperDevice* device, 
     });
   } else if (settings.enabled && has_client && owner && remote->Running()) {
     // The helper's process is up but not attached yet (design §2.2, start-up).
-    view->card = {.stage = ui::CardStage::SESSION, .title = "Starting NR", .reason = "Starting Uplift's 64-bit helper"};
+    view->card = {.stage = ui::CardStage::SESSION, .title = "正在启动 NR", .reason = "正在启动 Uplift 的 64 位辅助进程"};
   } else {
     view->card = ui::BuildStatusCard({.enabled = settings.enabled, .addon_file = addon_file_});
   }
@@ -849,10 +849,10 @@ bool HelperFront::CreateDevice(api::device_api device_api, uint32_t& api_version
   if (device_api != api::device_api::d3d9 || !use_d3d9ex) return false;
   // Written before the device exists and deleted when a 9Ex device's first Present has returned or the device is destroyed: a
   // refused CreateDeviceEx or a start that dies before that leaves it, and turns the toggle off at the next start.
-  WriteLatchMarker(ex_marker_path_, "Direct3D 9Ex requested; waiting for the first frame");
+  WriteLatchMarker(ex_marker_path_, "已请求 Direct3D 9Ex，正在等待首帧");
   api_version = D3D9EX_API_VERSION;
   NoteD3D9ExRequested();  // 1.1.5: exclusive fullscreen becomes a window of the same size (swapchain_usage.hpp)
-  nr::Log(nr::LogLevel::INFO, "Direct3D 9: asking ReShade for a Direct3D 9Ex device (UseD3D9Ex)");
+  nr::Log(nr::LogLevel::INFO, "Direct3D 9：正在请求 ReShade 创建 Direct3D 9Ex 设备（UseD3D9Ex）");
   return true;
 }
 

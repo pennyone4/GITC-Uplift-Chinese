@@ -164,7 +164,7 @@ class NgxBridge final : public ngx_hooks::NgxObserver {
 // pushes to every context with SetDlssUnavailableReason) the moment a trip happens mid-session -- one
 // string, so the two can never read differently for the same cause.
 inline constexpr std::string_view LATCH_UNAVAILABLE_REASON =
-    "The DLSS placements are latched off after a device removal: Clear latch, then restart the game";
+    "GPU 设备移除后，DLSS 阶段已锁定为关闭：请清除锁定并重启游戏";
 
 // Why no DLSS placement can run this session, or empty. Decided once, at AddonInit: the tracking
 // events are registered then or never (this plan's amendment 2).

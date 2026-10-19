@@ -48,7 +48,7 @@ MemoryInfo VkHost::QueryMemory() {
   const HRESULT result = adapter_->QueryVideoMemoryInfo(0u, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &info);
   if (FAILED(result)) {
     if (!query_memory_failed_logged_) {
-      Logf(LogLevel::WARN, "QueryVideoMemoryInfo failed with {:#010x}; reporting unlimited headroom", static_cast<uint32_t>(result));
+      Logf(LogLevel::WARN, "QueryVideoMemoryInfo 调用失败：{:#010x}；将报告可用显存不受限", static_cast<uint32_t>(result));
       query_memory_failed_logged_ = true;
     }
     return {UINT64_MAX, 0u};

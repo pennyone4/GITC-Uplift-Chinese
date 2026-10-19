@@ -1,322 +1,248 @@
 # GITC Uplift
 
-GITC Uplift is a virtual photography focused version of the DLSS 5 mod: NVIDIA's DLSS Neural Rendering (DLSS-NR) through ReShade,
-with greater flexibility, ease of use, stability and hassle-free compatibility across APIs (DirectX 9, 10, 11 and 12, Vulkan and
-OpenGL, 64-bit and 32-bit). Drop it in, switch it on, and it works out the rest. Switch it off and it gives its video memory back.
+GITC Uplift 是一款专为虚拟摄影打造的 DLSS 5 模组，通过 ReShade 使用 NVIDIA DLSS Neural Rendering（DLSS-NR），并针对灵活性、易用性、稳定性和跨 API 兼容性进行了优化。支持 DirectX 9、10、11、12、Vulkan 和 OpenGL，也支持 32 位与 64 位游戏。安装后启用即可自动完成其余工作；关闭 NR 后，Uplift 会释放其占用的显存。
 
-GITC Uplift is not affiliated with NVIDIA or with ReShade.
+GITC Uplift 与 NVIDIA、ReShade 均无隶属关系。
 
-## What you need
+## 所需组件
 
-- An NVIDIA GeForce RTX graphics card with an up-to-date driver.
-- [ReShade](https://reshade.me) **with full add-on support** (the "Addon" version). Use the latest one: Vulkan and OpenGL games need
-  6.8 or newer.
-- NVIDIA's DLSS-NR runtime, `nvngx_dlssnr.dll`, which **you supply**. Version 310.8 remains the tested runtime for older RTX cards;
-  310.9.16 has experimental controls below and contains GPU kernels for 50-series cards only. Uplift never includes NVIDIA files.
-  You need a version appropriate for your video card.
+- NVIDIA GeForce RTX 显卡及较新的驱动程序。
+- [ReShade](https://reshade.me)，并且必须支持完整的插件功能（Addon 版本）。请使用最新版；Vulkan 和 OpenGL 游戏需要 6.8 或更高版本。
+- NVIDIA DLSS-NR 运行时 `nvngx_dlssnr.dll`，需要由你自行提供。310.8 仍是较旧 RTX 显卡上经过测试的版本；310.9.16 提供下文介绍的实验性控制项，并且只包含 50 系列显卡的 GPU 内核。Uplift 不包含任何 NVIDIA 文件，请选择适用于你显卡的版本。
 
-## Other DLSS5 add-ons
+## 其他 DLSS 5 插件
 
-- **Use GITC Uplift instead of other DLSS-NR add-ons**, for example RenoDX's DLSS and DLSS5 add-ons (`renodx-dlss*.addon64`): remove them
-  from ReShade's add-on folder. If one is still loaded, Uplift will not work.
+- **请使用 GITC Uplift 替代其他 DLSS-NR 插件**，例如 RenoDX 的 DLSS 和 DLSS 5 插件（`renodx-dlss*.addon64`）。请将它们从 ReShade 插件目录中移除；如果其他插件仍在加载，Uplift 将无法工作。
 
-## Before you start
+## 开始之前
 
-- **Single-player only.** Uplift hooks into the game, and anti-cheat systems may not like that. Don't use it in online games.
-- **Antivirus** tools sometimes flag ReShade add-ons. Every release lists the SHA-256 of its files in `SHA256SUMS.txt`, or you can build
-  Uplift yourself (see "Building from source").
+- **仅限单人游戏。** Uplift 会挂接到游戏进程，反作弊系统可能会因此产生问题。请勿在联网游戏中使用。
+- **杀毒软件警告：** 部分杀毒软件会将 ReShade 插件误报为威胁。每个发行版都会在 `SHA256SUMS.txt` 中列出文件的 SHA-256 校验值；你也可以自行从源码构建 Uplift（见“从源码构建”）。
 
-## Install
+## 安装
 
-Installation is really simple:
-1) Download the latest release from [GitHub Releases](https://github.com/ghostinthecamera/GITC-Uplift/releases).
-2) Copy everything in the release's `Addons` folder (the files and the `GITC-Uplift` folder) to where your ReShade add-ons are.
-3) Copy the `nvngx_dlssnr.dll` file into that `GITC-Uplift` folder!
-4) Copy the files in the release's `Shaders` folder to your ReShade `Shaders` folder.
+安装步骤很简单：
+1. 从 [GitHub Releases](https://github.com/ghostinthecamera/GITC-Uplift/releases) 下载最新发行版。
+2. 将发行版 `Addons` 文件夹中的所有内容（文件和 `GITC-Uplift` 文件夹）复制到 ReShade 插件目录。
+3. 将 `nvngx_dlssnr.dll` 复制到 `GITC-Uplift` 文件夹中。
+4. 将发行版 `Shaders` 文件夹中的文件复制到 ReShade 的 `Shaders` 文件夹。
 
-Done!
+安装完成！
 
-- Updating from an earlier Uplift build? Delete its `uplift.addon64`, `uplift.addon32` and `uplift-helper64.exe` first, so that two
-  copies don't load. Copy the new `Uplift.fx` over the old one too.
-- ReShade's add-on folder is the game's folder, unless `AddonPath` in the game's `ReShade.ini` points somewhere else.
+- 从旧版 Uplift 升级？请先删除旧版的 `uplift.addon64`、`uplift.addon32` 和 `uplift-helper64.exe`，避免同时加载两个版本。还要用新版 `Uplift.fx` 覆盖旧文件。
+- 除非游戏的 `ReShade.ini` 中通过 `AddonPath` 指定了其他位置，否则 ReShade 插件目录就是游戏目录。
+- 游戏内界面使用 ReShade 提供的字体；如需显示简体中文，请在 ReShade 设置中将界面语言设为简体中文。
 
-## Using it
+## 使用方法
 
-1) Start the game and open ReShade (the Home key).
-2) Go to the **GITC Uplift** tab and tick **Enable**.
+1. 启动游戏并按 Home 键打开 ReShade。
+2. 切换到 **GITC Uplift** 选项卡，勾选 **启用**。
 
-That's it. The card at the top always tells you what NR is doing right now. It's green when NR is working; when it isn't, the card
-says why and what to do.
+完成。选项卡顶部的状态卡会实时显示 NR 的运行状态：运行时为绿色；未运行时会说明原因和处理方法。
 
-A picture guide to every setting: [the wiki](https://github.com/ghostinthecamera/GITC-Uplift/wiki/Guide)
+所有设置的图文说明请见[使用指南](https://github.com/ghostinthecamera/GITC-Uplift/wiki/Guide)。
 
-**Setup** contains these controls:
+**设置**区域包含以下选项：
 
-- **NR stage:** **Present** works in every game and processes the finished image. **After DLSS** (in games that use DLSS) runs inside
-  the game's frame, before the HUD. **Before upscaling** is experimental.
-- **Motion vectors:** Auto picks for you. The others are DLSS (the game's own), Launchpad (iMMERSE Launchpad's), Lumenite
-  (LumeniteFX's Kernel) and None.
-- **Native mask blend mode:** selects NR's native mask combination; the default is 1.
-- **Network preset:** A: Legacy or B: Small FP8 with NR 310.9.16.
-- **Resolution:** Full looks best. Lower settings are faster and use less memory.
+- **NR 阶段：** **后处理**适用于所有游戏，处理最终画面。**DLSS 后**（仅限使用 DLSS 的游戏）会在游戏帧内、HUD 绘制前处理画面。**DLSS 前**为实验性选项。
+- **运动矢量：** 自动模式会代为选择。其他选项为 DLSS（游戏自带）、LaunchPad（iMMERSE LaunchPad 提供）、Lumenite（LumeniteFX 的 Kernel）和关闭。
+- **原生蒙版混合模式：** 选择 NR 原生蒙版的组合方式，默认值为 1。
+- **网络预设：** NR 310.9.16 支持 A：Legacy 或 B：Small FP8。
+- **分辨率：** 全分辨率画质最好；较低的分辨率运行更快、显存占用更少。
 
-**NR stage** and **Resolution** are independent. After DLSS reads the game's upscaled output. **Full** runs NR at that output resolution; **Quality**, **Balanced** and **Performance** process a smaller copy and apply the result across the complete output image.
+当前游戏不支持的选项会变灰；将鼠标悬停在选项上即可查看原因。设置会被保存，并会在条件允许时自动恢复生效。
 
-An option that can't work in your game right now is greyed out: hover over it to see why. Your choice is remembered and comes back by
-itself when it can.
+在大多数游戏中，如果你在游戏内关闭 DLSS，NR 会自动切换到后处理；重新开启 DLSS 后也会自动切回。
 
-In most games, if you turn DLSS off in the game, NR moves to Present by itself and comes back when DLSS is on again.
+下方的**外观**区域可用于调整画面效果。关闭 NR 后，Uplift 会在数秒后释放其显存。
 
-The **Look** section below lets you tune the result to taste. When you switch NR off, it frees its memory after a few seconds.
+使用 **NR 310.9.16** 时，**设置 → 网络预设**可选择 **Legacy** 或 **Small FP8**；**运行时默认**会在该版本中选择 Small FP8。Uplift 默认仍使用 Legacy。切换网络会重新创建 NR 并重置历史记录。**设置 → 原生蒙版混合模式**提供 0–3 的实验性模式，与 Uplift 自带的蒙版相互独立。NR 310.8 始终使用 Legacy 网络，并忽略蒙版混合模式。Uplift 识别到 310.8 运行时后，会禁用这两个控制项并说明原因；网络选项会显示 Legacy。切换运行时路径会在下次启动游戏时生效。
 
-With **NR 310.9.16**, **Setup → Network preset** selects **Legacy** or **Small FP8**; **Runtime default** selects Small FP8 in that
-build. Legacy remains Uplift's default. Changing the network recreates NR and resets its history. **Setup → Native mask blend mode**
-exposes the experimental modes 0–3, separately from Uplift's own mask. NR 310.8 always uses its legacy network and ignores mask blend mode.
-Once Uplift identifies a loaded 310.8 runtime, both controls are greyed out with an explanation; the network row shows Legacy. Saved choices
-are preserved for a newer runtime. Changing Runtime path applies on the next game start.
+预设 **A（1）**为 Legacy，**B（2）**为 Small FP8。提供的 DLL 不包含 C–G 预设所需的权重。**外观 → 风格**可选择独立的 A/B/C 处理风格（0/1/2），后续各层也可以单独设置风格。
 
-Preset **A (1)** is Legacy and **B (2)** is Small FP8. Presets C-G have no weights in the supplied DLL. **Look → Style** selects the separate
-processing styles A/B/C (0/1/2), also available for independent later passes.
+**详细信息**会逐层显示当前层数范围内已创建的 NR 功能所用网络名称（取自 NVIDIA 成功创建功能时的消息）、已记录的启用评估调用次数，以及最近一次成功调用的风格和原生蒙版模式。如果运行时日志格式或相关消息不可用，则会显示“网络未经确认”。调用次数表示命令已成功录制，不代表 GPU 已完成处理或画面效果已通过验证。
 
-**Details** reports each created, requested pass's network name from NVIDIA's successful feature-creation message, its number of enabled evaluation calls recorded,
-and its last successful call's style and native mask mode. It reports an unconfirmed network when the runtime's logging layout or message is
-unavailable. The count verifies successful command recording, not GPU completion or image fidelity.
+将 **日志级别**设为默认的**信息**后，可在 `ReShade.log` 中搜索以下内容：
 
-At **Log level → Info** (the default), search **ReShade.log** for:
+- `snippet loaded`：实际运行时路径及版本；
+- `BuildActiveNetwork config=` 和 `Weight heap request`：所选计算图和权重张量数量；
+- `DLSSNR: Created feature`：运行时实际选择的预设和网络，包括回退结果；
+- `NR diagnostic: enabled`：成功启用的评估调用，以及其网络、风格、蒙版模式和绑定的运动矢量/蒙版输入。
 
-- `snippet loaded`: the actual runtime path and version;
-- `BuildActiveNetwork config=` and `Weight heap request`: the selected graph and weight tensor count;
-- `DLSSNR: Created feature`: the runtime-resolved preset and network, including fallback;
-- `NR diagnostic: enabled`: a successful enabled evaluation, its network, style, mask mode and bound motion/mask inputs.
+Small FP8 的运行时网络名称为 `hnet-crazy-cuckoo-small-fp8`，预设为 2，提供的构建版本包含 77 个权重张量（对齐后共 113,907,200 字节）。张量分配量不等于总显存占用。每个功能都会分别记录评估调用，包括后续层和“保护面部”处理；风格或原生蒙版模式变化时也会记录。NR 在辅助进程中运行时，这些日志同样会写入 `ReShade.log`。
 
-Small FP8's runtime name is `hnet-crazy-cuckoo-small-fp8`, preset 2, with 77 weight tensors (113,907,200 aligned bytes in the supplied build).
-The tensor allocation figure is not total VRAM. Evaluations are reported per feature, including later passes and Keep faces, and when style
-or native mask mode changes. These lines also reach ReShade.log when NR runs in the helper process.
+Uplift 不会绑定深度或双向畸变输入。原生引导升频尚未验证可用；降低分辨率时会使用 Uplift 自带的升频功能。全局色调和隐藏的原生“性能”设置尚未确认有效，因此仍保持隐藏。
 
-Depth and bidirectional distortion are not bound by Uplift. Native guided upsampling has no verified activation path; reduced resolution uses
-Uplift's own upsampling. Global tone and the hidden native Performance setting have no verified effect and remain hidden.
+**标准版 310.9.16 DLL** 不包含 Ada GPU 内核：仅绕过架构检查，仍无法在 RTX 4090 上加载其 FP8 网络。另行提供的 Ada 兼容性原型会使用其他 Ada 内核执行 Small FP8。原生蒙版混合模式默认为 **1**；模式 0 使用不同的蒙版组合方式，画面变化可能不明显。已保存的选择会保留。兼容运行时下完整的蒙版组合行为仍在验证中：供体预处理内核缺少新增的蒙版字段。已在 1080p/D3D12 下演示运行，但尚未验证其效果与原生 Blackwell 是否一致。
 
-The **stock** 310.9.16 DLL has no Ada GPU kernels: bypassing its architecture check alone still fails to load its FP8 network on an RTX 4090.
-The separately supplied Ada compatibility prototype executes Small FP8 using donor Ada kernels. Native mask blend mode defaults to **1**;
-mode 0 uses a different mask combination and can produce little visible change. Existing saved choices are preserved.
-Full mask-combination behavior on the compatibility runtime remains under validation: the donor pre-block kernels omit the new mask fields.
-Execution has been demonstrated at 1080p/D3D12, but fidelity against native Blackwell remains unverified.
+另行提供的 Shortfuse **compat-fp16 310.9.16 / CUDA 13.4.3** 构建也受支持。它保留相同网络权重和 310.9.16 内核接口，并包含适用于 SM75、SM86、SM89 和 SM120 的 GPU 代码。Uplift 的原生网络诊断支持其扩展后的 DLL 布局。该文件已在 RTX 4090 上通过 Direct3D 12 和原生 Vulkan 测试；此处尚未实测其他 GPU 架构。请在**高级 → 运行时路径**中直接选择此 DLL，重启游戏后即可照常使用“设置”中的网络和蒙版模式选项。该 DLL 会替换当前选择的运行时，不会与 Uplift 早期提供的 NVIDIA DLL 实验性补丁叠加使用。
 
-Shortfuse's separately supplied **compat-fp16 310.9.16 / CUDA 13.4.3** build is also supported. It keeps the same network weights and the
-310.9.16 kernel interfaces, with GPU payloads for SM75, SM86, SM89 and SM120. Uplift's native network diagnostic supports its expanded DLL layout.
-The supplied file was tested on RTX 4090 through both Direct3D 12 and native Vulkan; the other GPU generations have not been live-tested here.
-Select this DLL directly under Runtime path (Advanced), restart the game, and use Setup's network and mask-mode controls as usual. It replaces
-the selected runtime; it is not combined with Uplift's earlier experimental NVIDIA DLL patch.
+在独立测试中，已确认原生蒙版模式 0–3 配合原生棋盘格 ControlMask 会产生不同输出。Uplift 会传递所选模式，但常规路径不会绑定该原生蒙版；现有的 `UPLIFT_MASK` 仍在 NR 处理完成后进行合成。界面默认值仍为模式 1。
 
-Native mask modes 0-3 were verified to produce different output with a native checker ControlMask in an isolated probe. Uplift forwards the mode,
-but its normal path does not bind that native mask; its existing UPLIFT_MASK remains composition after NR. Mode 1 remains the UI default.
+**保护面部**（位于“外观”区域）会保留角色的光照和阴影，同时避免 NR 改变角色面部形状。此功能开销更高：每帧会额外运行一层 NR，并需要更多显存（4K 下约 1 GB）。调节方法请见[使用指南](https://github.com/ghostinthecamera/GITC-Uplift/wiki/Guide#keep-faces)。
 
+着色器为可选组件：
 
-**Keep faces** (in Look) keeps NR's lighting and shading on characters, but stops NR reshaping their faces. It costs more:
-NR runs one more time per frame, and it needs more video memory (about 1 GB at 4K). How to tune it:
-[the wiki](https://github.com/ghostinthecamera/GITC-Uplift/wiki/Guide#keep-faces).
+- **`Uplift.fx`** 会添加 `Uplift` 技术；可在 ReShade 效果列表中拖动它，选择 NR 相对于其他效果的运行位置。不使用该着色器时，NR 会在所有效果之前运行。LaunchPad 和 Lumenite 的运动矢量需要此着色器：
+  - **LaunchPad：** 启用 LaunchPad，并将 Uplift 放在它后面。
+  - **Lumenite：** 启用 **LUMENITE: Kernel 2.0**，并将 Uplift 放在它后面。Lumenite 需要 Uplift 1.2.0 或更高版本中的 `Uplift.fx`，且不支持 DX9 游戏。
+  - 然后将 **运动矢量**设为自动，或选择 LaunchPad / Lumenite。两者同时启用时，自动模式会优先使用 LaunchPad。
+- **`UpliftMask.fx`** 是一个示例蒙版，可限制 NR 的处理范围。
 
-The shaders are optional:
-
-- **`Uplift.fx`** adds an `Uplift` technique: drag it in ReShade's effect list to choose where NR runs among your effects. Without it,
-  NR runs before all of them. Launchpad's and Lumenite's motion vectors need it:
-  - **Launchpad:** turn on Launchpad and put Uplift below it.
-  - **Lumenite:** turn on **LUMENITE: Kernel 2.0** and put Uplift below it. Lumenite needs the `Uplift.fx` from Uplift 1.2.0 or newer,
-    and doesn't work in DX9 games.
-  - Then set **Motion vectors** to Auto, or pick Launchpad or Lumenite. With both turned on, Auto uses Launchpad.
-- **`UpliftMask.fx`** is an example mask that limits NR to parts of the image.
-
-## What works where
+## 各 API 和位数的支持情况
 
 | | DX12 | DX11 | DX10 | DX9 | Vulkan | OpenGL |
 |---|---|---|---|---|---|---|
-| **64-bit** | ✓ + DLSS | ✓ + DLSS | ✓ | ✓ | ✓ + DLSS | ✓ |
-| **32-bit** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **64 位** | ✓ + DLSS | ✓ + DLSS | ✓ | ✓ | ✓ + DLSS | ✓ |
+| **32 位** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-- **✓** NR runs on the finished image, with everything in the Uplift tab.
-- **+ DLSS** In games that use DLSS, NR can also run right after DLSS inside the game's frame and use the game's own motion vectors. On
-  DX12 and Vulkan it also works with frame generation. On Vulkan, pick After DLSS yourself: Auto stays at Present (see "If you know what
-  you are doing").
-- DX11 games with DLSS added by a mod work too. If the mod runs DLSS on a DirectX 12 device of its own, NR stays at Present, and the
-  Uplift tab says so.
-- **64-bit Vulkan:** NR runs on the game's own Vulkan device. If it can't there, Uplift moves NR to a private DX12 device, and if that
-  can't either, to its helper process, by itself; **Details** says where and why. **Vulkan NR at Present** (Advanced) picks one yourself.
-  Only the game's own device (**Native**) runs NR inside the game's DLSS. Pick Direct3D 12 or Helper and NR moves to Present, with After
-  DLSS and Before upscaling greyed out. If native NR fails only at Present, After DLSS and Before upscaling stay available.
-- DXVK games count as Vulkan. dgVoodoo2 games count as 32-bit DX11 or DX12.
+- **✓** NR 会处理最终画面；所有控制项都位于 Uplift 选项卡中。
+- **+ DLSS** 对使用 DLSS 的游戏，NR 也可以在游戏帧内、DLSS 之后运行，并使用游戏自带的运动矢量。在 DX12 和 Vulkan 下也支持帧生成。Vulkan 下需手动选择“DLSS 后”；自动模式会保持在后处理（见“进阶用法”）。
+- 通过模组添加 DLSS 的 DX11 游戏也可以使用。如果模组在自己的 DirectX 12 设备上运行 DLSS，NR 会保持在后处理，Uplift 选项卡也会显示原因。
+- **64 位 Vulkan：** NR 会优先在游戏自己的 Vulkan 设备上运行；如果无法运行，则切换到专用 DX12 设备，再不行则切换到辅助进程。**详细信息**会说明当前运行位置和原因。**高级 → Vulkan 后处理阶段 NR**可用于手动选择运行位置。只有游戏自身设备（**原生**）支持在游戏 DLSS 阶段运行 NR。选择 Direct3D 12 或辅助进程后，NR 会切换到后处理，并禁用“DLSS 后”和“DLSS 前”。如果原生 NR 仅在后处理阶段失败，“DLSS 后”和“DLSS 前”仍可使用。
+- DXVK 游戏按 Vulkan 游戏处理；dgVoodoo2 游戏按 32 位 DX11 或 DX12 游戏处理。
 
-**Tested with:** Onimusha: Way of the Sword (DX12), Final Fantasy XV (DX11), No Man's Sky (Vulkan), Lightning Returns: Final Fantasy
-XIII (32-bit DX9, and DX11 through dgVoodoo2).
+**已测试游戏：**《鬼武者：剑之道》（DX12）、《最终幻想 XV》（DX11）、《无人深空》（Vulkan）、《最终幻想 XIII：雷霆归来》（32 位 DX9，以及通过 dgVoodoo2 运行的 DX11）。
 
-## If something's wrong
+## 故障排查
 
-The card at the top of the Uplift tab tells you what's wrong. The usual ones:
+Uplift 选项卡顶部的状态卡会说明问题。常见情况如下：
 
-| The card says | What to do |
+| 状态卡提示 | 处理方法 |
 |---|---|
-| "The NR runtime was not found" | Put `nvngx_dlssnr.dll` into the `GITC-Uplift` folder next to the add-ons and restart the game. |
-| "Move nvngx_dlssnr.dll" | Move `nvngx_dlssnr.dll` away from the game's .exe into the `GITC-Uplift` folder next to the add-ons, and restart the game. |
-| "NR failed", with an NVIDIA error code | Your `nvngx_dlssnr.dll` doesn't work with your card (see "What you need"), or your driver is out of date. |
-| "Uplift's 64-bit helper stopped" | Copy `gitc-uplift-helper64.exe` from the same release next to the add-ons, then press **Retry now**. |
-| "The GPU device was removed" | Press **Retry now** if the card has it; otherwise restart the game. After a stop, some video memory (1 GB or more at 4K) stays in use until you restart the game. If it happens twice, restart the game, and please report it with `ReShade.log`. |
-| "NR needs at least 640x360" | Raise the game's resolution or window size. |
-| "NR skipped: needs 1.2 GB, 0.6 GB free" | The game is using most of the video memory. Lower **VRAM margin**, or set **Video memory check** to **Relaxed** or **Off** (both in Advanced). |
-| A Vulkan game crashes while starting, with Uplift | Start it again: Uplift turns off its additions to the game's Vulkan device by itself. If it keeps crashing, set **Vulkan NR at Present** (Advanced) to **Helper**. |
-| NR costs a lot at a very low resolution | Set **Pass count** to 1. Below about 720p, NR's cost hardly shrinks with the image, so **Resolution** helps little there. |
-| At **Present** with **Motion vectors** on DLSS, the image shimmers when the camera moves | The game keeps its images upside down (many Unity games do). Set `RESHADE_DEPTH_INPUT_IS_UPSIDE_DOWN` to 1 in ReShade's global preprocessor definitions, as for depth effects: Uplift then turns DLSS's motion vectors the right way up. |
-| With **Keep faces** on, characters get specks or glowing spots | Tick **Show the face mask** (Advanced) and tune it: see [the wiki](https://github.com/ghostinthecamera/GITC-Uplift/wiki/Guide#keep-faces). |
-| "Another NR tool is running" | Remove the other DLSS5 add-on (see "Other DLSS5 add-ons") and restart the game. |
-| "The Vulkan swap chain cannot take NR's result" | Update ReShade to 6.8 (choose **Update ReShade only** in the installer). If it mentions exclusive fullscreen, use borderless or windowed mode. |
-| "Not enough address space in this 32-bit game" | Apply a 4 GB (large-address-aware) patch to the game. |
+| “未找到 NR 运行时” | 将 `nvngx_dlssnr.dll` 放入插件旁的 `GITC-Uplift` 文件夹，然后重启游戏。 |
+| “移动 nvngx_dlssnr.dll” | 将 `nvngx_dlssnr.dll` 从游戏 `.exe` 所在目录移至插件旁的 `GITC-Uplift` 文件夹，然后重启游戏。 |
+| “NR 运行失败”，并显示 NVIDIA 错误代码 | `nvngx_dlssnr.dll` 可能不适用于你的显卡（参见“所需组件”），也可能是显卡驱动版本过旧。 |
+| “Uplift 的 64 位辅助进程已停止” | 将同一发行版中的 `gitc-uplift-helper64.exe` 复制到插件旁，然后点击 **立即重试**。 |
+| “GPU 设备已移除” | 如果状态卡提供按钮，请点击 **立即重试**；否则重启游戏。设备停止后，部分显存（4K 下为 1 GB 或更多）会一直占用到游戏退出。如果连续发生两次，请重启游戏并附上 `ReShade.log` 报告问题。 |
+| “NR 至少需要 640x360” | 提高游戏分辨率或窗口尺寸。 |
+| “NR 已跳过：显存需求 1.2 GB，可用 0.6 GB” | 游戏已占用大部分显存。请降低**显存余量**，或在“高级”中将**显存检查**设为**宽松**或**关闭**。 |
+| Vulkan 游戏在启动时因 Uplift 崩溃 | 再次启动游戏；Uplift 会自动关闭对游戏 Vulkan 设备的扩展。如果仍然崩溃，请在“高级”中将**Vulkan 后处理阶段 NR**设为**辅助进程**。 |
+| 极低分辨率下 NR 开销很大 | 将**层数**设为 1。分辨率低于约 720p 时，NR 的运算开销不会随画面尺寸明显下降，因此降低**分辨率**的帮助有限。 |
+| **后处理**阶段选择 **DLSS** 运动矢量，且移动镜头时画面闪烁 | 游戏可能以倒置方向保存图像（许多 Unity 游戏如此）。请在 ReShade 的全局预处理器定义中将 `RESHADE_DEPTH_INPUT_IS_UPSIDE_DOWN` 设为 1（与深度效果的设置相同）；Uplift 随后会校正 DLSS 运动矢量的方向。 |
+| 启用**保护面部**后，角色出现亮点或闪光 | 勾选“高级”中的**显示面部蒙版**并进行调节；参见[使用指南](https://github.com/ghostinthecamera/GITC-Uplift/wiki/Guide#keep-faces)。 |
+| “检测到其他 NR 工具正在运行” | 移除其他 DLSS 5 插件（见“其他 DLSS 5 插件”），然后重启游戏。 |
+| “Vulkan 交换链无法接收 NR 的结果” | 将 ReShade 更新至 6.8（安装程序中选择**仅更新 ReShade**）。如果提示独占全屏问题，请切换到无边框或窗口模式。 |
+| “32 位游戏地址空间不足” | 为游戏应用 4 GB（大地址感知）补丁。 |
 
-Still stuck? [Open an issue](https://github.com/ghostinthecamera/GITC-Uplift/issues) and include:
+仍无法解决？请[提交 Issue](https://github.com/ghostinthecamera/GITC-Uplift/issues)，并附上：
 
-- `ReShade.log` (it's next to `ReShade.ini`, usually in the game's folder);
-- what the card says, and its **Details** lines;
-- your graphics card, driver and ReShade version;
-- the game.
+- `ReShade.log`（位于 `ReShade.ini` 旁，通常在游戏目录中）；
+- 状态卡内容及**详细信息**中的各行；
+- 显卡型号、驱动版本和 ReShade 版本；
+- 游戏名称。
 
-## Known limitations
+## 已知限制
 
-- If NVIDIA's NR crashes on the GPU, the game can crash too (as with any GPU crash). Restart the game, and please report it with `ReShade.log`.
+- 如果 NVIDIA NR 在 GPU 上崩溃，游戏也可能崩溃（与任何 GPU 崩溃相同）。请重启游戏，并附上 `ReShade.log` 报告问题。
 
-## If you know what you are doing
+## 进阶用法
 
-A release contains `gitc-uplift.addon64`, `gitc-uplift.addon32`, `gitc-uplift-helper64.exe`, `Uplift.fx` and `UpliftMask.fx`. Which files a
-game needs depends on its API and bitness, so you do not need all the files all the time, should you want to be precise for whatever
-reason.
+发行版包含 `gitc-uplift.addon64`、`gitc-uplift.addon32`、`gitc-uplift-helper64.exe`、`Uplift.fx` 和 `UpliftMask.fx`。游戏需要哪些文件取决于所用 API 和位数；如果需要精简安装，不必放入所有文件。
 
-| Game | Files in ReShade's add-on folder |
+| 游戏类型 | ReShade 插件目录所需文件 |
 |---|---|
-| 64-bit Direct3D 10, 11 or 12, Vulkan, OpenGL | `gitc-uplift.addon64`, and `GITC-Uplift\nvngx_dlssnr.dll` |
-| 64-bit Direct3D 9 | `gitc-uplift.addon64`, `gitc-uplift-helper64.exe`, and `GITC-Uplift\nvngx_dlssnr.dll` |
-| Any 32-bit game | `gitc-uplift.addon32`, `gitc-uplift-helper64.exe`, and the (64-bit) `GITC-Uplift\nvngx_dlssnr.dll` |
+| 64 位 Direct3D 10、11 或 12、Vulkan、OpenGL | `gitc-uplift.addon64` 和 `GITC-Uplift\nvngx_dlssnr.dll` |
+| 64 位 Direct3D 9 | `gitc-uplift.addon64`、`gitc-uplift-helper64.exe` 和 `GITC-Uplift\nvngx_dlssnr.dll` |
+| 任意 32 位游戏 | `gitc-uplift.addon32`、`gitc-uplift-helper64.exe` 和（64 位）`GITC-Uplift\nvngx_dlssnr.dll` |
 
-- `nvngx_dlssnr.dll` can also sit right next to the add-ons, or anywhere you point **Runtime path** (Advanced) at. Not next to the game's .exe: on
-  RTX 50 cards NVIDIA's DLSS loads it from there first, and Uplift can't use that copy.
-- The add-ons and `gitc-uplift-helper64.exe` must come from the same release.
+- `nvngx_dlssnr.dll` 也可以直接放在插件旁，或放在你通过“高级 → 运行时路径”指定的位置。请勿放在游戏 `.exe` 旁：RTX 50 系列显卡上的 NVIDIA DLSS 会优先从那里加载 DLL，Uplift 无法使用该副本。
+- 插件文件和 `gitc-uplift-helper64.exe` 必须来自同一发行版。
 
-### ReShade for each kind of game
+### 不同类型游戏所需的 ReShade 安装方式
 
-- **DX10, 11, 12:** a normal ReShade install.
-- **DX9:** ReShade as `d3d9.dll`. NR copies each frame through memory, about 3 ms at 1080p. **Use Direct3D 9Ex** (Advanced, then
-  restart the game) brings that down to about 0.4 ms. If the game then won't start, start it again: Uplift turns the option back off.
-- **Vulkan (DXVK included):** ReShade 6.8's Vulkan layer. Run the installer, pick the game's executable and choose **Vulkan**. If it
-  finds a `ReShade.ini`, choose **Update ReShade only** (Uninstall deletes your `ReShade.ini`). A game running through DXVK must use the
-  Vulkan layer, not a `d3d9.dll` or `dxgi.dll` ReShade.
-- **OpenGL:** ReShade 6.8 as `opengl32.dll`, in the game's bitness.
-- **Old DX8 and DX9 games through dgVoodoo2:** faster than plain DX9. Put dgVoodoo2's `MS\x86\D3D9.dll` (or `D3D8.dll`) next to the game,
-  set **Output API** in `dgVoodooCpl.exe` to Direct3D 11 or "Direct3D 12 (feature level 12.0)", and install the 32-bit ReShade as
-  `dxgi.dll`. Other `d3d9.dll` wrappers (DXVK, game fixes) conflict with it.
+- **DX10、DX11、DX12：** 常规 ReShade 安装。
+- **DX9：** 将 ReShade 安装为 `d3d9.dll`。NR 每帧会通过内存复制画面，1080p 下开销约 3 ms。启用“高级”中的**使用 Direct3D 9Ex**并重启游戏后，开销可降至约 0.4 ms。如果游戏无法启动，请再次启动；Uplift 会自动关闭该选项。
+- **Vulkan（含 DXVK）：** 使用 ReShade 6.8 的 Vulkan Layer。运行安装程序，选择游戏可执行文件并选择 **Vulkan**。如果安装程序找到 `ReShade.ini`，请选择**仅更新 ReShade**（卸载会删除 `ReShade.ini`）。通过 DXVK 运行的游戏必须使用 Vulkan Layer，不能使用 `d3d9.dll` 或 `dxgi.dll` 版 ReShade。
+- **OpenGL：** 将 ReShade 6.8 安装为与游戏位数匹配的 `opengl32.dll`。
+- **通过 dgVoodoo2 运行的旧版 DX8 和 DX9 游戏：** 性能优于纯 DX9。将 dgVoodoo2 的 `MS\x86\D3D9.dll`（或 `D3D8.dll`）放在游戏目录中，在 `dgVoodooCpl.exe` 中将 **Output API** 设为 Direct3D 11 或“Direct3D 12（feature level 12.0）”，再将 32 位 ReShade 安装为 `dxgi.dll`。其他 `d3d9.dll` 包装器（例如 DXVK、游戏修复补丁）会与其冲突。
 
-### Where NR runs, and memory
+### NR 的运行位置与显存
 
-- **64-bit games** run NR inside the game. After the first time you switch it on, about 165 to 190 MB stays with the game until it
-  exits, so switching NR on again is instant.
-- **32-bit and DX9 games** run NR in `gitc-uplift-helper64.exe`, a small background process that Uplift starts when NR turns on. It
-  exits a few seconds after NR turns off and gives all of its memory back.
-- **64-bit Vulkan games** run NR on the game's own Vulkan device, at Present and at the DLSS stages. NVIDIA's driver keeps about 0.5 to
-  0.6 GB with the game after the first use, until the game exits. Where that can't run, NR moves to a private DX12 device inside the game,
-  and from there to `gitc-uplift-helper64.exe`, which some programs need (an emulator that reserves most of its own memory, for one).
-  Those two run NR at Present only.
-- **Vulkan devices:** Uplift adds three sharing extensions to the game's Vulkan device when the game creates it, so the GPU can keep NR
-  in step with the game, and, while **Vulkan NR at Present** is Native, the four NVIDIA extensions NR needs on the game's device. If a
-  game misbehaves with that, Uplift drops NVIDIA's extensions by itself, then the rest (`AdjustVulkanDevicesForNgx`, `AdjustVulkanDevices`,
-  below). NR then still works, a little slower.
-- **Multisampled images (MSAA):** DX9 and OpenGL need the `Uplift` technique turned on. DX10 and 32-bit DX12 can't use MSAA with NR:
-  turn it off in the game.
+- **64 位游戏**会在游戏进程内运行 NR。首次启用后，约 165–190 MB 显存会一直由游戏占用到游戏退出，因此再次启用 NR 时无需重新加载。
+- **32 位和 DX9 游戏**会在 `gitc-uplift-helper64.exe` 中运行 NR。Uplift 会在 NR 启用时启动此轻量级后台进程；关闭 NR 数秒后，进程会退出并释放其占用的显存。
+- **64 位 Vulkan 游戏**会在游戏自己的 Vulkan 设备上运行 NR，包括后处理和 DLSS 阶段。首次使用后，NVIDIA 驱动会为游戏保留约 0.5–0.6 GB 显存，直到游戏退出。如果无法通过该方式运行，NR 会切换到游戏进程中的专用 DX12 设备，再切换到 `gitc-uplift-helper64.exe`。部分程序（例如会预留大部分显存的模拟器）需要最后一种方式。后两种方式只支持在后处理阶段运行 NR。
+- **Vulkan 设备：** 游戏创建 Vulkan 设备时，Uplift 会为其添加三个共享扩展，使 GPU 能与游戏保持同步；当**Vulkan 后处理阶段 NR**设为“原生”时，还会添加 NR 在游戏设备上运行所需的四个 NVIDIA 扩展。如果游戏因此出现问题，Uplift 会自动先移除 NVIDIA 扩展，再移除其余扩展（见下文的 `AdjustVulkanDevicesForNgx` 和 `AdjustVulkanDevices`）。NR 仍可运行，但速度会稍慢。
+- **多重采样图像（MSAA）：** DX9 和 OpenGL 需要启用 `Uplift` 技术。DX10 和 32 位 DX12 无法在 NR 下使用 MSAA；请在游戏中关闭它。
 
-### After DLSS image coverage
+### DLSS 后图像覆盖范围
 
-Version 1.4.2 preserves the submitted DLSS render/output dimensions when NGX rewrites its parameter block during feature creation. This fixes partial-image NR coverage after DLSS observed in Forspoken. Output subrect origins and dynamic render dimensions retain their existing handling.
+1.4.2 会在 NGX 创建功能时重写参数块的情况下，保留已提交的 DLSS 渲染尺寸和输出尺寸。此修复解决了《Forspoken》中观察到的 DLSS 后处理 NR 仅覆盖部分画面的问题。输出子区域的起点和动态渲染尺寸仍按原有方式处理。
 
-### DLSS motion vectors at Present
+### 后处理阶段的 DLSS 运动矢量
 
-DLSS motion vectors at Present on DX12 and Vulkan have camera-jitter motion removed when the game marks those vectors as jittered. It uses the game's current and previous render-resolution jitter values; no new setting is required. Vectors not marked jittered keep their existing handling.
+在 DX12 和 Vulkan 的后处理阶段，如果游戏将 DLSS 运动矢量标记为包含相机抖动，Uplift 会移除这部分抖动。计算使用游戏当前和上一帧的渲染分辨率抖动值，无需新增设置。未标记为抖动的运动矢量仍按原有方式处理。
 
-For a flicker report, set **Advanced → Log level → Debug**, reproduce it for a few seconds and include `ReShade.log`. The first DLSS summary reports `jittered yes/no`; `Present motion` lines show current, older and missing copies, busy-copy counts and the latest correction. The DX12 line also counts pipeline reset hints.
+如果遇到闪烁，请在“高级 → 日志级别”中选择“调试”，复现几秒并附上 `ReShade.log`。首次 DLSS 摘要会报告运动矢量是否含抖动；“后处理阶段运动矢量”日志会显示当前、较旧及缺失的副本、繁忙副本数量和最近一次校正量。DX12 日志还会统计流水线重置提示。
 
-### Passes at different stages
+### 不同阶段的叠层处理
 
-With **Pass count** 2 or more, each Pass section starts with **Runs at**: where in the game's frame that pass runs (by default, with the
-pass before). Passes before upscaling run at the game's render resolution, so they cost less: for example, pass 1 Before upscaling and
-pass 2 at Present. This works in native DX12 and DX11 DLSS games, and in Vulkan games with **Vulkan NR at Present** on Native;
-elsewhere every pass runs at one stage. More in [the wiki](https://github.com/ghostinthecamera/GITC-Uplift/wiki/Guide#passes-at-different-stages).
+**层数**设为 2 或更高时，每个后续层的设置区域都会显示**运行阶段**，用于选择该层在游戏帧的哪个阶段运行（默认跟随前一层）。DLSS 前运行的层会使用游戏渲染分辨率，因此开销更低。例如，第 1 层可在 DLSS 前运行，第 2 层在后处理运行。此功能适用于原生 DX12、使用 DLSS 的 DX11，以及将**Vulkan 后处理阶段 NR**设为“原生”的 Vulkan 游戏；其他情况下所有层都会在同一阶段运行。详情请见[使用指南](https://github.com/ghostinthecamera/GITC-Uplift/wiki/Guide#passes-at-different-stages)。
 
-### A different network per pass
+### 各层可独立选择网络预设
 
-With NR 310.9.16, each Pass 2–10 section has **Network preset** beside **Runs at**:
+使用 NR 310.9.16 时，第 2–10 层的设置区域会在**运行阶段**旁显示**网络预设**：
 
-- **Same as pass 1** inherits the Setup network (the default, including for existing configurations).
-- **A: Legacy** or **B: Small FP8** selects that pass's network independently.
+- **与第 1 层相同**会沿用“设置”中的网络预设（默认值，也适用于已有配置）。
+- **A：旧版（Legacy）**或**B：小型 FP8（Small FP8）**可为该层单独选择网络。
 
-For example, select Legacy in Setup with Before upscaling, then Small FP8 and After DLSS for pass 2.
-**Same look as pass 1** shares the look controls; it leaves the network and placement selections independent.
-Changing a network recreates the feature pool and resets its histories. Keep faces uses its stage group's first-pass network.
-**Details** reports the runtime-confirmed network and recorded evaluation count for every created, requested pass.
-NR 310.8 greys every network selector and displays Legacy, preserving saved selections for a newer runtime.
-Mixed chains use a conservative memory estimate; they do not promise smaller VRAM reservations for Small FP8.
+例如，可在“设置”中选择 Legacy 并将运行阶段设为“DLSS 前”，再将第 2 层设为 Small FP8 和“DLSS 后”。**沿用第 1 层外观**只共享外观设置；网络预设和运行阶段仍可独立选择。更改网络会重建功能池并重置其时序历史。“保护面部”使用所在阶段组中第 1 层的网络。**详细信息**会显示每个当前已创建且在层数范围内的层经运行时确认的网络和已录制评估次数。NR 310.8 会禁用所有网络选择器并显示 Legacy，同时保留已保存的设置供较新运行时使用。混合网络链采用保守的显存估算；使用 Small FP8 不保证显存预留更少。
 
-### Settings in ReShade.ini
+### ReShade.ini 设置项
 
-Settings live in the game's `ReShade.ini`, under `[Uplift]`. Most are in the Uplift tab; these are the ones you may need by hand:
+设置保存在游戏的 `ReShade.ini` 文件的 `[Uplift]` 区段中。大多数选项都可以在 Uplift 选项卡中调整；以下列出可能需要手动设置的项目：
 
-| Key | Default | What it does |
+| 键 | 默认值 | 说明 |
 |---|---|---|
-| `SnippetPath` | empty | **Runtime path** (Advanced): the full path of `nvngx_dlssnr.dll`. Empty looks in the `GITC-Uplift` folder next to the add-on, then next to the add-on, then next to the game. |
-| `UseD3D9Ex` | `0` | **Use Direct3D 9Ex** (Advanced): `1` makes DX9 games much faster (see above). A game in exclusive fullscreen then runs as a borderless window. Restart the game. |
-| `NgxHooks` | `0` | **NGX hooks** (Advanced): `1` is safe mode: nothing is hooked, and NR runs at Present only. Restart the game. |
-| `AdjustVulkanDevices` | `1` | Hidden. `0` leaves a Vulkan game's device alone (see above). Uplift sets it to `0` by itself if a game crashed while starting with it. Restart the game. |
-| `VulkanNr` | `0` | **Vulkan NR at Present** (Advanced): `0` Native, on the game's own device; `1` a private DX12 device; `2` Uplift's helper process. Each falls back to the next by itself. Native needs a game restart after you pick it. Only Native runs After DLSS and Before upscaling: `1` and `2` run at Present, and picking one in the tab moves the NR stage to Present. |
-| `AdjustVulkanDevicesForNgx` | `1` | Hidden. `0` leaves out NVIDIA's extensions for native Vulkan NR. Uplift sets it to `0` by itself if a game crashed while starting with them. Restart the game. |
-| `VulkanNativeNr` | `1` | Hidden. `0` skips native Vulkan NR. Uplift sets it to `0` by itself if native NR crashed a game; set it back to `1`, or press Clear latch, to try again. Restart the game. |
-| `AutoExposureMode` | `0` | **Auto exposure** (Fixes, with **Input exposure** Auto): `0` Blend mixes the game's exposure with Uplift's meter; `1` Switch uses the game's own. A broken game exposure always falls back to the meter. |
-| `AutoExposureBlend` | `0.8` | **Blend (game to meter)** (Fixes), 0 to 1, shown as 0-100 %: `0` is the game's exposure, `1` the meter's. Lower stays closer to the game's look; higher is more even between scenes. |
-| `GraceSeconds` | `5` | **Grace (seconds)** (Advanced): how long NR keeps its memory after you switch it off, so a quick toggle doesn't reload it. |
-| `VramCheck` | `0` | **Video memory check** (Advanced): `0` Careful leaves the game its budget and pauses NR when the game needs the memory back; `1` Relaxed lets NR go about 1 GB past the game's budget; `2` Off never checks, like other DLSS-NR add-ons. Relaxed and Off can stutter in games that really use all their video memory. |
-| `KeepFaces` | `0` | **Keep faces** (Look): `1` keeps NR's lighting and shading on characters, but stops NR reshaping their faces. NR runs one more time per frame, and needs about 1 GB more video memory at 4K. |
-| `Pass2Preset` ... `Pass10Preset` | `0` | Per-pass network: `0` inherits Setup, `1` Legacy, `2` Small FP8. Independent of look sharing; requires NR 310.9.16. |
-| `Pass2Stage` ... `Pass10Stage` | `0` | **Runs at** (each Pass section): `0` the same stage as the pass before, `1` Before upscaling, `2` After DLSS, `3` Present. A pass never runs before the pass before it, and a stage that can't run right now uses the nearest one that can. |
-| `ResolutionAfterDlss`, `ResolutionPresent` | `0` | **Resolution at After DLSS** / **at Present**: the size for the passes at that stage when pass 1 runs earlier. `0` Full, `1` Quality, `2` Balanced, `3` Performance, `4` Match game, `5` Custom. |
-| `ResolutionScaleAfterDlss`, `ResolutionScalePresent` | `100` | **Custom scale** for those, 25 to 100 (%). |
-| `KeepFacesAfterDlss`, `KeepFacesPresent` | `0` | **Keep faces here**: `1` also protects faces at that stage while Keep faces is on. One more NR run per frame. |
-| `FaceProtection` | `0` | **Face protection** (Look), 0 to 1: how much of NR's fine structure faces still get. `0` leaves faces as the game drew them; `1` lets NR's structure through. |
-| `LightingScale` | `2.5` | **Lighting scale (% of height)** (Look), 0.5 to 10: on characters, NR's change broader than this counts as lighting and is kept. Larger keeps only the broadest lighting; smaller keeps more of NR's change on faces. |
-| `ShowFaceMask` | `0` | **Show the face mask** (Advanced): `1` tints what Keep faces protects in magenta, while you tune it. |
-| `FaceMaskThreshold` | `1.5` | **Mask threshold (% of brightness)** (Advanced), 0 to 10: raise it if the mask speckles the background or bright glints; lower it if faces are only faintly tinted. |
-| `FaceMaskFull` | `6` | **Full protection at (% of brightness)** (Advanced), 1 to 30: lower it if faces are tinted only in patches; raise it if hair or clothes are tinted too. |
-| `FaceMaskStrength` | `2` | **Mask strength** (Advanced), 0.5 to 4: raise it if the mask has holes inside faces; lower it if it spreads past them. |
-| `FaceMaskSoftness` | `0.5` | **Mask softness (% of height)** (Advanced), 0.1 to 2: raise it if the mask looks blotchy or flickers; lower it if it spreads past faces. |
-| `FaceEdgeFalloff` | `0.15` | **Edge falloff (% of height)** (Advanced), 0.05 to 1: lower it if light glows past a character's outline; raise it if outlines show a dark rim. |
-| `FaceLightingDensity` | `0.3` | **Lighting density** (Advanced), 0.05 to 1: raise it if glints or bright edges leave glowing spots on characters; lower it if the lighting fades near the edges of faces. |
-| `FaceSpeckSize` | `2` | **Remove specks (px)** (Advanced), 0 to 3: bright specks up to about this size (glints, sparkles) keep NR's normal result. Larger sizes also stop protecting tiny face details, such as a far-away eye. `0` turns it off. |
-| `FaceFillSkin` | `1` | **Fill skin by colour** (Advanced): `1` grows the mask over nearby skin of the same colour, such as skin in shadow. `0` if clothes or hair of a skin-like colour turn magenta. |
-| `FaceFillRadius` | `3` | **Fill radius (% of height)** (Advanced), 0.5 to 10: how far the fill reaches from marked skin. Raise it if broad patches of skin are still uncovered; lower it if the fill spreads onto nearby surfaces. |
-| `FaceFillTolerance` | `0.04` | **Colour tolerance** (Advanced), 0.005 to 0.2: raise it if skin in shadow is still uncovered; lower it if clothes or hair turn magenta. |
+| `SnippetPath` | 空 | **运行时路径**（高级）：`nvngx_dlssnr.dll` 的完整路径。留空时，依次从插件旁的 `GITC-Uplift` 文件夹、插件目录和游戏目录查找。 |
+| `UseD3D9Ex` | `0` | **使用 Direct3D 9Ex**（高级）：设为 `1` 可大幅提升 DX9 游戏性能（见上文）。游戏处于独占全屏时会切换为无边框窗口。需要重启游戏。 |
+| `NgxHooks` | `0` | **NGX 挂钩**（高级）：设为 `1` 即启用安全模式，不安装挂钩，NR 只在后处理阶段运行。需要重启游戏。 |
+| `AdjustVulkanDevices` | `1` | 隐藏选项。设为 `0` 时不调整 Vulkan 游戏设备（见上文）。如果游戏在启用此项后启动崩溃，Uplift 会自动将其设为 `0`。需要重启游戏。 |
+| `VulkanNr` | `0` | **Vulkan 后处理阶段 NR**（高级）：`0` 原生（游戏自己的设备）；`1` 专用 DX12 设备；`2` Uplift 辅助进程。每种方式都会自动回退到下一种。选择“原生”后需要重启游戏。只有原生模式支持“DLSS 后”和“DLSS 前”；选择 `1` 或 `2` 后，NR 会在后处理阶段运行，并自动切换 NR 阶段。 |
+| `AdjustVulkanDevicesForNgx` | `1` | 隐藏选项。设为 `0` 时不添加原生 Vulkan NR 所需的 NVIDIA 扩展。如果游戏在启用这些扩展后启动崩溃，Uplift 会自动将其设为 `0`。需要重启游戏。 |
+| `VulkanNativeNr` | `1` | 隐藏选项。设为 `0` 时跳过原生 Vulkan NR。如果原生 NR 导致游戏崩溃，Uplift 会自动将其设为 `0`；可将其重新设为 `1`，或点击“清除锁定”后重试。需要重启游戏。 |
+| `AutoExposureMode` | `0` | **自动曝光**（修正，仅当**输入曝光**为“自动”时生效）：`0` 混合游戏曝光与 Uplift 测光结果；`1` 切换为仅使用游戏曝光。游戏曝光异常时始终回退到测光结果。 |
+| `AutoExposureBlend` | `0.8` | **混合比例（游戏曝光到测光）**（修正），范围 0–1，界面显示为 0–100%：`0` 使用游戏曝光，`1` 使用测光结果。数值越低越接近游戏原有观感；数值越高，不同场景间的曝光越平稳。 |
+| `GraceSeconds` | `5` | **宽限时间（秒）**（高级）：关闭 NR 后保留其显存的时长，避免快速切换时重新加载。 |
+| `VramCheck` | `0` | **显存检查**（高级）：`0` 谨慎，为游戏保留显存预算，并在游戏需要显存时暂停 NR；`1` 宽松，允许 NR 超出游戏显存预算约 1 GB；`2` 关闭检查，行为与其他 DLSS-NR 插件相同。在显存占用较高的游戏中，宽松和关闭模式可能造成卡顿。 |
+| `KeepFaces` | `0` | **保护面部**（外观）：设为 `1` 后保留角色光照和阴影，同时避免 NR 改变面部形状。每帧会额外运行一层 NR，4K 下约需额外 1 GB 显存。 |
+| `Pass2Preset` … `Pass10Preset` | `0` | 各层的网络预设：`0` 沿用“设置”中的预设，`1` 旧版（Legacy），`2` 小型 FP8（Small FP8）。与是否沿用第 1 层外观相互独立；需 NR 310.9.16。 |
+| `Pass2Stage` … `Pass10Stage` | `0` | 各后续层的**运行阶段**：`0` 与前一层相同；`1` DLSS 前；`2` DLSS 后；`3` 后处理。某一层不会运行在前一层之前；如果指定阶段当前不可用，则会切换到距离最近的可用阶段。 |
+| `ResolutionAfterDlss`、`ResolutionPresent` | `0` | **DLSS 后分辨率** / **后处理阶段分辨率**：当第 1 层运行在更早阶段时，用于设置这些阶段的处理分辨率。`0` 全分辨率；`1` 质量；`2` 均衡；`3` 性能；`4` 匹配游戏；`5` 自定义。 |
+| `ResolutionScaleAfterDlss`、`ResolutionScalePresent` | `100` | 上述阶段的**自定义比例**，范围 25–100%。 |
+| `KeepFacesAfterDlss`、`KeepFacesPresent` | `0` | **在此阶段保护面部**：启用“保护面部”时，设为 `1` 可在该阶段也保护面部。每帧会额外运行一层 NR。 |
+| `FaceProtection` | `0` | **面部保护强度**（外观），范围 0–1：控制 NR 对面部细节结构的保留程度。`0` 保留游戏原始面部；`1` 完全应用 NR 的结构变化。 |
+| `LightingScale` | `2.5` | **光照尺度（画面高度百分比）**（外观），范围 0.5–10：角色身上尺度大于此值的 NR 变化会被视为光照并保留。数值越大，只保留范围更广的光照变化；数值越小，面部上保留的 NR 变化越多。 |
+| `ShowFaceMask` | `0` | **显示面部蒙版**（高级）：设为 `1` 后以洋红色显示“保护面部”实际保护的区域，方便调节。 |
+| `FaceMaskThreshold` | `1.5` | **蒙版阈值（亮度百分比）**（高级），范围 0–10：如果背景或高亮反光处出现零散蒙版，提高此值；如果面部着色太淡，则降低此值。 |
+| `FaceMaskFull` | `6` | **达到完全保护的亮度值（百分比）**（高级），范围 1–30：如果面部只被部分着色，降低此值；如果头发或衣服也被着色，提高此值。 |
+| `FaceMaskStrength` | `2` | **蒙版强度**（高级），范围 0.5–4：如果面部蒙版内部有空洞，提高此值；如果蒙版范围过大，则降低此值。 |
+| `FaceMaskSoftness` | `0.5` | **蒙版柔化（画面高度百分比）**（高级），范围 0.1–2：如果蒙版斑驳或闪烁，提高此值；如果蒙版蔓延到面部以外，则降低此值。 |
+| `FaceEdgeFalloff` | `0.15` | **边缘衰减（画面高度百分比）**（高级），范围 0.05–1：如果光照溢出到角色轮廓外，降低此值；如果轮廓出现暗边，则提高此值。 |
+| `FaceLightingDensity` | `0.3` | **光照密度**（高级），范围 0.05–1：如果高光或明亮边缘使角色出现亮点，提高此值；如果面部边缘附近的光照消失，则降低此值。 |
+| `FaceSpeckSize` | `2` | **去除亮点（像素）**（高级），范围 0–3：不超过此尺寸的亮点（反光、闪光）会保留 NR 的常规结果。尺寸越大，越可能停止保护微小面部细节（例如远处的人眼）。`0` 表示关闭。 |
+| `FaceFillSkin` | `1` | **按颜色填充皮肤区域**（高级）：设为 `1` 后，会将蒙版扩展到附近颜色相同的皮肤区域（例如阴影中的皮肤）。如果类似肤色的衣物或头发变成洋红色，请设为 `0`。 |
+| `FaceFillRadius` | `3` | **填充半径（画面高度百分比）**（高级），范围 0.5–10：控制填充从已标记皮肤向外延伸的距离。大块皮肤仍未覆盖时可提高此值；填充蔓延到附近表面时可降低此值。 |
+| `FaceFillTolerance` | `0.04` | **颜色容差**（高级），范围 0.005–0.2：阴影中的皮肤仍未覆盖时可提高此值；衣物或头发变成洋红色时可降低此值。 |
 
-### More from the card
+### 状态卡的其他提示
 
-- **"... does not match the Uplift add-on next to it":** the add-on and `gitc-uplift-helper64.exe` come from different releases. Copy both
-  from one.
-- **"Not enough video memory for NR"** or **"Paused: the game needs video memory":** lower **Resolution** or **Pass count**, close
-  other GPU programs, or set **Video memory check** (Advanced) to **Relaxed** or **Off**.
-- **"Keep faces paused"**: there isn't enough video memory for its extra NR run. NR keeps going without it, and Keep faces comes back by
-  itself when there is room. Lower **Resolution** or **Pass count** to make room.
-- **"Keep faces stopped"**: its extra NR run failed, and NR keeps going without it. Untick and tick **Keep faces** to try again.
-- **"NR after DLSS is off"** (after the GPU crashed): NR stays at Present. **Clear latch** allows After DLSS again from the next start.
-- Uplift's lines in `ReShade.log` start with `[Uplift]`; set **Log level** (Advanced) to Debug for more. The line
-  `Add-on "GITC Uplift" was not unregistered!` at the end of a 64-bit game's log is normal.
+- **“与旁边的 Uplift 插件版本不一致”：** 插件和 `gitc-uplift-helper64.exe` 来自不同发行版。请从同一发行版重新复制两者。
+- **“NR 可用显存不足”**或**“已暂停：游戏需要更多显存”：** 降低**分辨率**或**层数**，关闭其他 GPU 程序，或在“高级”中将**显存检查**设为**宽松**或**关闭**。
+- **“保护面部已暂停”：** 显存不足以支持额外的 NR 处理层。NR 会在不保护面部的情况下继续运行；显存充足后会自动恢复。请降低**分辨率**或**层数**以腾出显存。
+- **“保护面部已停止”：** 额外的 NR 处理失败，但 NR 会在不保护面部的情况下继续运行。取消勾选后重新勾选**保护面部**即可重试。
+- **“DLSS 后运行 NR 已停用”**（GPU 崩溃后）：NR 会保持在后处理阶段。点击**清除锁定**后，从下次启动起会重新尝试在 DLSS 后运行。
+- Uplift 在 `ReShade.log` 中的日志行以 `[Uplift]` 开头；如需更多信息，请在“高级”中将**日志级别**设为“调试”。64 位游戏日志末尾出现 `Add-on "GITC Uplift" was not unregistered!` 属于正常情况。
 
-## Building from source
+## 从源码构建
 
-You need:
+需要准备：
 
-- **Visual Studio 2026** or **2022** (17.14), any edition, with the **Desktop development with C++** workload (it includes CMake, Ninja
-  and the Windows SDK, whose `dxc.exe` compiles the Direct3D shaders);
-- the **Vulkan SDK** (it sets `VULKAN_SDK`), for its headers and the `dxc.exe` that compiles the SPIR-V shaders;
-- **Git**, and an internet connection for the first build.
+- **Visual Studio 2026** 或 **2022**（17.14），任意版本，并安装 **使用 C++ 的桌面开发**工作负载（其中包含 CMake、Ninja 和 Windows SDK；Windows SDK 提供用于编译 Direct3D 着色器的 `dxc.exe`）；
+- **Vulkan SDK**（设置 `VULKAN_SDK` 环境变量），用于提供头文件和编译 SPIR-V 着色器所需的 `dxc.exe`；
+- **Git**，以及首次构建时所需的网络连接。
 
-Then, from a command prompt (in PowerShell, type `.\build.cmd` and `.\tools\fetch_deps.cmd`):
+然后在命令提示符中执行以下命令（在 PowerShell 中输入 `.\build.cmd` 和 `.\tools\fetch_deps.cmd`）：
 
 ```bat
 git clone https://github.com/ghostinthecamera/GITC-Uplift.git
@@ -326,13 +252,11 @@ build.cmd release
 build.cmd release-x86
 ```
 
-- `tools\fetch_deps.cmd` downloads the headers the build needs into `third_party\_deps` (NVIDIA's NGX SDK headers, no NVIDIA binaries;
-  the ReShade 6.0.0 add-on headers and Dear ImGui; MinHook).
-- `build.cmd release` makes `build\release\gitc-uplift.addon64` and `build\release\gitc-uplift-helper64.exe`.
-- `build.cmd release-x86` makes `build\release-x86\gitc-uplift.addon32`.
-- The add-ons and the helper check each other's build id, so always use the ones from the same build.
+- `tools\fetch_deps.cmd` 会将构建所需的头文件下载到 `third_party\_deps`（NVIDIA NGX SDK 头文件，不含 NVIDIA 二进制文件；ReShade 6.0.0 插件头文件和 Dear ImGui；MinHook）。
+- `build.cmd release` 会生成 `build\release\gitc-uplift.addon64` 和 `build\release\gitc-uplift-helper64.exe`。
+- `build.cmd release-x86` 会生成 `build\release-x86\gitc-uplift.addon32`。
+- 插件和辅助进程会检查彼此的构建 ID，因此必须始终使用同一次构建生成的文件。
 
-## Licence
+## 许可证
 
-GITC Uplift is released under the MIT licence: see [LICENSE](LICENSE). The licences of the code it derives from or builds against are in
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). NVIDIA, GeForce RTX and DLSS are trademarks of NVIDIA Corporation.
+GITC Uplift 基于 MIT 许可证发布，详见 [LICENSE](LICENSE)。其衍生代码或依赖项所适用的许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。NVIDIA、GeForce RTX 和 DLSS 均为 NVIDIA Corporation 的商标。

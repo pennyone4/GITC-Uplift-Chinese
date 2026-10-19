@@ -54,8 +54,7 @@ bool OnCreateSwapchain(api::device_api device_api, api::swapchain_desc& desc, vo
       desc68.fullscreen_refresh_rate = 0.f;
       if (!g_d3d9ex_windowed_logged.exchange(true, std::memory_order_relaxed)) {
         nr::Log(nr::LogLevel::INFO,
-                "Direct3D 9Ex: the game asks for exclusive fullscreen, which ReShade cannot create as a Direct3D 9Ex device; Uplift runs it as a "
-                "window of the same size instead (borderless)");
+                "Direct3D 9Ex：游戏请求独占全屏，但 ReShade 无法以 Direct3D 9Ex 设备实现独占全屏；Uplift 将以相同分辨率的无边框窗口运行");
       }
       return true;
     }
@@ -65,14 +64,13 @@ bool OnCreateSwapchain(api::device_api device_api, api::swapchain_desc& desc, vo
       vk::NoteExclusiveFullscreenSwapchain();
       if (!g_fullscreen_skip_logged.exchange(true, std::memory_order_relaxed)) {
         nr::Log(nr::LogLevel::INFO,
-                "Vulkan: swap-chain copy access not added (create_swapchain): the game asks for exclusive fullscreen, so NR cannot write back into "
-                "this swap chain; use borderless or windowed mode for NR");
+                "Vulkan：未添加交换链复制权限（create_swapchain）：游戏请求独占全屏，NR 无法写回此交换链；如需使用 NR，请切换至无边框窗口或窗口模式");
       }
       return false;
     }
     desc.back_buffer.usage |= api::resource_usage::copy_dest | api::resource_usage::copy_source;
     if (!g_vulkan_swapchain_event.exchange(true, std::memory_order_relaxed)) {
-      nr::Log(nr::LogLevel::INFO, "Vulkan: swap-chain copy access added (create_swapchain)");
+      nr::Log(nr::LogLevel::INFO, "Vulkan：已添加交换链复制权限（create_swapchain）");
     }
     return true;
   }

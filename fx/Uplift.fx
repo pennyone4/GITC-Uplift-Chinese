@@ -158,11 +158,10 @@ float UpliftMarkerPS(float4 position : SV_Position) : SV_Target { return 0.0; }
 #endif
 
 technique Uplift <
-  ui_label = "Uplift (DLSS-NR position)";
-  ui_tooltip = "Marks where Uplift runs DLSS-NR among your effects. With iMMERSE LaunchPad above it and Motion "
-               "vectors set to LaunchPad or Auto, Uplift links itself to LaunchPad automatically and hands its "
-               "motion vectors here; no preprocessor edit needed. LumeniteFX's Kernel above it works the same way "
-               "(Motion vectors Lumenite, or Auto without LaunchPad).";
+  ui_label = "Uplift（DLSS-NR 运行位置）";
+  ui_tooltip = "标记 Uplift 在效果列表中的 DLSS-NR 运行位置。若将 iMMERSE LaunchPad 放在其上方，并将“运动矢量”设为“LaunchPad”或“自动”，"
+               "Uplift 会自动连接 LaunchPad，并在此处接收其运动矢量；无需修改预处理器定义。LumeniteFX 的 Kernel 也可采用相同方式接入："
+               "将 Kernel 放在其上方，并将“运动矢量”设为“Lumenite”，或在未启用 LaunchPad 时设为“自动”。";
 >
 {
 #if UPLIFT_LAUNCHPAD

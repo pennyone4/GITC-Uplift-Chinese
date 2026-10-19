@@ -47,10 +47,10 @@ GLenum InternalFormatOf(DXGI_FORMAT shared) {
 
 std::string BackBufferProblem(const ImageInfo& frame, bool at_present) {
   if (at_present && frame.samples != 1u) {
-    return "Multisampled back buffers need the Uplift technique on OpenGL: NR then runs on ReShade's resolved copy";
+    return "OpenGL 的多重采样后备缓冲区需要启用 Uplift 技术；之后 NR 会处理 ReShade 解析后的副本";
   }
   if (SharedFormatOf(frame.format) == DXGI_FORMAT_UNKNOWN) {
-    return std::format("Unsupported back-buffer format (DXGI_FORMAT {})", static_cast<int>(frame.format));
+    return std::format("不支持此后备缓冲区格式（DXGI_FORMAT {}）", static_cast<int>(frame.format));
   }
   return {};
 }

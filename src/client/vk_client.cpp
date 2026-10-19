@@ -18,7 +18,7 @@ constexpr uint32_t MAX_CONSECUTIVE_TIMEOUTS = 3u;
 constexpr double MIB = 1024.0 * 1024.0;
 
 std::string ShareFailureText(const char* what, DXGI_FORMAT format, std::string_view failure) {
-  return std::format("{} could not be shared with Uplift's helper (DXGI_FORMAT {}, {})", what, static_cast<int>(format), failure);
+  return std::format("{}无法与 Uplift 辅助进程共享（DXGI_FORMAT {}，{}）", what, static_cast<int>(format), failure);
 }
 
 }  // namespace
@@ -31,9 +31,9 @@ VkClient::VkClient(vk::Device device, LUID luid, bool allow_fences) : interop_(s
   fenced_ = (allow_fences && record.semaphore_win32 && record.timeline && record.memory_win32 && functions.vkImportSemaphoreWin32HandleKHR != nullptr
              && functions.vkGetSemaphoreCounterValue != nullptr);
   if (!fenced_) {
-    cpu_reason_ = !allow_fences                  ? "fences were turned off"
+    cpu_reason_ = !allow_fences                  ? "栅栏同步已关闭"
                   : !record.not_adjusted.empty() ? record.not_adjusted
-                                                 : "the game's device lacks VK_KHR_external_semaphore_win32 or timeline semaphores";
+                                                 : "游戏设备缺少 VK_KHR_external_semaphore_win32 扩展或时间线信号量";
   }
 }
 
@@ -88,8 +88,8 @@ void VkClient::FreeVulkan(vk::GameHost& host) {
 
 void VkClient::Stop(std::string_view reason, NrLink& link, vk::GameHost& host) {
   if (latch_.empty()) {
-    latch_ = std::format("The Vulkan bridge stopped: {}. Restart the game to use NR again",
-                         (interop_.DeviceLost() ? std::string_view("the game's Vulkan device was lost") : reason));
+    latch_ = std::format("Vulkan 中继已停止：{}。请重启游戏以再次使用 NR。",
+                         (interop_.DeviceLost() ? std::string_view("游戏的 Vulkan 设备已丢失") : reason));
     nr::Log(nr::LogLevel::ERR, latch_);
   }
   link.Stop(waited11_, latch_);
@@ -98,7 +98,7 @@ void VkClient::Stop(std::string_view reason, NrLink& link, vk::GameHost& host) {
 
 void VkClient::NoteTimeout(uint32_t* consecutive, std::string_view what, NrLink& link, vk::GameHost& host) {
   if (++*consecutive >= MAX_CONSECUTIVE_TIMEOUTS) {
-    Stop(std::format("{} did not finish within 2 s, {} times in a row", what, MAX_CONSECUTIVE_TIMEOUTS), link, host);
+    Stop(std::format("{}连续 {} 次未能在 2 秒内完成", what, MAX_CONSECUTIVE_TIMEOUTS), link, host);
   }
 }
 
@@ -106,7 +106,7 @@ bool VkClient::Import(vk::GameHost& host, HANDLE handle, nr::Size size, DXGI_FOR
                       std::string* failure) {
   vk::ImportResult imported = interop_.ImportImage(handle, format, size);
   if (imported.result != VK_SUCCESS) {
-    *failure = std::format("{} returned VkResult {}", imported.step, static_cast<int>(imported.result));
+    *failure = std::format("{} 返回 VkResult {}", imported.step, static_cast<int>(imported.result));
     return false;
   }
   Retire(host, shared);  // a newer texture of this kind replaces the older: it goes behind a fence
@@ -130,7 +130,7 @@ ipc::Target VkClient::Describe(vk::GameHost& host, const vk::ImageInfo& back_buf
   if (!latch_.empty()) {
     problem = latch_;
   } else if (back_buffer.image == VK_NULL_HANDLE) {
-    problem = "The back buffer is not a Vulkan image";
+    problem = "后备缓冲区不是 Vulkan 图像";
   } else {
     problem = vk::BackBufferProblem(back_buffer, interop_.Functions().record.memory_win32);
   }
@@ -138,7 +138,7 @@ ipc::Target VkClient::Describe(vk::GameHost& host, const vk::ImageInfo& back_buf
     ReleaseShared(host);  // NR is off, or this image cannot go: the shared surfaces go with it (Plan 7's final review C-1)
   }
   if (problem.empty() && color_failure_ && color_failure_->Matches(back_buffer.size, back_buffer.format)) {
-    problem = ShareFailureText("The back buffer", back_buffer.format, color_failure_->what);
+    problem = ShareFailureText("后备缓冲区", back_buffer.format, color_failure_->what);
   }
   if (problem.empty() && running && host.Valid()) {
     // Batch 2 review I-1 (a), as VkBridge::BeginFrame: this event comes before ReShade records its effects, so the barrier leads the immediate list.
@@ -195,9 +195,9 @@ bool VkClient::Apply(const ipc::Reply& reply, NrLink& link, vk::GameHost& host) 
       // need no fences. The caller re-attaches the helper with SHARED_CPU (Plan 9 M-4's lesson).
       interop_.DestroySemaphore(&to12_vk_);
       interop_.DestroySemaphore(&to11_vk_);
-      cpu_reason_ = std::format("the driver refused the fence import ({} returned VkResult {})", step, static_cast<int>(imported));
+      cpu_reason_ = std::format("驱动拒绝导入栅栏（{} 返回 VkResult {}）", step, static_cast<int>(imported));
       nr::Logf(nr::LogLevel::WARN,
-               "The Vulkan device could not import the helper's shared fences ({} returned VkResult {}); frames cross through CPU-ordered shared textures instead",
+               "Vulkan 设备无法导入辅助进程共享的栅栏（{} 返回 VkResult {}）；帧将改为通过 CPU 排序的共享纹理传递",
                step, static_cast<int>(imported));
       fenced_ = false;
       fell_back = true;
@@ -212,7 +212,7 @@ bool VkClient::Apply(const ipc::Reply& reply, NrLink& link, vk::GameHost& host) 
         color_failure_.reset();
       } else {
         color_failure_ = ShareFailure{.size = color_ask_.size, .format = color_ask_.format, .what = failure};
-        nr::Log(nr::LogLevel::WARN, ShareFailureText("The back buffer", color_ask_.format, failure));
+        nr::Log(nr::LogLevel::WARN, ShareFailureText("后备缓冲区", color_ask_.format, failure));
       }
     }
     if (mask != nullptr && latch_.empty()) {
@@ -242,7 +242,7 @@ bool VkClient::Apply(const ipc::Reply& reply, NrLink& link, vk::GameHost& host) 
     // still answering is its device removed; a dead helper never gets here (the launcher sees it).
     const uint64_t completed = interop_.Counter(to11_vk_);
     if (interop_.DeviceLost()) {
-      Stop("the game's Vulkan device was lost", link, host);
+      Stop("游戏的 Vulkan 设备已丢失", link, host);
     } else if (const std::optional<std::string_view> stopped =
                    watchdog_.Check(completed, completed + interop_.Counter(to12_vk_), std::chrono::steady_clock::now())) {
       Stop(*stopped, link, host);
@@ -262,12 +262,12 @@ bool VkClient::SyncPresentQueue(vk::GameHost* present_host, vk::GameHost& host, 
       present_synced_ = true;
       return true;
     case vk::WaitResult::TIMEOUT:
-      NoteTimeout(&present_queue_timeouts_, "the game's present queue", link, host);  // this frame goes without NR
+      NoteTimeout(&present_queue_timeouts_, "游戏的呈现队列", link, host);  // this frame goes without NR
       return false;
     case vk::WaitResult::BUSY:   return false;
     case vk::WaitResult::FAILED: break;
   }
-  Stop("a Vulkan submission on the game's present queue failed", link, host);
+  Stop("游戏的 Vulkan 呈现队列提交失败", link, host);
   return false;
 }
 
@@ -289,7 +289,7 @@ vk::ImageInfo VkClient::PrepareMotion(vk::GameHost& host, const vk::ImageInfo& m
         return {};
       }
       HANDLE handle = nullptr;
-      std::string failure = "the helper refused";
+      std::string failure = "辅助进程拒绝了请求";
       const bool opened = (shared->ok != 0u && shared->handles.motion != 0u && link.Pull(shared->handles.motion, &handle)
                            && Import(host, handle, motion.size, DXGI_FORMAT_R16G16_FLOAT, 4u, &motion_, &failure));
       if (handle != nullptr) {
@@ -300,7 +300,7 @@ vk::ImageInfo VkClient::PrepareMotion(vk::GameHost& host, const vk::ImageInfo& m
       } else {
         // Logged once: not retried for this size (Plan 7's final review Minor 3).
         motion_failure_ = ShareFailure{.size = motion.size, .format = DXGI_FORMAT_R16G16_FLOAT, .what = failure};
-        nr::Logf(nr::LogLevel::WARN, "UPLIFT_MV could not be shared with Uplift's helper ({}); NR runs without LaunchPad's motion", failure);
+        nr::Logf(nr::LogLevel::WARN, "无法向 Uplift 辅助进程共享 UPLIFT_MV（{}）；NR 将不使用 LaunchPad 提供的运动矢量", failure);
       }
     }
   }
@@ -373,7 +373,7 @@ bool VkClient::RunFenced(vk::GameHost& host, const vk::ImageInfo& back_buffer, v
     bool SignalD3D11(uint64_t value) override {
       if (host_.Signal(client_.to12_vk_, value)) return true;
       client_.interop_.Counter(client_.to12_vk_);  // notes a lost device
-      vulkan_failure = "the Vulkan timeline semaphore signal failed";
+      vulkan_failure = "Vulkan 时间线信号量发出信号失败";
       return false;
     }
     // The IPC call: the helper's queue waits for `value`, records NR and signals `out`, and the reply says which of those it did.
@@ -398,7 +398,7 @@ bool VkClient::RunFenced(vk::GameHost& host, const vk::ImageInfo& back_buffer, v
       client_.waited11_ = value;  // for Stop, whether or not the queue took it
       if (host_.Wait(client_.to11_vk_, value)) return true;
       client_.interop_.Counter(client_.to11_vk_);
-      vulkan_failure = "the Vulkan timeline semaphore wait failed";
+      vulkan_failure = "Vulkan 时间线信号量等待失败";
       return false;
     }
     void CopyOut() override { vk::RecordCopyOut(host_, back_buffer_.image, entry_state_, client_.color_.vulkan.image); }
@@ -425,7 +425,7 @@ bool VkClient::RunFenced(vk::GameHost& host, const vk::ImageInfo& back_buffer, v
     if (steps.sent) {
       pending_out_ = out;
       in_flight_ = true;
-      nr::Log(nr::LogLevel::WARN, "Uplift's 64-bit helper did not answer within 2 s; frames go without NR until it does");
+      nr::Log(nr::LogLevel::WARN, "Uplift 的 64 位辅助进程在 2 秒内未响应；在其恢复响应前，后续帧将不运行 NR");
     }
     return false;
   }
@@ -455,11 +455,11 @@ bool VkClient::RunCpuOrdered(vk::GameHost& host, const vk::ImageInfo& back_buffe
   switch (interop_.FlushAndWait(vk::WaitSlot::CPU_ORDER, host, WAIT_CAP_MS)) {
     case vk::WaitResult::DONE: break;
     case vk::WaitResult::TIMEOUT:
-      NoteTimeout(&cpu_timeouts_, "the game's queue", link, host);
+      NoteTimeout(&cpu_timeouts_, "游戏的 Vulkan 队列", link, host);
       return false;
     case vk::WaitResult::BUSY: return false;
     case vk::WaitResult::FAILED:
-      Stop("a Vulkan submission or wait failed", link, host);
+      Stop("Vulkan 提交或等待失败", link, host);
       return false;
   }
   run.motion = (shared_motion_source.image != VK_NULL_HANDLE ? 1u : 0u);
@@ -504,7 +504,7 @@ MaskCopy VkClient::CopyMask(vk::GameHost& host, const vk::ImageInfo& mask, NrLin
       return {.busy = true};
     }
     HANDLE handle = nullptr;
-    std::string failure = "the helper refused";
+    std::string failure = "辅助进程拒绝了请求";
     const bool opened = (shared->ok != 0u && shared->handles.mask != 0u && link.Pull(shared->handles.mask, &handle)
                          && Import(host, handle, mask.size, format->view_format, format->bytes_per_pixel, &mask_, &failure));
     if (handle != nullptr) {
@@ -513,7 +513,7 @@ MaskCopy VkClient::CopyMask(vk::GameHost& host, const vk::ImageInfo& mask, NrLin
     if (!opened) {
       // Logged once: not retried for this size and format (final review Minor 3).
       mask_failure_ = ShareFailure{.size = mask.size, .format = format->view_format, .what = failure};
-      nr::Logf(nr::LogLevel::WARN, "UPLIFT_MASK could not be shared with Uplift's helper (DXGI_FORMAT {}, {})", static_cast<int>(format->view_format),
+      nr::Logf(nr::LogLevel::WARN, "无法向 Uplift 辅助进程共享 UPLIFT_MASK（DXGI_FORMAT {}，{}）", static_cast<int>(format->view_format),
                failure);
       return {};
     }
@@ -534,12 +534,12 @@ bool VkClient::FreeRetired(vk::GameHost& host) {
 std::string VkClient::Line(std::string_view route_reason) const {
   const double mib = static_cast<double>(ImportedBytes()) / MIB;
   // T5: gitc-uplift.addon64 names the route of a Vulkan device whose NR runs in the helper, and why the chain got there.
-  const std::string lead = (route_reason.empty() ? std::format("Vulkan ({}): NR runs in Uplift's 64-bit helper", BITNESS)
-                                                 : std::format("Vulkan: NR runs in Uplift's helper process: {}", route_reason));
-  std::string line = (fenced_ ? std::format("{} (shared textures and fences, {:.1f} MiB)", lead, mib)
-                              : std::format("{} (shared textures, CPU-ordered, {:.1f} MiB): {}", lead, mib, cpu_reason_));
+  const std::string lead = (route_reason.empty() ? std::format("Vulkan（{} 位）：NR 在 Uplift 的 64 位辅助进程中运行", BITNESS)
+                                                 : std::format("Vulkan：NR 在 Uplift 辅助进程中运行：{}", route_reason));
+  std::string line = (fenced_ ? std::format("{}（共享纹理和栅栏，{:.1f} MiB）", lead, mib)
+                              : std::format("{}（共享纹理，按 CPU 顺序同步，{:.1f} MiB）：{}", lead, mib, cpu_reason_));
   if (second_queue_) {
-    line += ", presents from a second queue";
+    line += "；呈现操作来自第二个队列";
   }
   return line;
 }

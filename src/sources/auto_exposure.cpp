@@ -11,8 +11,8 @@ namespace {
 
 std::string_view LatchWord(AutoLatch latch) {
   switch (latch) {
-    case AutoLatch::ABOVE: return "above";
-    case AutoLatch::BELOW: return "below";
+    case AutoLatch::ABOVE: return "偏高";
+    case AutoLatch::BELOW: return "偏低";
     case AutoLatch::NONE:  break;
   }
   return {};
@@ -104,26 +104,26 @@ float AutoStops(color::AutoExposureMode mode, float blend, bool latched, float g
 
 std::string ExposureLine(const ExposureReport& report) {
   switch (report.use) {
-    case ExposureUse::GAME: return "Input exposure: the game's";
+    case ExposureUse::GAME: return "输入曝光：游戏曝光";
     case ExposureUse::METERED:
       if (report.stops_off && report.latch != AutoLatch::NONE) {
-        return std::format("Input exposure: metered (the game's was {:.1f} stops off: {})", *report.stops_off, LatchWord(report.latch));
+        return std::format("输入曝光：测光（游戏曝光偏差 {:.1f} 档，{}）", *report.stops_off, LatchWord(report.latch));
       }
-      return "Input exposure: metered";
+      return "输入曝光：测光";
     case ExposureUse::BLEND:
-      if (report.gap) return std::format("Input exposure: blend {:.0f} % game/meter (gap {:+.1f} stops)", report.blend * 100.f, *report.gap);
-      return std::format("Input exposure: blend {:.0f} % game/meter", report.blend * 100.f);
+      if (report.gap) return std::format("输入曝光：游戏曝光/测光混合 {:.0f} %（差值 {:+.1f} 档）", report.blend * 100.f, *report.gap);
+      return std::format("输入曝光：游戏曝光/测光混合 {:.0f} %", report.blend * 100.f);
     case ExposureUse::NONE: break;
   }
   return {};
 }
 
 std::string AutoLatchMessage(const ExposureSample& sample, const AutoExposure& judge) {
-  const std::string rule = std::format("sat {:.1f} stops {} Uplift's meter (the window is {:.0f} below to {:.0f} above)",
+  const std::string rule = std::format("与 Uplift 测光值相差 {:.1f} 档，{}（容差范围为低于 {:.0f} 档至高于 {:.0f} 档）",
                                        std::abs(AutoExposure::OutsideSpan(sample)), LatchWord(judge.Reason()), AutoExposure::BELOW_LIMIT_STOPS,
                                        AutoExposure::ABOVE_LIMIT_STOPS);
-  return std::format("Input exposure Auto: the game's exposure {} for over {:.0f} s, so NR's input is metered from now on (ExposureTexture {:.4g}, factor "
-                     "{:.4g}: the game's {:.4g} = {:+.2f} stops; metered {:.4g} = {:+.2f} stops, target {:+.2f} stops; {:.1f} stops off)",
+  return std::format("输入曝光自动切换：游戏曝光{}已持续超过 {:.0f} 秒，因此 NR 从现在起改用测光输入（ExposureTexture {:.4g}，系数 "
+                     "{:.4g}：游戏值 {:.4g} = {:+.2f} 档；测光值 {:.4g} = {:+.2f} 档，目标 {:+.2f} 档；偏差 {:.1f} 档）",
                      rule, AutoExposure::SUSTAIN_SECONDS, sample.texture_value, sample.factor, sample.game, std::log2(sample.game),
                      std::exp2(sample.metered_stops), sample.metered_stops, sample.target_stops, judge.StopsOff());
 }
@@ -131,11 +131,11 @@ std::string AutoLatchMessage(const ExposureSample& sample, const AutoExposure& j
 std::string AutoDebugMessage(const ExposureSample& sample, color::AutoExposureMode mode, float blend, std::optional<float> held_move) {
   const float game = std::log2(sample.game);
   const float result = AutoStops(mode, blend, false, game, sample.metered_stops);
-  const std::string mode_text = (mode == color::AutoExposureMode::BLEND ? std::format("Blend {:.0f} %", blend * 100.f) : std::string("Switch"));
-  std::string message = std::format("Input exposure Auto: game {:+.2f} stops, meter E {:+.2f} (target {:+.2f}), gap {:+.2f} stops; {} gives {:+.2f} stops",
+  const std::string mode_text = (mode == color::AutoExposureMode::BLEND ? std::format("混合 {:.0f} %", blend * 100.f) : std::string("切换"));
+  std::string message = std::format("输入曝光自动模式：游戏曝光 {:+.2f} 档，测光 E {:+.2f} 档（目标 {:+.2f} 档），差值 {:+.2f} 档；{} 得出 {:+.2f} 档",
                                     game, sample.metered_stops, sample.target_stops, game - sample.metered_stops, mode_text, result);
   if (held_move) {
-    message += std::format("; game exposure held while the scene moved {:.1f} stops", *held_move);
+    message += std::format("；场景变化 {:.1f} 档期间保持使用游戏曝光", *held_move);
   }
   return message;
 }
