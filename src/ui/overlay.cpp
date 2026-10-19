@@ -131,7 +131,7 @@ bool DrawRow(const SettingDescriptor& descriptor, const OverlayView& view, Setti
   const bool keep_faces_row = (descriptor.key == "KeepFaces" || descriptor.key == "FaceProtection" || descriptor.key == "LightingScale"
                                || descriptor.key == "ShowFaceMask" || keep_faces_tuning || keep_faces_here);
   const std::string_view disabled_reason =
-      ((descriptor.flags & setting_flags::NETWORK_PRESET) != 0u && view.legacy_runtime)                   ? std::string_view("NR 310.8 仅提供旧版网络（Legacy）。")
+      ((descriptor.flags & setting_flags::NETWORK_PRESET) != 0u && view.legacy_runtime)                   ? std::string_view("NR 310.8 仅提供旧版 NR 渲染模型（Legacy）。")
       : (descriptor.key == "MaskBlendMode" && view.legacy_runtime)            ? std::string_view("NR 310.8 不支持原生蒙版混合模式。")
       : (descriptor.key == "StateRestore" && !view.dlss_unavailable.empty())   ? std::string_view(view.dlss_unavailable)
       : (descriptor.key == "UseD3D9Ex" && !view.d3d9ex_unavailable.empty())    ? std::string_view(view.d3d9ex_unavailable)
@@ -910,7 +910,7 @@ bool DrawOverlay(const OverlayView& view, Settings* settings, OverlayState* stat
     ImGui::TextUnformatted(view.status_line.c_str());
     if (!view.network_diagnostic.empty()) {
       ImGui::TextWrapped("%s", view.network_diagnostic.c_str());
-      ImGui::TextDisabled("调用次数统计的是成功录制的命令；各功能和网络的变化详见 ReShade.log。");
+      ImGui::TextDisabled("调用次数统计的是成功录制的命令；各功能和 NR 渲染模型的变化详见 ReShade.log。");
     }
     ImGui::TextWrapped("原生输入：未绑定深度和双向畸变。未启用原生引导式升采样；降低分辨率时使用 Uplift 自带的升采样。");
     ImGui::TextWrapped("原生蒙版混合模式默认为 1。Ada 兼容运行时的完整蒙版组合行为仍在验证中。全局色调和原生性能设置尚未确认有效。");

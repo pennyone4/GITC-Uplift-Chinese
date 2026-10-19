@@ -52,7 +52,7 @@ NVSDK_NGX_Result VkFeature::Create(ID3D12GraphicsCommandList* list, const Create
   enabled_evaluations_ = 0u;
   last_enabled_ = false;
   has_evaluation_ = false;
-  Logf(LogLevel::INFO, "已创建 {}x{} 的 NR 功能（Vulkan，预设请求值 {}，句柄 {}）；运行时网络：{}",
+  Logf(LogLevel::INFO, "已创建 {}x{} 的 NR 功能（Vulkan，预设请求值 {}，句柄 {}）；运行时 NR 渲染模型：{}",
        capacity_.width, capacity_.height, info.preset, static_cast<const void*>(handle_),
        network_.empty() ? std::string_view("未确认：没有原生创建消息") : std::string_view(network_));
   return result;
@@ -97,7 +97,7 @@ NVSDK_NGX_Result VkFeature::Evaluate(ID3D12GraphicsCommandList* list, const Eval
     has_evaluation_ = true;
     const bool enabled = !inputs.bypass && controls.intensity > 0.f;
     if (enabled && (enabled_evaluations_ == 0u || !last_enabled_ || last_style_ != controls.style || last_mask_mode_ != controls.mask_blend_mode)) {
-      Logf(LogLevel::INFO, "NR 诊断：已录制启用状态下的 Vulkan 评估调用（NGX {:#010x}，句柄 {}，风格 {}，蒙版混合模式 {}，强度 {}，自动角色遮罩 {}，运动矢量 {}，原生控制蒙版 {}）；运行时网络：{}",
+      Logf(LogLevel::INFO, "NR 诊断：已录制启用状态下的 Vulkan 评估调用（NGX {:#010x}，句柄 {}，风格 {}，蒙版混合模式 {}，强度 {}，自动角色遮罩 {}，运动矢量 {}，原生控制蒙版 {}）；运行时 NR 渲染模型：{}",
            static_cast<uint32_t>(result), static_cast<const void*>(handle_), controls.style, controls.mask_blend_mode, controls.intensity,
            controls.auto_mask, inputs.motion.resource != nullptr, inputs.control_mask.resource != nullptr,
            network_.empty() ? std::string_view("未确认") : std::string_view(network_));
@@ -113,8 +113,8 @@ NVSDK_NGX_Result VkFeature::Evaluate(ID3D12GraphicsCommandList* list, const Eval
 std::string VkFeature::Diagnostic(uint32_t pass) const {
   if (handle_ == nullptr) return {};
   const std::string_view network = network_.empty() ? "未确认（没有原生创建消息）" : std::string_view(network_);
-  if (!has_evaluation_) return std::format("第 {} 层网络：{} | 等待评估", pass, network);
-  return std::format("第 {} 层网络：{} | 已记录的启用调用次数：{} | {} | 风格 {} | 原生蒙版混合模式 {}",
+  if (!has_evaluation_) return std::format("第 {} 层 NR 渲染模型：{} | 等待评估", pass, network);
+  return std::format("第 {} 层 NR 渲染模型：{} | 已记录的启用调用次数：{} | {} | 风格 {} | 原生蒙版混合模式 {}",
                      pass, network, enabled_evaluations_, last_enabled_ ? "已启用" : "已旁路/强度为 0", last_style_, last_mask_mode_);
 }
 
