@@ -47,7 +47,8 @@
 // The name ReShade shows in its Add-ons list. The log lines keep their "[Uplift]" prefix (addon/log_bridge.cpp).
 extern "C" __declspec(dllexport) const char* NAME = "GITC Uplift";
 extern "C" __declspec(dllexport) const char* DESCRIPTION =
-    "专为虚拟摄影打造的 DLSS 5 模组，基于 NVIDIA DLSS Neural Rendering（DLSS-NR），兼具灵活性、易用性、稳定性与跨 API 兼容性。";
+    "A virtual photography focused version of the DLSS 5 mod: NVIDIA DLSS Neural Rendering (DLSS-NR) with greater "
+    "flexibility, ease of use, stability and hassle-free compatibility across APIs.";
 
 namespace {
 
@@ -113,7 +114,7 @@ bool PinReshade(HMODULE reshade_module) {
   if (reshade_module == nullptr
       || GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_PIN | GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, reinterpret_cast<LPCWSTR>(reshade_module), &pinned)
              == FALSE) {
-    nr::Logf(nr::LogLevel::WARN, "无法固定 ReShade 模块（错误 {}）：若 ReShade 在最后一个 Vulkan 实例退出时卸载，Uplift 会在下一个实例创建时重新注册",
+    nr::Logf(nr::LogLevel::WARN, "could not pin ReShade's module (error {}): if ReShade unloads with the last Vulkan instance, Uplift is registered again at the next one",
              GetLastError());
     return false;
   }
@@ -262,7 +263,7 @@ void OnPresent(api::command_queue* queue, api::swapchain* swapchain, const api::
     });
     if (enabled_in_config) {
       state.settings.enabled = *enabled_in_config;
-      nr::Logf(nr::LogLevel::INFO, "ReShade.ini 中的 Enabled 已设为 {}", (*enabled_in_config ? 1 : 0));
+      nr::Logf(nr::LogLevel::INFO, "Enabled set to {} in ReShade.ini", (*enabled_in_config ? 1 : 0));
       state.front->SettingsChanged(state.settings);  // the helper's copy reads it too
     }
     const ui::Settings& settings = state.settings;
@@ -389,7 +390,7 @@ void OnReshadePresent(api::effect_runtime* runtime) {
     [[maybe_unused]] const auto& [device, entry] = *found;
     if (entry.runtime != runtime) return;  // toggle once per frame: the primary swap chain's runtime only
     state.settings.enabled = !state.settings.enabled;
-    nr::Logf(nr::LogLevel::INFO, "快捷键：NR{}", (state.settings.enabled ? "已启用" : "已关闭"));
+    nr::Logf(nr::LogLevel::INFO, "Hotkey: NR {}", (state.settings.enabled ? "enabled" : "disabled"));
     SaveAndApply(&state);
   }
   UPLIFT_CATCH("reshade_present", )
@@ -400,22 +401,22 @@ void OnDrawOverlay(api::effect_runtime* runtime) {
     const std::unique_lock lock(g_state->mutex);
     AddonState32& state = *g_state;
     const auto now = std::chrono::steady_clock::now();
-    ui::OverlayView view = {.status_line = "已关闭", .last_key_pressed = runtime->last_key_pressed(), .placement_line = "NR 阶段：已关闭", .motion_line = "运动矢量：已关闭"};
+    ui::OverlayView view = {.status_line = "OFF", .last_key_pressed = runtime->last_key_pressed(), .placement_line = "Placement: NR is off", .motion_line = "Motion vectors: NR is off"};
     view.dlss_unavailable = std::string(ui::BRIDGED_DLSS_REASON);  // no DLSS placement without a Direct3D 12 game
     const api::device_api overlay_api = runtime->get_device()->get_api();
     const auto found = state.devices.find(runtime->get_device());
     addon::HelperDevice* const helper_device = (found != state.devices.end() ? &found->second.helper : nullptr);
     if (overlay_api != api::device_api::d3d9) {
-      view.d3d9ex_unavailable = "仅适用于 32 位 Direct3D 9 游戏";
+      view.d3d9ex_unavailable = "Only for 32-bit Direct3D 9 games";
     }
     // Plan 19: NR on a 32-bit Vulkan game always runs in Uplift's helper process (NGX's native Vulkan NR is 64-bit only; T5 names the route).
-    view.vulkan_nr_unavailable = (overlay_api == api::device_api::vulkan ? "32 位游戏的 NR 始终在 Uplift 辅助进程中运行" : "仅适用于 Vulkan 游戏");
+    view.vulkan_nr_unavailable = (overlay_api == api::device_api::vulkan ? "A 32-bit game: NR always runs in Uplift's helper process" : "Only for Vulkan games");
     const bool supported = (overlay_api == api::device_api::d3d9 || overlay_api == api::device_api::d3d10 || overlay_api == api::device_api::d3d11
                             || overlay_api == api::device_api::d3d12 || overlay_api == api::device_api::vulkan || overlay_api == api::device_api::opengl);
     if (supported) {
       state.front->Overlay(runtime->get_device(), helper_device, overlay_api, state.settings, &view, &state.overlay, now);  // finishes Setup too
     } else {
-      view.card = ui::BuildStatusCard({.device_problem = "Uplift 仅支持 32 位 Direct3D 9、10、11、12、Vulkan 和 OpenGL 游戏"});
+      view.card = ui::BuildStatusCard({.device_problem = "Uplift supports 32-bit Direct3D 9, 10, 11 and 12, Vulkan and OpenGL games only"});
       view.keep_faces_unavailable = std::string(ui::KeepFacesUnavailable({.nr_runs = false}));
       ui::SetupFacts facts;
       addon::FillPreference(&facts, state.settings, false);
@@ -424,6 +425,8 @@ void OnDrawOverlay(api::effect_runtime* runtime) {
     }
     if (ui::DrawOverlay(view, &state.settings, &state.overlay)) {
       SaveAndApply(&state);
+    } else if (state.overlay.language_changed) {
+      ui::SaveSettings(state.settings, &state.config);
     }
     // Retry now, decided by the card's button: a stopped helper starts afresh; otherwise the next FRAME carries it.
     if (std::exchange(state.overlay.retry_now, false)) {
@@ -447,7 +450,7 @@ bool OnCreateDevice(api::device_api device_api, uint32_t& api_version) {
         }
         static std::atomic<bool> logged = false;
         if (!logged.exchange(true)) {
-          nr::Logf(nr::LogLevel::WARN, "Vulkan：无法安装 vkCreateDevice 挂钩：{}", *error);
+          nr::Logf(nr::LogLevel::WARN, "Vulkan: the vkCreateDevice hook could not be installed: {}", *error);
         }
       } else {
         PinReshade(reshade::internal::get_reshade_module_handle());  // I-4: the detour pinned Uplift, so ReShade stays loaded next to it
@@ -506,7 +509,7 @@ extern "C" __declspec(dllexport) bool AddonInit(HMODULE addon_module, HMODULE re
     g_state->settings.adjust_vulkan_devices = false;
     ui::SaveSettings(g_state->settings, &g_state->config);
     g_state->front->SettingsChanged(g_state->settings);
-    warnings.push_back("Vulkan 设备调整已停用（AdjustVulkanDevices = 0）：上次启用后游戏未能呈现首帧");
+    warnings.push_back("Vulkan device adjustment turned off (AdjustVulkanDevices = 0): the last start with it did not reach its first frame");
   }
   const bool reshade_vulkan_events = (reshade_version && *reshade_version >= addon::MIN_RESHADE_VULKAN_EVENTS);
   vk::DeviceHook::Configure(g_state->settings.adjust_vulkan_devices, false, false, false, reshade_vulkan_events, vk_marker);  // NGX's additions are 64-bit only
@@ -519,7 +522,7 @@ extern "C" __declspec(dllexport) bool AddonInit(HMODULE addon_module, HMODULE re
         const std::scoped_lock error_lock(g_state->vk_hook_error_mutex);
         g_state->vk_hook_error = *error;
       }
-      warnings.push_back(std::format("Vulkan：无法安装 vkCreateDevice 挂钩：{}", *error));
+      warnings.push_back(std::format("Vulkan: the vkCreateDevice hook could not be installed: {}", *error));
     } else {
       PinReshade(reshade_module);  // the detour pinned Uplift: ReShade stays loaded next to it (batch 2 review I-4)
     }
@@ -539,10 +542,10 @@ extern "C" __declspec(dllexport) bool AddonInit(HMODULE addon_module, HMODULE re
   addon::RegisterCreateSwapchainEvent(reshade_vulkan_events);  // Plan 11: copy access on a Vulkan swap chain's images (event 97, raw)
   reshade::register_overlay("GITC Uplift", OnDrawOverlay);
 
-  nr::Logf(nr::LogLevel::INFO, "Uplift {}（32 位）已注册（ReShade API {}、Dear ImGui {}、ReShade {}）", UPLIFT_VERSION,
+  nr::Logf(nr::LogLevel::INFO, "Uplift {} (32-bit) registered (ReShade API {}, Dear ImGui {}, ReShade {})", UPLIFT_VERSION,
            RESHADE_API_VERSION, IMGUI_VERSION_NUM,
-           (reshade_version ? addon::FormatModuleVersion(*reshade_version) : std::string("版本未知")));
-  nr::Logf(nr::LogLevel::INFO, "NR 在此插件旁的 gitc-uplift-helper64.exe 中运行（构建版本 {}）", UPLIFT_BUILD_ID);
+           (reshade_version ? addon::FormatModuleVersion(*reshade_version) : std::string("of unknown version")));
+  nr::Logf(nr::LogLevel::INFO, "NR runs in gitc-uplift-helper64.exe next to this add-on (build {})", UPLIFT_BUILD_ID);
   for (const std::string& warning : warnings) {
     nr::Log(nr::LogLevel::WARN, warning);
   }

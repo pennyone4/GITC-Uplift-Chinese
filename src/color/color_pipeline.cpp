@@ -143,16 +143,16 @@ bool ColorPipeline::Initialize(ID3D12Device* device, std::string* error) {
   Microsoft::WRL::ComPtr<ID3DBlob> messages;
   if (const HRESULT result = D3D12SerializeRootSignature(&signature, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &messages);
       FAILED(result)) {
-    *error = "无法序列化颜色根签名";
-    nr::Logf(nr::LogLevel::ERR, "D3D12SerializeRootSignature 调用失败：{:#010x}{}", static_cast<uint32_t>(result),
+    *error = "could not serialize the colour root signature";
+    nr::Logf(nr::LogLevel::ERR, "D3D12SerializeRootSignature failed: {:#010x}{}", static_cast<uint32_t>(result),
              (messages ? std::string(": ") + static_cast<const char*>(messages->GetBufferPointer()) : std::string()));
     return false;
   }
   if (const HRESULT result =
           device->CreateRootSignature(0u, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(&root_signature_));
       FAILED(result)) {
-    *error = "无法创建颜色根签名";
-    nr::Logf(nr::LogLevel::ERR, "CreateRootSignature 调用失败：{:#010x}", static_cast<uint32_t>(result));
+    *error = "could not create the colour root signature";
+    nr::Logf(nr::LogLevel::ERR, "CreateRootSignature failed: {:#010x}", static_cast<uint32_t>(result));
     return false;
   }
   const D3D12_COMPUTE_PIPELINE_STATE_DESC encode = {
@@ -161,8 +161,8 @@ bool ColorPipeline::Initialize(ID3D12Device* device, std::string* error) {
   };
   if (const HRESULT result = device->CreateComputePipelineState(&encode, IID_PPV_ARGS(&encode_pipeline_));
       FAILED(result)) {
-    *error = "无法创建编码处理管线";
-    nr::Logf(nr::LogLevel::ERR, "CreateComputePipelineState（编码）调用失败：{:#010x}", static_cast<uint32_t>(result));
+    *error = "could not create the encode pipeline";
+    nr::Logf(nr::LogLevel::ERR, "CreateComputePipelineState (encode) failed: {:#010x}", static_cast<uint32_t>(result));
     return false;
   }
   const D3D12_COMPUTE_PIPELINE_STATE_DESC compute_decode = {
@@ -171,8 +171,8 @@ bool ColorPipeline::Initialize(ID3D12Device* device, std::string* error) {
   };
   if (const HRESULT result = device->CreateComputePipelineState(&compute_decode, IID_PPV_ARGS(&compute_decode_pipeline_));
       FAILED(result)) {
-    *error = "无法创建计算解码处理管线";
-    nr::Logf(nr::LogLevel::ERR, "CreateComputePipelineState（解码）调用失败：{:#010x}", static_cast<uint32_t>(result));
+    *error = "could not create the compute decode pipeline";
+    nr::Logf(nr::LogLevel::ERR, "CreateComputePipelineState (decode) failed: {:#010x}", static_cast<uint32_t>(result));
     return false;
   }
   const D3D12_COMPUTE_PIPELINE_STATE_DESC motion = {
@@ -180,8 +180,8 @@ bool ColorPipeline::Initialize(ID3D12Device* device, std::string* error) {
       .CS = {.pShaderBytecode = g_motion_cs, .BytecodeLength = sizeof(g_motion_cs)},
   };
   if (const HRESULT result = device->CreateComputePipelineState(&motion, IID_PPV_ARGS(&motion_pipeline_)); FAILED(result)) {
-    *error = "无法创建运动矢量复制处理管线";
-    nr::Logf(nr::LogLevel::ERR, "CreateComputePipelineState（运动矢量）调用失败：{:#010x}", static_cast<uint32_t>(result));
+    *error = "could not create the motion-vector copy pipeline";
+    nr::Logf(nr::LogLevel::ERR, "CreateComputePipelineState (motion) failed: {:#010x}", static_cast<uint32_t>(result));
     return false;
   }
   // Plan 5: the look, meter and resolve pipelines.
@@ -193,29 +193,29 @@ bool ColorPipeline::Initialize(ID3D12Device* device, std::string* error) {
     };
     const HRESULT result = device->CreateComputePipelineState(&description, IID_PPV_ARGS(pipeline->GetAddressOf()));
     if (FAILED(result)) {
-      *error = std::format("无法创建{}管线", name);
-      nr::Logf(nr::LogLevel::ERR, "CreateComputePipelineState（{}）调用失败：{:#010x}", name, static_cast<uint32_t>(result));
+      *error = std::format("could not create the {} pipeline", name);
+      nr::Logf(nr::LogLevel::ERR, "CreateComputePipelineState ({}) failed: {:#010x}", name, static_cast<uint32_t>(result));
     }
     return SUCCEEDED(result);
   };
-  if (!build_compute(g_meter_cs, sizeof(g_meter_cs), &meter_pipeline_, "测光")
-      || !build_compute(g_look_pyramid_cs, sizeof(g_look_pyramid_cs), &pyramid_pipeline_, "处理结果调整金字塔")
-      || !build_compute(g_look_stabilize_cs, sizeof(g_look_stabilize_cs), &stabilize_pipeline_, "处理结果调整稳定器")
-      || !build_compute(g_look_shape_cs, sizeof(g_look_shape_cs), &shape_pipeline_, "处理结果调整")
-      || !build_compute(g_resolve_cs, sizeof(g_resolve_cs), &resolve_pipeline_, "解析")) {
+  if (!build_compute(g_meter_cs, sizeof(g_meter_cs), &meter_pipeline_, "meter")
+      || !build_compute(g_look_pyramid_cs, sizeof(g_look_pyramid_cs), &pyramid_pipeline_, "look pyramid")
+      || !build_compute(g_look_stabilize_cs, sizeof(g_look_stabilize_cs), &stabilize_pipeline_, "look stabiliser")
+      || !build_compute(g_look_shape_cs, sizeof(g_look_shape_cs), &shape_pipeline_, "look shape")
+      || !build_compute(g_resolve_cs, sizeof(g_resolve_cs), &resolve_pipeline_, "resolve")) {
     return false;
   }
   // Keep faces fix round 1 (C3): optional. Without it NR runs as before and Keep faces is unavailable (FacesReady).
   const D3D12_COMPUTE_PIPELINE_STATE_DESC faces = {.pRootSignature = root_signature_.Get(), .CS = {.pShaderBytecode = g_faces_cs, .BytecodeLength = sizeof(g_faces_cs)}};
   if (const HRESULT result = device->CreateComputePipelineState(&faces, IID_PPV_ARGS(&faces_pipeline_)); FAILED(result)) {
     faces_pipeline_.Reset();
-    nr::Logf(nr::LogLevel::WARN, "此设备无法使用保护面部：无法构建其管线（{:#010x}）", static_cast<uint32_t>(result));
+    nr::Logf(nr::LogLevel::WARN, "Keep faces is unavailable on this device: its pipeline could not be built ({:#010x})", static_cast<uint32_t>(result));
   }
   D3D12_FEATURE_DATA_D3D12_OPTIONS options = {};
   uav_loads_ = SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &options, sizeof(options)))
                && options.TypedUAVLoadAdditionalFormats != FALSE;
   if (!uav_loads_) {
-    nr::Log(nr::LogLevel::WARN, "此 GPU 不支持类型化 UAV 加载；处理结果调整、测光曝光、各层强度和保护面部不可用");
+    nr::Log(nr::LogLevel::WARN, "this GPU has no typed UAV loads: Shape result, Metered exposure, pass strengths and Keep faces are unavailable");
   }
   const D3D12_DESCRIPTOR_HEAP_DESC shader_heap = {.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
                                                   .NumDescriptors = RING_SLOTS * DESCRIPTORS_PER_SLOT,
@@ -223,14 +223,14 @@ bool ColorPipeline::Initialize(ID3D12Device* device, std::string* error) {
   const D3D12_DESCRIPTOR_HEAP_DESC target_heap = {.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV, .NumDescriptors = 1u,
                                                   .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE, .NodeMask = 0u};
   if (const HRESULT result = device->CreateDescriptorHeap(&shader_heap, IID_PPV_ARGS(&shader_heap_)); FAILED(result)) {
-    *error = "无法创建颜色着色器描述符堆";
-    nr::Logf(nr::LogLevel::ERR, "CreateDescriptorHeap（着色器）调用失败：{:#010x}", static_cast<uint32_t>(result));
+    *error = "could not create the colour shader descriptor heap";
+    nr::Logf(nr::LogLevel::ERR, "CreateDescriptorHeap (shader) failed: {:#010x}", static_cast<uint32_t>(result));
     return false;
   }
   shader_heap_->SetName(L"Uplift colour descriptors");  // Plan 17: DRED names
   if (const HRESULT result = device->CreateDescriptorHeap(&target_heap, IID_PPV_ARGS(&target_heap_)); FAILED(result)) {
-    *error = "无法创建颜色目标描述符堆";
-    nr::Logf(nr::LogLevel::ERR, "CreateDescriptorHeap（目标）调用失败：{:#010x}", static_cast<uint32_t>(result));
+    *error = "could not create the colour target descriptor heap";
+    nr::Logf(nr::LogLevel::ERR, "CreateDescriptorHeap (target) failed: {:#010x}", static_cast<uint32_t>(result));
     return false;
   }
   descriptor_size_ = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -259,7 +259,7 @@ bool ColorPipeline::Initialize(ID3D12Device* device, std::string* error) {
     description.SampleDesc = {.Count = 1u, .Quality = 0u};
     auto& pipeline = decode_pipelines_[format];
     if (const HRESULT result = device_->CreateGraphicsPipelineState(&description, IID_PPV_ARGS(&pipeline)); FAILED(result)) {
-      nr::Logf(nr::LogLevel::ERR, "无法为 DXGI 格式 {} 创建解码管线：{:#010x}",
+      nr::Logf(nr::LogLevel::ERR, "could not create the decode pipeline for DXGI format {}: {:#010x}",
                static_cast<int>(format), static_cast<uint32_t>(result));
     }
   };
@@ -302,7 +302,7 @@ void ColorPipeline::WriteTable(uint32_t base, std::initializer_list<View> shader
 
 bool ColorPipeline::SlotInRange(uint32_t slot, const char* pass) const {
   if (slot < RING_SLOTS) return true;
-  nr::Logf(nr::LogLevel::ERR, "{}：槽位 {} 超出有效范围（RING_SLOTS = {}）", pass, slot, RING_SLOTS);
+  nr::Logf(nr::LogLevel::ERR, "{}: slot {} is out of range (RING_SLOTS = {})", pass, slot, RING_SLOTS);
   return false;
 }
 
@@ -330,9 +330,9 @@ bool ColorPipeline::RecordEncode(ID3D12GraphicsCommandList* list, uint32_t slot,
 bool ColorPipeline::RecordChange(ID3D12GraphicsCommandList* list, uint32_t slot, const ChangePass& pass) {
   if (!SlotInRange(slot, "RecordChange")) return false;
   const uint32_t base = slot * DESCRIPTORS_PER_SLOT + CHANGE_TABLE;
-  WriteTable(base, {{pass.encode.source, pass.encode.source_view_format}, {pass.nr_output}, ExposureView(pass.encode.exposure)},
+  WriteTable(base, {{pass.encode.source, pass.encode.source_view_format}, {pass.nr_output}, ExposureView(pass.encode.exposure), {pass.model_input}},
              {{pass.change}, {pass.basis, DXGI_FORMAT_R16G16_FLOAT}});
-  DispatchCompute(list, encode_pipeline_.Get(), EncodeConstants(pass.encode, 1u, pass.basis != nullptr), base, pass.encode.width,
+  DispatchCompute(list, encode_pipeline_.Get(), EncodeConstants(pass.encode, (pass.model_input != nullptr ? 2u : 1u), pass.basis != nullptr), base, pass.encode.width,
                   pass.encode.height);
   return true;
 }

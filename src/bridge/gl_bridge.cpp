@@ -34,13 +34,13 @@ std::unique_ptr<GlBridge> GlBridge::Create(gl::Functions functions, LUID luid, C
     for (size_t index = 0u; index < 2u && bridge->cpu_reason_.empty(); ++index) {
       HANDLE handle = nullptr;
       if (const HRESULT result = bridge->side_->CreateSharedFence(fences[index], &handle); FAILED(result)) {
-        bridge->cpu_reason_ = std::format("无法创建共享栅栏（HRESULT {:#010x}）", static_cast<uint32_t>(result));
+        bridge->cpu_reason_ = std::format("the shared fence could not be created (HRESULT {:#010x})", static_cast<uint32_t>(result));
         break;
       }
       const GLenum imported = bridge->interop_.ImportSemaphore(handle, semaphore_names[index]);
       CloseHandle(handle);  // the imported semaphore keeps the fence alive
       if (imported != GL_NO_ERROR) {
-        bridge->cpu_reason_ = std::format("驱动拒绝导入栅栏（glImportSemaphoreWin32HandleEXT 返回 GL 错误 {:#06x}）", imported);
+        bridge->cpu_reason_ = std::format("the driver refused the fence import (glImportSemaphoreWin32HandleEXT set GL error {:#06x})", imported);
       }
     }
     if (bridge->cpu_reason_.empty()) {
@@ -51,12 +51,12 @@ std::unique_ptr<GlBridge> GlBridge::Create(gl::Functions functions, LUID luid, C
       bridge->to11_.Reset();
     }
   } else {
-    bridge->cpu_reason_ = (no_semaphores.empty() ? std::string("此驱动不支持 GL_EXT_semaphore_win32") : std::move(no_semaphores));
+    bridge->cpu_reason_ = (no_semaphores.empty() ? std::string("this driver does not offer GL_EXT_semaphore_win32") : std::move(no_semaphores));
   }
   if (bridge->gpu_ordered_) {
-    nr::Log(nr::LogLevel::INFO, "OpenGL：NR 在专用 Direct3D 12 设备上运行");
+    nr::Log(nr::LogLevel::INFO, "OpenGL: NR runs on a private Direct3D 12 device");
   } else {
-    nr::Logf(nr::LogLevel::INFO, "OpenGL：NR 在专用 Direct3D 12 设备上运行（按 CPU 顺序同步：{}）", bridge->cpu_reason_);
+    nr::Logf(nr::LogLevel::INFO, "OpenGL: NR runs on a private Direct3D 12 device (CPU-ordered: {})", bridge->cpu_reason_);
   }
   return bridge;
 }
@@ -77,7 +77,7 @@ bool GlBridge::CreateShared(nr::Size size, DXGI_FORMAT format, D3D12_RESOURCE_FL
   Shared created = {.size = size, .format = format, .bytes = size.Pixels() * bytes_per_pixel};
   HANDLE handle = nullptr;
   if (const HRESULT result = side_->CreateShared(size, format, flags, name, &created.d3d12, &handle); FAILED(result)) {
-    *failure = std::format("Direct3D 12 返回 HRESULT {:#010x}", static_cast<uint32_t>(result));
+    *failure = std::format("Direct3D 12 returned HRESULT {:#010x}", static_cast<uint32_t>(result));
     return false;
   }
   // The import needs the allocation's size, not the texture's: GL_EXT_memory_object's dedicated import takes the D3D12 resource's allocation.
@@ -86,7 +86,7 @@ bool GlBridge::CreateShared(nr::Size size, DXGI_FORMAT format, D3D12_RESOURCE_FL
   const gl::ImportResult imported = interop_.ImportTexture(handle, created.bytes, format, size);
   CloseHandle(handle);  // the imported memory keeps the allocation
   if (imported.error != GL_NO_ERROR) {
-    *failure = std::format("{}：设置 GL 错误码 {:#06x}", imported.step, imported.error);
+    *failure = std::format("{} set GL error {:#06x}", imported.step, imported.error);
     return false;
   }
   created.gl = imported.texture;
@@ -111,7 +111,7 @@ void GlBridge::Retire(gl::GameHost& host, Shared* shared) {
 
 void GlBridge::LatchGl(std::string_view failure) {
   if (!latch_.empty()) return;
-  std::string reason = std::format("OpenGL 中继已停止：{}", failure);
+  std::string reason = std::format("The OpenGL bridge stopped: {}", failure);
   nr::Log(nr::LogLevel::ERR, reason);
   // After a failed wait the private queue would otherwise wait on `to12` until destroy_device.
   Stop(std::move(reason));
@@ -119,7 +119,7 @@ void GlBridge::LatchGl(std::string_view failure) {
 
 void GlBridge::NoteTimeout(uint32_t* consecutive, std::string_view what) {
   if (++*consecutive >= MAX_CONSECUTIVE_TIMEOUTS) {
-    LatchGl(std::format("{}连续 {} 次未能在 2 秒内完成", what, MAX_CONSECUTIVE_TIMEOUTS));
+    LatchGl(std::format("{} did not finish within 2 s, {} times in a row", what, MAX_CONSECUTIVE_TIMEOUTS));
   }
 }
 
@@ -131,7 +131,7 @@ BridgeFrame GlBridge::BeginFrame(gl::GameHost& host, const gl::ImageInfo& back_b
     // Both directions count as progress, so a frame shows two steps: the game's work up to the copy-in, then NR's.
     const uint64_t completed = to11_->GetCompletedValue();
     if (const std::optional<std::string_view> stopped = watchdog_.Check(completed, completed + to12_->GetCompletedValue(), now)) {
-      std::string reason = std::format("OpenGL 中继已停止：{}", *stopped);
+      std::string reason = std::format("The OpenGL bridge stopped: {}", *stopped);
       nr::Log(nr::LogLevel::ERR, reason);
       Stop(std::move(reason));
     }
@@ -172,7 +172,7 @@ BridgeFrame GlBridge::BeginFrame(gl::GameHost& host, const gl::ImageInfo& back_b
     }
     // Reported while NR is off too, so the Session does not load for a back buffer the bridge cannot share.
     if (color_failure_ && color_failure_->Matches(back_buffer.size, back_buffer.format)) {
-      problem = std::format("无法将后备缓冲区共享至专用 Direct3D 12 设备（DXGI_FORMAT {}，{}）",
+      problem = std::format("The back buffer could not be shared with the private Direct3D 12 device (DXGI_FORMAT {}, {})",
                             static_cast<int>(back_buffer.format), color_failure_->what);
     }
   }
@@ -205,7 +205,7 @@ bool GlBridge::RecordAndExecute(const Recorder& record, ID3D12Resource* motion12
     *wrote = record(list, targets);
   } catch (...) {
     // Half a recording never executes; the queue still signals, so the game never waits in vain.
-    nr::Log(nr::LogLevel::ERR, "在专用 Direct3D 12 设备上记录 NR 命令时发生异常；本帧将不运行 NR");
+    nr::Log(nr::LogLevel::ERR, "NR's recording on the private Direct3D 12 device threw; this frame goes without NR");
     recorded = false;
     *wrote = false;
   }
@@ -262,7 +262,7 @@ bool GlBridge::Run(gl::GameHost& host, const gl::ImageInfo& frame, const gl::Ima
         } else {
           // Logged once: not retried for this size (Plan 7 Minor 3).
           motion_failure_ = ShareFailure{.size = motion.size, .format = DXGI_FORMAT_R16G16_FLOAT, .what = failure};
-          nr::Logf(nr::LogLevel::WARN, "无法向专用 Direct3D 12 设备共享 UPLIFT_MV（{}）；NR 将不使用 LaunchPad 提供的运动矢量", failure);
+          nr::Logf(nr::LogLevel::WARN, "UPLIFT_MV could not be shared with the private Direct3D 12 device ({}); NR runs without LaunchPad's motion", failure);
         }
       }
     }
@@ -276,7 +276,7 @@ bool GlBridge::Run(gl::GameHost& host, const gl::ImageInfo& frame, const gl::Ima
   if (wrote && !ran_logged_) {
     // Once per enable (BeginFrame clears it when NR goes off): the e2e cases and the checklist read it as "a frame came back through the bridge".
     ran_logged_ = true;
-    nr::Log(nr::LogLevel::INFO, "NR 已在游戏帧中运行（OpenGL，64 位）");
+    nr::Log(nr::LogLevel::INFO, "NR ran on the game's frame (OpenGL, 64-bit)");
   }
   return wrote;
 }
@@ -366,11 +366,11 @@ bool GlBridge::RunCpuOrdered(gl::GameHost& host, const gl::ImageInfo& frame, con
   switch (interop_.FlushAndWait(WAIT_CAP_MS)) {
     case gl::WaitResult::DONE: break;
     case gl::WaitResult::TIMEOUT:
-      NoteTimeout(&cpu_timeouts_, "游戏的 OpenGL 上下文");
+      NoteTimeout(&cpu_timeouts_, "the game's GL context");
       return false;
     case gl::WaitResult::BUSY: return false;  // Run has already skipped the frames on which a sync was in flight
     case gl::WaitResult::FAILED:
-      LatchGl("OpenGL 等待失败");
+      LatchGl("an OpenGL wait failed");
       return false;
   }
   const uint64_t value = ++last_value_;
@@ -382,7 +382,7 @@ bool GlBridge::RunCpuOrdered(gl::GameHost& host, const gl::ImageInfo& frame, con
     StampUsed(value, used_mask, motion12 != nullptr);
   }
   if (!signalled) {
-    LatchGl("专用 Direct3D 12 队列未能发出信号");
+    LatchGl("the private Direct3D 12 queue refused to signal");
     return false;
   }
   if (progress_event_ == nullptr) {
@@ -391,13 +391,13 @@ bool GlBridge::RunCpuOrdered(gl::GameHost& host, const gl::ImageInfo& frame, con
   // An earlier frame's wait that timed out left its completion registered on this (auto-reset) event: cleared now, which is safe because Run guarantees that
   // nothing was in flight, so no completion of an older value can still arrive.
   if (progress_event_ == nullptr || ResetEvent(progress_event_) == FALSE || FAILED(side_->Progress()->SetEventOnCompletion(value, progress_event_))) {
-    LatchGl("无法等待专用 Direct3D 12 队列完成处理");
+    LatchGl("the private Direct3D 12 queue's completion could not be waited for");
     return false;
   }
   // The event is set later (from the interrupt path) than the fence's value reaches the GPU, so a stale completion of an older recording could still end this
   // wait early; the fence's own value, which only `value` reaching it can satisfy, decides.
   if (WaitForSingleObject(progress_event_, WAIT_CAP_MS) != WAIT_OBJECT_0 || side_->Completed() < value) {
-    NoteTimeout(&cpu_timeouts_, "专用 Direct3D 12 队列上的 NR");  // the surfaces stay stamped; Run skips frames until it ends
+    NoteTimeout(&cpu_timeouts_, "NR on the private Direct3D 12 queue");  // the surfaces stay stamped; Run skips frames until it ends
     return false;
   }
   cpu_timeouts_ = 0u;
@@ -424,7 +424,7 @@ MaskCopy GlBridge::CopyMask(gl::GameHost& host, const gl::ImageInfo& mask) {
                       format->bytes_per_pixel, L"Uplift shared mask", &mask_, &failure)) {
       // Logged once: not retried for this size and format (Plan 7 Minor 3).
       mask_failure_ = ShareFailure{.size = mask.size, .format = format->view_format, .what = failure};
-      nr::Logf(nr::LogLevel::WARN, "无法向专用 Direct3D 12 设备共享 UPLIFT_MASK（DXGI_FORMAT {}，{}）",
+      nr::Logf(nr::LogLevel::WARN, "UPLIFT_MASK could not be shared with the private Direct3D 12 device (DXGI_FORMAT {}, {})",
                static_cast<int>(format->view_format), failure);
       return {};
     }
@@ -478,11 +478,11 @@ uint64_t GlBridge::SharedBytes() const {
 
 std::string GlBridge::StatusLine() const {
   const double mib = static_cast<double>(SharedBytes()) / (1024.0 * 1024.0);
-  std::string line = (gpu_ordered_ ? std::format("OpenGL：NR 在专用 Direct3D 12 设备上运行（共享纹理和围栏，{:.1f} MiB）", mib)
-                                   : std::format("OpenGL：NR 在专用 Direct3D 12 设备上运行（共享纹理、CPU 排序，{:.1f} MiB）：{}", mib,
+  std::string line = (gpu_ordered_ ? std::format("OpenGL: NR runs on a private Direct3D 12 device (shared textures and fences, {:.1f} MiB)", mib)
+                                   : std::format("OpenGL: NR runs on a private Direct3D 12 device (shared textures, CPU-ordered, {:.1f} MiB): {}", mib,
                                                  cpu_reason_));
   if (busy_skips_ > 0u) {
-    line += std::format("；桥接繁忙期间有 {} 帧未运行 NR", busy_skips_);
+    line += std::format(", {} frame(s) without NR while the bridge was busy", busy_skips_);
   }
   return line;
 }

@@ -30,7 +30,7 @@ std::optional<D3D11_TEXTURE2D_DESC> TextureDesc(ID3D11Resource* resource) {
 }
 
 std::string ShareFailureText(const char* what, DXGI_FORMAT format, HRESULT result) {
-  return std::format("{}无法与 Uplift 辅助进程共享（DXGI_FORMAT {}，HRESULT {:#010x}）", what, static_cast<int>(format),
+  return std::format("{} could not be shared with Uplift's helper (DXGI_FORMAT {}, HRESULT {:#010x})", what, static_cast<int>(format),
                      static_cast<uint32_t>(result));
 }
 
@@ -46,11 +46,11 @@ std::unique_ptr<D3D11Client> D3D11Client::Create(ID3D11Device* device, bool allo
   DXGI_ADAPTER_DESC adapter_description = {};
   if (FAILED(device->QueryInterface(IID_PPV_ARGS(&dxgi_device))) || FAILED(dxgi_device->GetAdapter(&adapter))
       || FAILED(adapter->GetDesc(&adapter_description))) {
-    return fail("无法读取游戏的显卡信息");
+    return fail("the game's adapter could not be read");
   }
   // WARP and other vendors are refused, as on D3D12 (addon::IsNvidiaDevice); cross-adapter sharing is out of scope.
   if (adapter_description.VendorId != addon::NVIDIA_VENDOR_ID) {
-    return fail("Uplift 需要 NVIDIA GPU；此游戏正在另一块显卡上渲染");
+    return fail("Uplift needs an NVIDIA GPU; this game renders on another adapter");
   }
   std::unique_ptr<D3D11Client> client(new D3D11Client());
   client->label_ = label;
@@ -110,7 +110,7 @@ bool D3D11Client::ReleaseAll() {
 
 void D3D11Client::Stop(std::string_view reason, NrLink& link) {
   if (latch_.empty()) {
-    latch_ = std::format("{} 中继已停止：{}。请重启游戏以再次使用 NR。", label_, reason);
+    latch_ = std::format("The {} bridge stopped: {}. Restart the game to use NR again", label_, reason);
     nr::Log(nr::LogLevel::ERR, latch_);
   }
   link.Stop(waited11_, latch_);
@@ -156,17 +156,17 @@ ipc::Target D3D11Client::Describe(const std::optional<D3D11_TEXTURE2D_DESC>& des
   if (!latch_.empty()) {
     problem = latch_;
   } else if (!description) {
-    problem = "后备缓冲区不是二维纹理";
+    problem = "The back buffer is not a 2D texture";
   } else if (description->SampleDesc.Count != 1u) {
-    problem = std::format("{} 不支持多重采样后备缓冲区", label_);
+    problem = std::format("Multisampled back buffers are not supported on {}", label_);
   } else if (!info) {
-    problem = std::format("不支持此后备缓冲区格式（DXGI_FORMAT {}）", static_cast<int>(format));
+    problem = std::format("Unsupported back-buffer format (DXGI_FORMAT {})", static_cast<int>(format));
   }
   if (!running || !problem.empty()) {
     ReleaseShared();  // NR is off, or this image cannot go: the shared surfaces go with it (Plan 7's final review C-1)
   }
   if (problem.empty() && color_failure_ && color_failure_->Matches(size, format)) {
-    problem = ShareFailureText("后备缓冲区", format, color_failure_->result);
+    problem = ShareFailureText("The back buffer", format, color_failure_->result);
   }
   if (problem.empty() && running && !fenced_ && (!kmt_texture_ || kmt_size_ != size || kmt_format_ != format)) {
     // KMT: this side makes the shared texture (design §2.3); the helper opens it by its global handle.
@@ -194,7 +194,7 @@ ipc::Target D3D11Client::Describe(const std::optional<D3D11_TEXTURE2D_DESC>& des
     if (FAILED(result)) {
       ReleaseShared();
       color_failure_ = ShareFailure{.size = size, .format = format, .result = result};
-      problem = ShareFailureText("后备缓冲区", format, result);
+      problem = ShareFailureText("The back buffer", format, result);
     } else {
       kmt_size_ = size;
       kmt_format_ = format;
@@ -246,7 +246,8 @@ bool D3D11Client::Apply(const ipc::Reply& reply, NrLink& link) {
       // An unusual device (a wrapper such as dgVoodoo2 can refuse): no restart would help, so the frame crosses through the legacy
       // shared texture, ordered on the CPU, which needs no fences (design §2.3). The caller re-attaches the helper with KMT.
       nr::Logf(nr::LogLevel::WARN,
-               "Direct3D 11 设备无法打开辅助进程的共享栅栏（HRESULT {:#010x}）；帧将改为通过按 CPU 顺序同步的共享纹理传递",
+               "The Direct3D 11 device could not open the helper's shared fences (HRESULT {:#010x}); frames cross through a "
+               "CPU-ordered shared texture instead",
                static_cast<uint32_t>(FAILED(first) ? first : second));
       to12_11_.Reset();
       to11_11_.Reset();
@@ -263,7 +264,7 @@ bool D3D11Client::Apply(const ipc::Reply& reply, NrLink& link) {
         color_failure_.reset();
       } else {
         color_failure_ = ShareFailure{.size = described_size_, .format = described_format_, .result = result};
-        nr::Log(nr::LogLevel::WARN, ShareFailureText("后备缓冲区", described_format_, result));
+        nr::Log(nr::LogLevel::WARN, ShareFailureText("The back buffer", described_format_, result));
       }
     }
     if (mask != nullptr && latch_.empty()) {
@@ -407,7 +408,7 @@ bool D3D11Client::Run(ID3D11Resource* back_buffer, ID3D11Resource* motion, addon
         } else {
           // Logged once: not retried for this size (Plan 7's final review Minor 3).
           motion_failure_ = ShareFailure{.size = motion_size, .format = DXGI_FORMAT_R16G16_FLOAT, .result = result};
-          nr::Logf(nr::LogLevel::WARN, "无法向 Uplift 辅助进程共享 UPLIFT_MV（HRESULT {:#010x}）；NR 将不使用 LaunchPad 提供的运动矢量",
+          nr::Logf(nr::LogLevel::WARN, "UPLIFT_MV could not be shared with Uplift's helper (HRESULT {:#010x}); NR runs without LaunchPad's motion",
                    static_cast<uint32_t>(result));
         }
       }
@@ -484,7 +485,7 @@ bool D3D11Client::Run(ID3D11Resource* back_buffer, ID3D11Resource* motion, addon
     if (steps.sent) {
       pending_out_ = out;
       in_flight_ = true;
-      nr::Log(nr::LogLevel::WARN, "Uplift 的 64 位辅助进程在 2 秒内未响应；在其恢复响应前，后续帧将不运行 NR");
+      nr::Log(nr::LogLevel::WARN, "Uplift's 64-bit helper did not answer within 2 s; frames go without NR until it does");
     }
     return false;
   }
@@ -536,7 +537,7 @@ MaskCopy D3D11Client::CopyMask(ID3D11Resource* mask, NrLink& link) {
     if (!opened) {
       // Logged once: not retried for this size and format (final review Minor 3).
       mask_failure_ = ShareFailure{.size = size, .format = format->view_format, .result = result};
-      nr::Logf(nr::LogLevel::WARN, "无法向 Uplift 辅助进程共享 UPLIFT_MASK（DXGI_FORMAT {}，HRESULT {:#010x}）",
+      nr::Logf(nr::LogLevel::WARN, "UPLIFT_MASK could not be shared with Uplift's helper (DXGI_FORMAT {}, HRESULT {:#010x})",
                static_cast<int>(format->view_format), static_cast<uint32_t>(result));
       return {};
     }
@@ -549,10 +550,10 @@ MaskCopy D3D11Client::CopyMask(ID3D11Resource* mask, NrLink& link) {
 
 std::string D3D11Client::Line() const {
   if (fenced_) {
-    return std::format("Direct3D 11（{} 位）：NR 在 Uplift 的 64 位辅助进程中运行（共享纹理和栅栏，{:.1f} MiB）", BITNESS,
+    return std::format("Direct3D 11 ({}): NR runs in Uplift's 64-bit helper (shared textures and fences, {:.1f} MiB)", BITNESS,
                        static_cast<double>(color_.bytes + mask_.bytes + motion_.bytes) / MIB);
   }
-  return std::format("Direct3D 11（{} 位）：NR 在 Uplift 的 64 位辅助进程中运行（共享纹理，按 CPU 顺序同步，{:.1f} MiB）", BITNESS,
+  return std::format("Direct3D 11 ({}): NR runs in Uplift's 64-bit helper (shared texture, CPU-ordered, {:.1f} MiB)", BITNESS,
                      static_cast<double>(kmt_bytes_) / MIB);
 }
 

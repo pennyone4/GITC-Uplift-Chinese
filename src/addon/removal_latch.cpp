@@ -66,7 +66,7 @@ void WriteLatchMarker(const std::filesystem::path& marker_path, std::string_view
   const HANDLE file = CreateFileW(marker_path.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS,
                                   FILE_ATTRIBUTE_NORMAL, nullptr);
   if (file == INVALID_HANDLE_VALUE) {
-    nr::Logf(nr::LogLevel::ERR, "无法写入设备移除锁存标记文件 {}：错误 {:#010x}",
+    nr::Logf(nr::LogLevel::ERR, "could not write the device-removal latch marker {}: error {:#010x}",
              Utf8FromPath(marker_path), static_cast<uint32_t>(GetLastError()));
     return;
   }
@@ -76,7 +76,7 @@ void WriteLatchMarker(const std::filesystem::path& marker_path, std::string_view
                                        time.wHour, time.wMinute, time.wSecond, message);
   DWORD written = 0u;
   if (WriteFile(file, line.data(), static_cast<DWORD>(line.size()), &written, nullptr) == FALSE) {
-    nr::Logf(nr::LogLevel::ERR, "无法写入设备移除锁存标记文件 {}：错误 {:#010x}",
+    nr::Logf(nr::LogLevel::ERR, "could not write the device-removal latch marker {}: error {:#010x}",
              Utf8FromPath(marker_path), static_cast<uint32_t>(GetLastError()));
   } else {
     FlushFileBuffers(file);  // reaches disk before this call returns, even if the process dies right after

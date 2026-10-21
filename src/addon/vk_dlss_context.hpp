@@ -44,7 +44,7 @@ struct VkListState {
 };
 
 // The user's decision 1 (2026-10-01): what the Vulkan DLSS placements' readout, Details line and README say about the one-time cost (design §1.2).
-inline constexpr std::string_view VK_FIRST_USE_NOTE = "首次使用后，游戏退出前，其设备会一直占用约 0.6 GB 显存";
+inline constexpr std::string_view VK_FIRST_USE_NOTE = "after the first use, about 0.6 GB stays with the game's device until the game exits";
 // Batch 3 review I-1: how long the game's NGX shutdown waits for NR's last recordings to finish on the GPU before Uplift releases NR (else abandons it).
 inline constexpr std::chrono::milliseconds VK_CORE_SHUTDOWN_WAIT{2000};
 

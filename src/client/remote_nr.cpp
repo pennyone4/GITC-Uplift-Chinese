@@ -91,7 +91,7 @@ void RemoteNr::Fail(std::string text) {
   DrainLog();
   failure_ = std::move(text);
   failed_ = true;
-  nr::Logf(nr::LogLevel::ERR, "辅助进程已停止：{}", failure_);
+  nr::Logf(nr::LogLevel::ERR, "helper stopped: {}", failure_);
   Kill();
   Forget();
 }
@@ -104,7 +104,7 @@ void RemoteNr::Kill() {
     Sleep(5u);
   }
   if (!launcher_->ExitCode()) {
-    nr::Log(nr::LogLevel::WARN, "结束辅助进程后等待 1 秒，它仍未退出");
+    nr::Log(nr::LogLevel::WARN, "the helper process was ended but had not exited after 1 s");
   }
 }
 
@@ -135,7 +135,7 @@ void RemoteNr::Consume(const Outstanding& request, const ipc::Reply& reply, bool
         attached_ = true;
       } else {
         const std::string_view error = ipc::TextOf(reply.error);
-        Fail(error.empty() ? std::string("辅助进程无法连接到游戏设备") : std::string(error));
+        Fail(error.empty() ? std::string("The helper could not attach to the game's device") : std::string(error));
       }
       break;
     case ipc::RequestKind::FRAME:
@@ -195,7 +195,7 @@ std::optional<ipc::Reply> RemoteNr::Present(bool enabled, const ipc::Frame& fram
   const auto now = std::chrono::steady_clock::now();
   const LUID wanted = {.LowPart = config_.attach.luid_low, .HighPart = config_.attach.luid_high};
   if (launcher_ != nullptr && (wanted.LowPart != launched_for_.LowPart || wanted.HighPart != launched_for_.HighPart)) {
-    nr::Log(nr::LogLevel::INFO, "游戏已切换到另一块显卡；正在重启辅助进程");
+    nr::Log(nr::LogLevel::INFO, "the game moved to another adapter; the helper restarts");
     Kill();
     Forget();
   }
@@ -213,33 +213,33 @@ std::optional<ipc::Reply> RemoteNr::Present(bool enabled, const ipc::Frame& fram
   DrainLog();
   if (launcher_->State() == ipc::HelperState::FAILED) {
     const std::string_view error = ipc::TextOf(launcher_->Block()->helper_error);
-    Fail(error.empty() ? std::string("辅助进程报告运行失败") : std::string(error));
+    Fail(error.empty() ? std::string("The helper reported a failure") : std::string(error));
     return std::nullopt;
   }
   if (const std::optional<DWORD> code = launcher_->ExitCode()) {
     DrainLog();  // the helper's last lines (its unload) may have been written since the drain above
     if (quit_sent_ || *code == 0u) {
       // A QUIT, or its own 30 s idle exit (a game that stopped presenting): NR's memory went with the process.
-      nr::Log(nr::LogLevel::INFO, "辅助进程已退出（NR 已释放）");
+      nr::Log(nr::LogLevel::INFO, "helper exited (NR released)");
       Forget();
     } else {
-      Fail(std::format("辅助进程已退出，退出代码为 {:#010x}", static_cast<uint32_t>(*code)));
+      Fail(std::format("It exited with code {:#010x}", static_cast<uint32_t>(*code)));
     }
     return std::nullopt;
   }
   if (launcher_->State() == ipc::HelperState::STARTING) {
     if (launcher_->StartedFor() > START_CAP) {
-      Fail("辅助进程在 10 秒内未能启动");
+      Fail("It did not start within 10 s");
     }
     return std::nullopt;  // "Starting Uplift's 64-bit helper"
   }
   if (!announced_) {
     announced_ = true;
-    nr::Logf(nr::LogLevel::INFO, "辅助进程已启动（PID {}，{} 毫秒后就绪）", pid_, launcher_->StartedFor().count());
+    nr::Logf(nr::LogLevel::INFO, "helper started (pid {}, ready in {} ms)", pid_, launcher_->StartedFor().count());
   }
   if (quit_sent_) {
     if (now - quit_at_ > QUIT_CAP) {
-      nr::Log(nr::LogLevel::WARN, "辅助进程收到 QUIT 后仍未退出；已强制结束");
+      nr::Log(nr::LogLevel::WARN, "the helper did not exit after QUIT; it was ended");
       Kill();
       Forget();
     }
@@ -262,7 +262,7 @@ std::optional<ipc::Reply> RemoteNr::Present(bool enabled, const ipc::Frame& fram
           ++busy_frames_;
         }
         if (const std::optional<std::chrono::seconds> waited = launcher_->Hung(now)) {
-          Fail(std::format("辅助进程在 {} 秒内未响应请求", waited->count()));
+          Fail(std::format("It did not answer a request for {} s", waited->count()));
         }
         return std::nullopt;
       case ipc::HelperLauncher::Wait::GONE:
@@ -313,7 +313,7 @@ std::optional<ipc::Reply> RemoteNr::Present(bool enabled, const ipc::Frame& fram
   if (reply.ok == 0u) {
     if (const std::string_view error = ipc::TextOf(reply.error); error != last_error_) {
       last_error_ = std::string(error);
-      nr::Logf(nr::LogLevel::WARN, "辅助进程：FRAME 处理失败：{}", error);
+      nr::Logf(nr::LogLevel::WARN, "helper: FRAME failed: {}", error);
     }
     return std::nullopt;
   }

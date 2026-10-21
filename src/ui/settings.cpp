@@ -59,9 +59,9 @@ Settings LoadSettings(const ConfigStore& store, std::vector<std::string>* warnin
       }
     }
     if (!value) {
-      warn(std::format("{}：已忽略无法读取的值“{}”", descriptor.key, *text));
+      warn(std::format("{}: ignored the unreadable value '{}'", descriptor.key, *text));
     } else if (!InRange(descriptor, *value)) {
-      warn(std::format("{}：“{}”超出有效范围；将使用默认值 {}", descriptor.key, *text,
+      warn(std::format("{}: '{}' is out of range; using the default {}", descriptor.key, *text,
                        FormatSettingValue(descriptor, DefaultSettings())));
     } else {
       descriptor.set(settings, *value);

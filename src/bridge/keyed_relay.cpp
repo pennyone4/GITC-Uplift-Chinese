@@ -38,24 +38,24 @@ std::unique_ptr<KeyedRelay> KeyedRelay::Create(ID3D10Device* game, ComPtr<ID3D11
   DXGI_ADAPTER_DESC adapter_description = {};
   if (FAILED(game->QueryInterface(IID_PPV_ARGS(&dxgi_device))) || FAILED(dxgi_device->GetAdapter(&adapter))
       || FAILED(adapter->GetDesc(&adapter_description))) {
-    return fail("无法读取游戏的显卡信息");
+    return fail("the game's adapter could not be read");
   }
   if (adapter_description.VendorId != addon::NVIDIA_VENDOR_ID) {
-    return fail("Uplift 需要 NVIDIA GPU；此游戏正在另一块显卡上渲染");
+    return fail("Uplift needs an NVIDIA GPU; this game renders on another adapter");
   }
   relay->luid_ = adapter_description.AdapterLuid;
   ComPtr<IDXGIFactory4> factory;
   ComPtr<IDXGIAdapter1> same_adapter;
   if (FAILED(CreateDXGIFactory2(0u, IID_PPV_ARGS(&factory)))
       || FAILED(factory->EnumAdapterByLuid(adapter_description.AdapterLuid, IID_PPV_ARGS(&same_adapter)))) {
-    return fail("无法通过 LUID 找到游戏使用的显卡");
+    return fail("the game's adapter could not be found by its LUID");
   }
   // Under ReShade this returns its proxy and raises init_device for it (reshade d3d11/d3d11.cpp), like any D3D11 device.
   static constexpr D3D_FEATURE_LEVEL LEVELS[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
   if (const HRESULT result = D3D11CreateDevice(same_adapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, nullptr, 0u, LEVELS, 2u,
                                                D3D11_SDK_VERSION, relay_created->ReleaseAndGetAddressOf(), nullptr, nullptr);
       FAILED(result)) {
-    return fail(std::format("无法创建 Direct3D 11 中继设备（{:#010x}）", static_cast<uint32_t>(result)));
+    return fail(std::format("the Direct3D 11 relay device could not be created ({:#010x})", static_cast<uint32_t>(result)));
   }
   relay->relay_created_ = *relay_created;
   // The D3D11 design's §9 a, one API down: ReShade forwards CreateFence unwrapped and hooks GetDevice only on buffer and
@@ -63,7 +63,7 @@ std::unique_ptr<KeyedRelay> KeyedRelay::Create(ID3D10Device* game, ComPtr<ID3D11
   ComPtr<ID3D11Device5> proxy5;
   ComPtr<ID3D11Fence> fence;
   if (FAILED(relay_created->As(&proxy5)) || FAILED(proxy5->CreateFence(0u, D3D11_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)))) {
-    return fail("Direct3D 11 栅栏需要 Windows 10 1703 或更高版本以及较新的显卡驱动");
+    return fail("Direct3D 11 fences need Windows 10 1703 or newer and a current driver");
   }
   fence->GetDevice(&relay->relay_);
   relay->relay_->GetImmediateContext(&relay->relay_context_);
@@ -79,7 +79,7 @@ KeyedRelay::~KeyedRelay() {
 }
 
 std::string KeyedRelay::Sentence(std::string_view what) {
-  return std::format("Direct3D 10 中继已停止：{}", what);
+  return std::format("The Direct3D 10 bridge stopped: {}", what);
 }
 
 void KeyedRelay::Fail(std::string_view what) {
@@ -150,7 +150,7 @@ KeyedRelay::KeyGuard::~KeyGuard() {
     const HRESULT result = mutex_->ReleaseSync(release_key_);
     // Logged once: Fail latches, and a release that fails after a latch is its consequence.
     if (result != S_OK && !owner_->Stopped()) {
-      owner_->Fail(std::format("释放键控互斥体失败（{:#010x}）", static_cast<uint32_t>(result)));
+      owner_->Fail(std::format("a keyed-mutex release failed ({:#010x})", static_cast<uint32_t>(result)));
     }
   } catch (...) {
     // Out of memory while formatting: the key is released, and nothing more can be said.
@@ -160,7 +160,7 @@ KeyedRelay::KeyGuard::~KeyGuard() {
 bool KeyedRelay::Hand(Keyed& keyed, ID3D10Resource* source) {
   // Only S_OK means the key came: WAIT_TIMEOUT and WAIT_ABANDONED are success codes.
   if (keyed.game_mutex->AcquireSync(0u, KEY_TIMEOUT_MS) != S_OK) {
-    Fail("游戏端的键控互斥体交接等待超时");
+    Fail("the game's side of a keyed-mutex hand-off timed out");
     return false;
   }
   {
@@ -172,7 +172,7 @@ bool KeyedRelay::Hand(Keyed& keyed, ID3D10Resource* source) {
 
 bool KeyedRelay::Take(Keyed& keyed, std::optional<KeyGuard>* key) {
   if (keyed.relay_mutex->AcquireSync(1u, KEY_TIMEOUT_MS) != S_OK) {
-    Fail("中继端的键控互斥体交接等待超时");
+    Fail("the relay's side of a keyed-mutex hand-off timed out");
     return false;
   }
   key->emplace(this, keyed.relay_mutex.Get(), 0u);
@@ -181,7 +181,7 @@ bool KeyedRelay::Take(Keyed& keyed, std::optional<KeyGuard>* key) {
 
 bool KeyedRelay::GiveBack(Keyed& keyed, ID3D10Resource* destination) {
   if (keyed.game_mutex->AcquireSync(0u, KEY_TIMEOUT_MS) != S_OK) {
-    Fail("游戏端的键控互斥体交接等待超时");
+    Fail("the game's side of a keyed-mutex hand-off timed out");
     return false;
   }
   const KeyGuard key(this, keyed.game_mutex.Get(), 0u);
