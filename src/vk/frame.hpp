@@ -22,12 +22,12 @@ struct ImageInfo {
 };
 
 inline constexpr char COPY_ACCESS_PROBLEM[] =
-    "Vulkan 交换链无法接收 NR 结果：当前 ReShade 未向 Uplift 提供添加复制权限所需的 create_swapchain 加载项事件（已针对 ReShade 6.8 进行测试）。"
-    "请使用 ReShade 安装程序更新 Vulkan 层，然后重启游戏";
+    "The Vulkan swap chain cannot take NR's result: this ReShade did not let Uplift add copy access (it needs the create_swapchain add-on event; "
+    "ReShade 6.8 is tested). Update ReShade's Vulkan layer with its installer and restart the game";
 // Final review I-2: what the same missing copy access means when the add-on's create_swapchain handler left the swap chain alone on purpose.
 inline constexpr char EXCLUSIVE_FULLSCREEN_PROBLEM[] =
-    "Vulkan 交换链无法接收 NR 结果：游戏请求独占全屏，Uplift 不会为此类交换链添加复制权限（ReShade 6.8 会重建交换链请求并丢失部分设置）。"
-    "如需使用 NR，请切换至无边框窗口或窗口模式";
+    "The Vulkan swap chain cannot take NR's result: the game asks for exclusive fullscreen, and Uplift does not add copy access to such a swap chain "
+    "(ReShade 6.8 would rebuild its creation request and lose part of it). Use borderless or windowed mode for NR";
 
 // Final review I-2: the add-on's create_swapchain handler saw a swap chain that asks for exclusive fullscreen and left its usage alone. Process-wide
 // and set once it happens, so BackBufferProblem names the real cause for a back buffer without copy access.

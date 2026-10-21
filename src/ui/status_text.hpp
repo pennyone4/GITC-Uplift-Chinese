@@ -22,46 +22,46 @@ struct OptionState {
   std::string_view why;
   bool temporary = false;  // the cause can clear by itself this session (DLSS starting, Ray Reconstruction off, Launchpad turned on)
 };
-inline constexpr std::string_view DLSS_NOT_SEEN_REASON = "游戏使用 DLSS 渲染后即可使用";
+inline constexpr std::string_view DLSS_NOT_SEEN_REASON = "Available once the game renders with DLSS";
 // Plan 18 Task 12: the game switched its DLSS off (it released its last DLSS feature, or on Direct3D 11 shut NGX down) after DLSS ran on this device: the
 // DLSS stages, DLSS's vectors and Match game wait for it (a temporary cause: SetupFacts::dlss_off), and NR runs at Present, at Full, meanwhile.
-inline constexpr std::string_view DLSS_OFF_REASON = "游戏的 DLSS 已关闭：请在游戏设置中将其开启";
+inline constexpr std::string_view DLSS_OFF_REASON = "The game's DLSS is off: turn it on in the game's settings";
 // On Vulkan at Present the game's DLSS motion vectors reach NR through copies made in the game's frame, on a GPU-ordered bridge only: a CPU-ordered Vulkan
 // bridge holds the add-on's lock across capped CPU waits, which a hooked DLSS evaluate must not wait on.
-inline constexpr std::string_view VULKAN_CPU_ORDERED_MOTION = "需要 GPU 排序的 Vulkan 桥接，但此设备无法使用（NR 运行后可在“详细信息”中查看原因）";
+inline constexpr std::string_view VULKAN_CPU_ORDERED_MOTION = "Needs the GPU-ordered Vulkan bridge, which this device cannot have (Details says why once NR has run)";
 // The game presents from a second queue: the bridge would wait a GPU frame inside the present event for every copy.
-inline constexpr std::string_view VULKAN_SECOND_QUEUE_MOTION = "游戏从第二个队列呈现画面，在该队列复制 DLSS 运动矢量会阻塞渲染线程";
+inline constexpr std::string_view VULKAN_SECOND_QUEUE_MOTION = "The game presents from a second queue, where copying DLSS's vectors would stall its render thread";
 // Final review I-1: the native Vulkan context stopped for good (the game shut NGX down on this device, or the device was lost). The DLSS stages and DLSS's
 // vectors cannot run again this session (SetupFacts::dlss_unavailable).
 inline constexpr std::string_view VULKAN_NGX_SHUT_DOWN_REASON =
-    "游戏已关闭此设备上的 NVIDIA NGX（或设备已丢失）：游戏重启前，NR 不会在游戏帧内运行";
+    "The game shut NVIDIA's NGX down on this device (or the device was lost): NR inside the game's frame stays off until the game restarts";
 // And while NR sat at a DLSS stage then, Present cannot run either: the native context keeps NR's claim, so the Present path never loads NR into a game that
 // may be quitting (Plan 13's exit protection; SetupFacts::present_fixed).
 inline constexpr std::string_view VULKAN_NGX_SHUT_DOWN_PRESENT_REASON =
-    "NR 在游戏帧内运行时，游戏关闭了此设备上的 NVIDIA NGX（或设备已丢失）：游戏重启前，NR 将保持关闭";
+    "The game shut NVIDIA's NGX down on this device (or the device was lost) while NR ran inside its frame: NR stays off until the game restarts";
 // Plan 15: on Direct3D 12 the game shut NVIDIA's NGX down on its device (some games do when a DLSS setting changes, every Streamline game when it quits):
 // Uplift released NR first and holds it off there, every stage alike, until the game creates its DLSS again (a temporary cause: SetupFacts::held, CardFacts::held).
-inline constexpr std::string_view D3D12_NGX_SHUT_DOWN_REASON = "游戏已关闭 NVIDIA NGX；游戏重新启动 DLSS 后，NR 将恢复运行";
+inline constexpr std::string_view D3D12_NGX_SHUT_DOWN_REASON = "The game shut NVIDIA's NGX down; NR resumes when the game's DLSS starts again";
 // Plan 15: the same shutdown came while NR's last frames had not finished within 2 s, so NR was abandoned without an NGX call: nothing runs again on the device
 // this session (fix round, minor 6: SetupFacts::stopped greys every option with it, and the card is "NR stopped" with it).
 inline constexpr std::string_view D3D12_NGX_ABANDONED_REASON =
-    "NR 仍在运行时，游戏关闭了 NVIDIA NGX：游戏重启前，NR 不会在此设备上运行";
+    "The game shut NVIDIA's NGX down while NR's work was still running: NR stays off on this device until the game restarts";
 // Plan 17 (the 2-strike rule): NR's private Direct3D 12 device (a bridge's, or the 64-bit helper's) stopped a second time this session, so Retry now is no
 // longer offered: the card's reason, and Setup's fixed cause (SetupFacts::stopped).
-inline constexpr std::string_view PRIVATE_DEVICE_STOPPED_TWICE_REASON = "本次运行期间 NR 已停止两次：游戏重启前，NR 将在此设备上保持关闭";
+inline constexpr std::string_view PRIVATE_DEVICE_STOPPED_TWICE_REASON = "NR stopped twice this session: it stays off on this device until the game restarts";
 // Test phase (review M-3): a bridge's private device that is the adapter's shared one (no device factory in this game's D3D12 runtime) stopped. No new device
 // can be made while the game runs, so the first stop is final: Setup's fixed cause, and the log's line.
 inline constexpr std::string_view PRIVATE_DEVICE_STOPPED_FINAL_REASON =
-    "NR 已停止，且此游戏的 Direct3D 12 运行时无法为 Uplift 创建新设备：游戏重启前，NR 将在此设备上保持关闭";
+    "NR stopped, and this game's Direct3D 12 runtime cannot give Uplift a new device: it stays off on this device until the game restarts";
 // Final review, minor 3: on Vulkan at Present Match game cannot read the game's DLSS render size, but a DLSS stage can (a temporary cause).
-inline constexpr std::string_view VULKAN_MATCH_GAME_REASON = "Vulkan 下，“匹配游戏”仅在 DLSS 后和 DLSS 前阶段生效";
+inline constexpr std::string_view VULKAN_MATCH_GAME_REASON = "On Vulkan, Match game applies at After DLSS and Before upscaling";
 // Plan 18 (design §5): in a Direct3D 11 game whose DLSS runs on a separate Direct3D 12 device (a mod's own), which Uplift cannot reach: a fixed cause for the
 // DLSS stages and DLSS's vectors (SetupFacts::dlss_unavailable). NR at Present runs as before.
 inline constexpr std::string_view FOREIGN_D3D12_DLSS_REASON =
-    "此游戏的 DLSS 运行在独立的 Direct3D 12 设备上（由模组创建），Uplift 无法访问该设备。NR 将在后处理阶段运行";
+    "This game's DLSS runs on a separate Direct3D 12 device (a mod), which Uplift cannot reach. NR runs at Present";
 
 // Split chain (Task 3): every "Runs at" choice is greyed with it on a route that runs every pass at one stage (every route but native Direct3D 12, for now).
-inline constexpr std::string_view ONE_STAGE_REASON = "此处所有层都在同一阶段运行";
+inline constexpr std::string_view ONE_STAGE_REASON = "All passes run at one stage here";
 
 // A selectable motion source that delivered nothing on the latest recording (design §1.4).
 enum class MotionGap : uint8_t {
@@ -213,7 +213,7 @@ class SetupSettle {
 
 // Plan 7: the DLSS placements' reason on a bridged context without them (the Direct3D 10 bridge, OpenGL, the 32-bit helper); Plan 18: Direct3D 11 has them.
 // Plan 9 moved it here, from addon/device_context.hpp, so the 32-bit add-on shows the same text without that header.
-inline constexpr std::string_view BRIDGED_DLSS_REASON = "DLSS 后运行 NR 需要 64 位 Direct3D 11、Direct3D 12 或 Vulkan 游戏";
+inline constexpr std::string_view BRIDGED_DLSS_REASON = "NR after DLSS needs a 64-bit Direct3D 11, Direct3D 12 or Vulkan game";
 
 struct StatusView {
   nr::SessionState state = nr::SessionState::OFF;
@@ -244,7 +244,6 @@ struct KeepFacesFacts {
 };
 // Why Keep faces cannot run on the shown device, or empty.
 [[nodiscard]] std::string_view KeepFacesUnavailable(const KeepFacesFacts& facts);
-[[nodiscard]] std::string_view LocalizeStatusReason(std::string_view reason);
 
 // Plan 6 (v2 design §3.18, D1): the status card, the first failing stage of the verdict ladder.
 enum class CardStage : uint8_t {

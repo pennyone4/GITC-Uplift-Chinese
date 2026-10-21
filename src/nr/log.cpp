@@ -11,10 +11,10 @@ namespace {
 
 void DefaultSink(LogLevel level, std::string_view message, void* /*user*/) {
   constexpr std::string_view PREFIXES[] = {
-      "[Uplift] 错误：",
-      "[Uplift] 警告：",
+      "[Uplift] error: ",
+      "[Uplift] warning: ",
       "[Uplift] ",
-      "[Uplift] 跟踪：",
+      "[Uplift] trace: ",
   };
   std::string line(PREFIXES[static_cast<size_t>(level)]);
   line.append(message);

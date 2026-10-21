@@ -157,12 +157,13 @@ void* SafeOriginal(void* candidate, HMODULE uplift_module) {
   if (resolved_ok == FALSE || resolved == nullptr) {
     if (candidate != nullptr) {
       Log(LogLevel::WARN,
-          "Snippet 的 GetModuleFileNameW 导入项指向已失效的地址；正在改为恢复真实导出函数");
+          "the snippet's GetModuleFileNameW import held a stale pointer; restoring the real export instead");
     }
     return reinterpret_cast<void*>(&GetModuleFileNameW);
   }
   if (resolved == uplift_module) {
-    Log(LogLevel::WARN, "Snippet 的 GetModuleFileNameW 导入项指向 Uplift 自身的伪装函数（可能是先前卸载不完整留下的残留）；正在恢复真实导出函数");
+    Log(LogLevel::WARN, "the snippet's GetModuleFileNameW import already pointed at Uplift's own spoof "
+                         "(a leaked prior instance); restoring the real export instead");
     return reinterpret_cast<void*>(&GetModuleFileNameW);
   }
   return candidate;
@@ -238,7 +239,7 @@ std::string ToUtf8(const std::filesystem::path& path) {
     const std::u8string utf8 = path.u8string();
     return std::string(reinterpret_cast<const char*>(utf8.data()), utf8.size());
   } catch (const std::system_error&) {
-    return "<路径无法转换为 UTF-8>";
+    return "<path not representable as UTF-8>";
   }
 }
 
@@ -274,31 +275,32 @@ Snippet::~Snippet() {
 
 NVSDK_NGX_Result Snippet::Load(const SnippetConfig& config) {
   if (abandoned_) {
-    Log(LogLevel::ERR, "此 Snippet 在设备丢失后已被弃用，无法重复使用");
+    Log(LogLevel::ERR, "this Snippet was abandoned after a device loss and cannot be reused");
     return NVSDK_NGX_Result_FAIL_FeatureAlreadyExists;
   }
   if (state_ != SnippetState::UNLOADED) return NVSDK_NGX_Result_FAIL_FeatureAlreadyExists;
   if (identity_spoof.slot != nullptr) {
-    Log(LogLevel::ERR, "另一个 Snippet 已加载；只有一个实例可以持有调用方身份伪装");
+    Log(LogLevel::ERR, "another Snippet is loaded; only one can hold the caller-identity spoof");
     return NVSDK_NGX_Result_FAIL_FeatureAlreadyExists;
   }
 
   std::error_code error;
   const auto snippet_path = std::filesystem::canonical(config.snippet_path, error);
   if (error) {
-    Logf(LogLevel::ERR, "找不到 Snippet：{}（{}）", ToUtf8(config.snippet_path), error.message());
+    Logf(LogLevel::ERR, "snippet {} not found ({})", ToUtf8(config.snippet_path), error.message());
     return NVSDK_NGX_Result_FAIL_UnableToInitializeFeature;
   }
   if (const std::filesystem::path mapped = RuntimeMappedElsewherePath(snippet_path); !mapped.empty()) {
     Logf(LogLevel::ERR,
-         "{} 已由游戏中的其他组件加载，或在 Uplift 卸载后仍驻留内存；Uplift 不会再次初始化它（已加载副本：{}）",
+         "{} is already loaded in this game by another component, or stayed mapped after Uplift unloaded it; Uplift will "
+         "not initialise it a second time (the loaded copy: {})",
          ToUtf8(snippet_path.filename()), ToUtf8(mapped));
     return NVSDK_NGX_Result_FAIL_FeatureAlreadyExists;
   }
   ModuleReference module(LoadLibraryW(snippet_path.c_str()));
   if (!module) {
     const DWORD load_error = GetLastError();
-    Logf(LogLevel::ERR, "LoadLibraryW 加载失败：{}（错误码 {}）", ToUtf8(snippet_path), load_error);
+    Logf(LogLevel::ERR, "LoadLibraryW failed for {} ({})", ToUtf8(snippet_path), load_error);
     return NVSDK_NGX_Result_FAIL_UnableToInitializeFeature;
   }
   void* const init_ext = ResolveExport(module.get(), "NVSDK_NGX_D3D12_Init_Ext");
@@ -309,7 +311,7 @@ NVSDK_NGX_Result Snippet::Load(const SnippetConfig& config) {
   void* const populate_parameters = ResolveExport(module.get(), "NVSDK_NGX_D3D12_PopulateParameters_Impl");
   if (init_ext == nullptr || create_feature == nullptr || evaluate_feature == nullptr || release_feature == nullptr
       || shutdown == nullptr) {
-    Logf(LogLevel::ERR, "{} 缺少必需的 NVSDK_NGX_D3D12 导出函数", ToUtf8(snippet_path));
+    Logf(LogLevel::ERR, "{} lacks a required NVSDK_NGX_D3D12 export", ToUtf8(snippet_path));
     return NVSDK_NGX_Result_FAIL_UnableToInitializeFeature;
   }
   // Plan 13: the Vulkan exports are optional here (null when absent); only BindVulkan requires them.
@@ -320,7 +322,7 @@ NVSDK_NGX_Result Snippet::Load(const SnippetConfig& config) {
   void* const vk_shutdown = ResolveExport(module.get(), "NVSDK_NGX_VULKAN_Shutdown1");
   void* const vk_populate_parameters = ResolveExport(module.get(), "NVSDK_NGX_VULKAN_PopulateParameters_Impl");
 
-  std::string file_version = "未知";
+  std::string file_version = "unknown";
   bool layout_310_8 = false;
   bool legacy_runtime = false;
   bool layout_310_9_16 = false;
@@ -350,14 +352,14 @@ NVSDK_NGX_Result Snippet::Load(const SnippetConfig& config) {
   // below may throw, or an exception would leave the spoof held by a freed module.
   void** const identity_slot = FindImportAddress(module.get(), "GetModuleFileNameW");
   if (identity_slot == nullptr) {
-    Log(LogLevel::ERR, "Snippet 中没有可供伪装的 GetModuleFileNameW 按名称导入项");
+    Log(LogLevel::ERR, "the snippet has no by-name GetModuleFileNameW import to spoof");
     return NVSDK_NGX_Result_FAIL_UnableToInitializeFeature;
   }
   HMODULE caller = nullptr;
   if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                          reinterpret_cast<LPCWSTR>(&SpoofedGetModuleFileNameW), &caller)
       == FALSE) {
-    Log(LogLevel::ERR, "无法解析 Uplift 自身模块以伪装调用方身份");
+    Log(LogLevel::ERR, "cannot resolve Uplift's own module for the caller-identity spoof");
     return NVSDK_NGX_Result_FAIL_UnableToInitializeFeature;
   }
   // A stale or self-referencing slot value must never be trusted as the
@@ -365,7 +367,7 @@ NVSDK_NGX_Result Snippet::Load(const SnippetConfig& config) {
   identity_spoof = {.slot = identity_slot, .original = SafeOriginal(*identity_slot, caller), .caller = caller};
   if (!WritePointer(identity_slot, reinterpret_cast<void*>(&SpoofedGetModuleFileNameW))) {
     identity_spoof = {};
-    Log(LogLevel::ERR, "无法修改 Snippet 的 GetModuleFileNameW 导入项");
+    Log(LogLevel::ERR, "cannot patch the snippet's GetModuleFileNameW import");
     return NVSDK_NGX_Result_FAIL_UnableToInitializeFeature;
   }
   config_ = std::move(loaded_config);
@@ -410,35 +412,35 @@ NVSDK_NGX_Result Snippet::Load(const SnippetConfig& config) {
     // non-executable section, and only while the slot is empty or points into
     // the image; the checks run in this order so the slot is read last.
     if (!layout_310_8 && !layout_310_9_16) {
-      Logf(LogLevel::WARN, "Snippet 版本 {} 的日志布局未知；已停用 Snippet 日志", file_version);
+      Logf(LogLevel::WARN, "the snippet version {} has no known log layout; snippet logging stays off", file_version);
     } else if (nt->OptionalHeader.SizeOfImage != expected_image_size
                && !(layout_310_9_16 && nt->OptionalHeader.SizeOfImage == SNIPPET_310_9_16_FP16_IMAGE_SIZE)) {
-      Logf(LogLevel::WARN, "Snippet 映像大小 {:#x} 与已验证的布局（{:#x}）不符；已停用 Snippet 日志",
+      Logf(LogLevel::WARN, "the snippet image size {:#x} differs from the verified layout ({:#x}); snippet logging stays off",
            nt->OptionalHeader.SizeOfImage, expected_image_size);
     } else if (!slot_in_data_section) {
       Log(LogLevel::WARN,
-          "Snippet 日志槽不在可写且不可执行的节区内；已停用 Snippet 日志");
+          "the snippet log slot is not inside a writable, non-executable section; snippet logging stays off");
     } else if (const auto current = reinterpret_cast<uintptr_t>(*slot);
                current != 0u && (current < base || current >= image_end)) {
-      Log(LogLevel::WARN, "Snippet 日志槽包含外部指针；已停用 Snippet 日志");
+      Log(LogLevel::WARN, "the snippet log slot holds a foreign pointer; snippet logging stays off");
     } else {
       log_hook = {.slot = slot, .original = *slot};
       if (WritePointer(slot, reinterpret_cast<void*>(&SnippetLog))) {
-        Log(LogLevel::INFO, "已挂接 Snippet 日志回调");
+        Log(LogLevel::INFO, "snippet log callback hooked");
       } else {
-        Log(LogLevel::WARN, "无法修改 Snippet 的日志回调槽；已停用 Snippet 日志");
+        Log(LogLevel::WARN, "cannot patch the snippet's log-callback slot; snippet logging stays off");
         log_hook = {};
       }
     }
   }
-  Logf(LogLevel::INFO, "已加载 Snippet：{}（版本 {}）", ToUtf8(snippet_path), file_version);
+  Logf(LogLevel::INFO, "snippet loaded {} version {}", ToUtf8(snippet_path), file_version);
   return NVSDK_NGX_Result_Success;
 }
 
 NVSDK_NGX_Result Snippet::Bind(ID3D12Device* device) {
   if (state_ == SnippetState::BOUND) {
     if (api_ == SnippetApi::D3D12 && device == device_) return NVSDK_NGX_Result_Success;
-    Log(LogLevel::WARN, "Bind 拒绝绑定第二个设备；Snippet 仍绑定到首个设备");
+    Log(LogLevel::WARN, "Bind rejected a second device; the snippet stays bound to its first device");
     return NVSDK_NGX_Result_FAIL_NotInitialized;
   }
   if (state_ != SnippetState::LOADED) return NVSDK_NGX_Result_FAIL_NotInitialized;
@@ -450,7 +452,7 @@ NVSDK_NGX_Result Snippet::Bind(ID3D12Device* device) {
         APPLICATION_ID, config_.snippet_path.parent_path().c_str(), device, NVSDK_NGX_Version_API, nullptr);
   });
   if (NVSDK_NGX_FAILED(result)) {
-    Logf(LogLevel::ERR, "Init_Ext 调用失败：{:#010x}", static_cast<uint32_t>(result));
+    Logf(LogLevel::ERR, "Init_Ext failed with {:#010x}", static_cast<uint32_t>(result));
     ReleaseCore();
     return result;
   }
@@ -459,14 +461,14 @@ NVSDK_NGX_Result Snippet::Bind(ID3D12Device* device) {
   api_ = SnippetApi::D3D12;
   state_ = SnippetState::BOUND;
   PrepareStats();
-  Logf(LogLevel::INFO, "Init_Ext 调用成功，核心模块：{}", ToUtf8(core_path_));
+  Logf(LogLevel::INFO, "Init_Ext ok, core {}", ToUtf8(core_path_));
   return result;
 }
 
 NVSDK_NGX_Result Snippet::BindVulkan(const VulkanBinding& binding) {
   if (state_ == SnippetState::BOUND) {
     if (api_ == SnippetApi::VULKAN && binding.device == vk_device_) return NVSDK_NGX_Result_Success;
-    Log(LogLevel::WARN, "BindVulkan 拒绝绑定第二个设备或 API；Snippet 仍绑定到首个设备");
+    Log(LogLevel::WARN, "BindVulkan rejected a second device or API; the snippet stays bound to its first");
     return NVSDK_NGX_Result_FAIL_NotInitialized;
   }
   if (state_ != SnippetState::LOADED) return NVSDK_NGX_Result_FAIL_NotInitialized;
@@ -476,7 +478,7 @@ NVSDK_NGX_Result Snippet::BindVulkan(const VulkanBinding& binding) {
   }
   if (vk_init_ext2_ == nullptr || vk_create_feature_ == nullptr || vk_evaluate_feature_ == nullptr || vk_release_feature_ == nullptr
       || vk_shutdown_ == nullptr) {
-    Logf(LogLevel::ERR, "{} 缺少必需的 NVSDK_NGX_VULKAN 导出函数", ToUtf8(config_.snippet_path));
+    Logf(LogLevel::ERR, "{} lacks a required NVSDK_NGX_VULKAN export", ToUtf8(config_.snippet_path));
     return NVSDK_NGX_Result_FAIL_UnableToInitializeFeature;
   }
   if (!AttachVulkanCore(binding)) return NVSDK_NGX_Result_FAIL_UnableToInitializeFeature;
@@ -487,7 +489,7 @@ NVSDK_NGX_Result Snippet::BindVulkan(const VulkanBinding& binding) {
                                                            binding.get_device_proc_addr, NVSDK_NGX_Version_API, nullptr);
   });
   if (NVSDK_NGX_FAILED(result)) {
-    Logf(LogLevel::ERR, "VULKAN_Init_Ext2 调用失败：{:#010x}", static_cast<uint32_t>(result));
+    Logf(LogLevel::ERR, "VULKAN_Init_Ext2 failed with {:#010x}", static_cast<uint32_t>(result));
     ReleaseCore();
     return result;
   }
@@ -499,7 +501,7 @@ NVSDK_NGX_Result Snippet::BindVulkan(const VulkanBinding& binding) {
   api_ = SnippetApi::VULKAN;
   state_ = SnippetState::BOUND;
   PrepareStats();
-  Logf(LogLevel::INFO, "VULKAN_Init_Ext2 调用成功，核心模块：{}", ToUtf8(core_path_));
+  Logf(LogLevel::INFO, "VULKAN_Init_Ext2 ok, core {}", ToUtf8(core_path_));
   return result;
 }
 
@@ -515,7 +517,7 @@ void Snippet::Unload() {
       return api_ == SnippetApi::VULKAN ? reinterpret_cast<VulkanShutdownFn>(shutdown_)(vk_device_)
                                         : reinterpret_cast<ShutdownFn>(shutdown_)(device_);
     });
-    Logf((NVSDK_NGX_SUCCEED(result) ? LogLevel::INFO : LogLevel::ERR), "Shutdown1 返回：{:#010x}",
+    Logf((NVSDK_NGX_SUCCEED(result) ? LogLevel::INFO : LogLevel::ERR), "Shutdown1 returned {:#010x}",
          static_cast<uint32_t>(result));
     if (api_ == SnippetApi::D3D12) {
       device_->Release();
@@ -532,9 +534,9 @@ void Snippet::Unload() {
     }
     FreeLibrary(module_);
     if (GetModuleHandleW(config_.snippet_path.c_str()) == nullptr) {
-      Log(LogLevel::INFO, "Snippet 已卸载");
+      Log(LogLevel::INFO, "snippet unloaded");
     } else {
-      Log(LogLevel::WARN, "Snippet 模块仍驻留内存：其他引用仍在持有它");
+      Log(LogLevel::WARN, "the snippet module stayed loaded: another reference holds it");
     }
   }
 
@@ -622,7 +624,7 @@ void Snippet::Abandon() {
     // snippet or NGX; skipping it would leak the device interface forever.
     device->Release();
   }
-  Log(LogLevel::WARN, "设备丢失后已弃用 Snippet：模块和核心仍驻留内存，未再调用 NGX");
+  Log(LogLevel::WARN, "snippet abandoned after a device loss: module and core left mapped, no NGX calls made");
 }
 
 void Snippet::RestorePatches() {
@@ -634,13 +636,13 @@ void Snippet::RestorePatches() {
     log_hook = {};  // reset before any logging below
     if (ours) {
       if (WritePointer(slot, original)) {
-        Log(LogLevel::INFO, "Snippet 日志回调槽已恢复");
+        Log(LogLevel::INFO, "snippet log-callback slot restored");
       } else {
-        Log(LogLevel::ERR, "无法恢复 Snippet 的日志回调槽");
+        Log(LogLevel::ERR, "cannot restore the snippet's log-callback slot");
       }
     } else {
       Logf(LogLevel::WARN,
-           "Snippet 日志回调槽已不再指向 Uplift 的挂钩函数（外部指针 {:#x}）；保持不变",
+           "the snippet log-callback slot no longer holds Uplift's hook (foreign pointer {:#x}); leaving it alone",
            foreign);
     }
   }
@@ -652,12 +654,15 @@ void Snippet::RestorePatches() {
     identity_spoof = {};  // reset before any logging below
     if (ours) {
       if (WritePointer(slot, original)) {
-        Log(LogLevel::INFO, "Snippet 的 GetModuleFileNameW 导入项已恢复");
+        Log(LogLevel::INFO, "snippet GetModuleFileNameW import restored");
       } else {
-        Log(LogLevel::ERR, "无法恢复 Snippet 的 GetModuleFileNameW 导入项");
+        Log(LogLevel::ERR, "cannot restore the snippet's GetModuleFileNameW import");
       }
     } else {
-      Logf(LogLevel::WARN, "Snippet 的 GetModuleFileNameW 导入项已不再指向 Uplift 的伪装函数（外部指针 {:#x}，规范 R4：另一个 NR 主机）；保持不变", foreign);
+      Logf(LogLevel::WARN,
+           "the snippet's GetModuleFileNameW import no longer holds Uplift's spoof (foreign pointer {:#x}, "
+           "spec R4: another NR host); leaving it alone",
+           foreign);
     }
   }
 }
@@ -668,7 +673,7 @@ NVSDK_NGX_Parameter* Snippet::AllocateParameters() const {
   const NVSDK_NGX_Result result =
       GuardedCall([&] { return reinterpret_cast<AllocateParametersFn>(allocate_parameters_)(&parameters); });
   if (NVSDK_NGX_FAILED(result)) {
-    Logf(LogLevel::ERR, "AllocateParameters 调用失败：{:#010x}", static_cast<uint32_t>(result));
+    Logf(LogLevel::ERR, "AllocateParameters failed with {:#010x}", static_cast<uint32_t>(result));
     return nullptr;
   }
   return parameters;
@@ -679,7 +684,7 @@ void Snippet::DestroyParameters(NVSDK_NGX_Parameter* parameters) const {
   const NVSDK_NGX_Result result =
       GuardedCall([&] { return reinterpret_cast<DestroyParametersFn>(destroy_parameters_)(parameters); });
   if (NVSDK_NGX_FAILED(result)) {
-    Logf(LogLevel::ERR, "DestroyParameters 调用失败：{:#010x}", static_cast<uint32_t>(result));
+    Logf(LogLevel::ERR, "DestroyParameters failed with {:#010x}", static_cast<uint32_t>(result));
   }
 }
 
@@ -750,13 +755,13 @@ bool Snippet::AttachCore(ID3D12Device* device) {
     UINT marker_size = sizeof(marker);
     if (SUCCEEDED(device->GetPrivateData(UPLIFT_CORE_INIT_GUID, &marker_size, &marker))) return true;
     if (config_.application_data_path.empty()) {
-      Log(LogLevel::ERR, "无法初始化 NGX 核心：未配置应用数据路径");
+      Log(LogLevel::ERR, "cannot initialise the NGX core: no application-data path is configured");
       return false;
     }
     std::error_code error;
     std::filesystem::create_directories(config_.application_data_path, error);
     if (error) {
-      Logf(LogLevel::ERR, "无法创建 NGX 应用数据目录 {}（{}）",
+      Logf(LogLevel::ERR, "cannot create the NGX application-data directory {} ({})",
            ToUtf8(config_.application_data_path), error.message());
       return false;
     }
@@ -764,7 +769,7 @@ bool Snippet::AttachCore(ID3D12Device* device) {
       return initialize(APPLICATION_ID, config_.application_data_path.c_str(), device, NVSDK_NGX_Version_API);
     });
     if (NVSDK_NGX_FAILED(result)) {
-      Logf(LogLevel::ERR, "NGX 核心 Init 调用失败：{:#010x}", static_cast<uint32_t>(result));
+      Logf(LogLevel::ERR, "NGX core Init failed with {:#010x}", static_cast<uint32_t>(result));
       return false;
     }
     constexpr uint32_t INITIALIZED = 1u;
@@ -789,34 +794,34 @@ bool Snippet::AttachCore(ID3D12Device* device) {
     // Plan 7 (D3D11 design R15): a D3D11 game's core was initialised for its own D3D11 device only.
     const auto initialize = reinterpret_cast<CoreInit>(ResolveExport(core_module_, "NVSDK_NGX_D3D12_Init"));
     if (initialize == nullptr || !initialize_once(initialize)) {
-      Log(LogLevel::ERR, "无法为 Uplift 的专用 Direct3D 12 设备初始化游戏的 NGX 核心");
+      Log(LogLevel::ERR, "the game's NGX core could not be initialised for Uplift's private Direct3D 12 device");
       ReleaseCore();
       return false;
     }
-    Log(LogLevel::INFO, "游戏的 NGX 核心已为 Uplift 的专用 Direct3D 12 设备初始化");
+    Log(LogLevel::INFO, "the game's NGX core is initialised for Uplift's private Direct3D 12 device");
   }
 
   if (core_module_ == nullptr) {
     if (!config_.allow_core_force_load) {
-      Log(LogLevel::ERR, "已加载的 NGX 核心未导出 D3D12 参数分配函数，且已禁用强制加载");
+      Log(LogLevel::ERR, "no loaded NGX core exports D3D12 parameter allocation, and force-loading is disabled");
       return false;
     }
     const auto core_file = FindNgxCore(config_.core_path_override);
     if (core_file.empty()) {
-      Log(LogLevel::ERR, "找不到已安装的 NVIDIA NGX 核心，无法强制加载");
+      Log(LogLevel::ERR, "could not locate an installed NVIDIA NGX core to force-load");
       return false;
     }
     ModuleReference core(LoadLibraryExW(core_file.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH));
     if (!core) {
       const DWORD load_error = GetLastError();
-      Logf(LogLevel::ERR, "LoadLibraryExW 加载 NGX 核心失败：{}（错误码 {}）", ToUtf8(core_file), load_error);
+      Logf(LogLevel::ERR, "LoadLibraryExW failed for NGX core {} ({})", ToUtf8(core_file), load_error);
       return false;
     }
     const auto initialize = reinterpret_cast<CoreInit>(ResolveExport(core.get(), "NVSDK_NGX_D3D12_Init"));
     void* const allocate = ResolveExport(core.get(), "NVSDK_NGX_D3D12_AllocateParameters");
     void* const destroy = ResolveExport(core.get(), "NVSDK_NGX_D3D12_DestroyParameters");
     if (initialize == nullptr || allocate == nullptr || destroy == nullptr) {
-      Logf(LogLevel::ERR, "NGX 核心 {} 缺少 D3D12 Init 或参数分配函数", ToUtf8(core_file));
+      Logf(LogLevel::ERR, "NGX core {} lacks D3D12 Init or parameter allocation", ToUtf8(core_file));
       return false;
     }
     if (!initialize_once(initialize)) return false;
@@ -834,7 +839,7 @@ bool Snippet::AttachCore(ID3D12Device* device) {
   if (length != 0u && length < module_path.size()) {
     core_path_ = std::filesystem::path(module_path.data(), module_path.data() + length);
   }
-  Logf(LogLevel::INFO, "{} NGX 核心：{}", (core_initialized_by_uplift_ ? "已强制加载" : "已接管已加载的"),
+  Logf(LogLevel::INFO, "{} NGX core {}", (core_initialized_by_uplift_ ? "force-loaded" : "adopted the loaded"),
        ToUtf8(core_path_));
   return true;
 }
@@ -848,13 +853,13 @@ bool Snippet::AttachVulkanCore(const VulkanBinding& binding) {
       if (std::ranges::find(vulkan_core_devices.devices, binding.device) != vulkan_core_devices.devices.end()) return true;
     }
     if (config_.application_data_path.empty()) {
-      Log(LogLevel::ERR, "无法初始化 NGX 核心：未配置应用数据路径");
+      Log(LogLevel::ERR, "cannot initialise the NGX core: no application-data path is configured");
       return false;
     }
     std::error_code error;
     std::filesystem::create_directories(config_.application_data_path, error);
     if (error) {
-      Logf(LogLevel::ERR, "无法创建 NGX 应用数据目录 {}（{}）", ToUtf8(config_.application_data_path),
+      Logf(LogLevel::ERR, "cannot create the NGX application-data directory {} ({})", ToUtf8(config_.application_data_path),
            error.message());
       return false;
     }
@@ -863,7 +868,7 @@ bool Snippet::AttachVulkanCore(const VulkanBinding& binding) {
                         binding.get_instance_proc_addr, binding.get_device_proc_addr, NVSDK_NGX_Version_API, nullptr);
     });
     if (NVSDK_NGX_FAILED(result)) {
-      Logf(LogLevel::ERR, "NGX 核心 VULKAN_Init_Ext2 调用失败：{:#010x}", static_cast<uint32_t>(result));
+      Logf(LogLevel::ERR, "NGX core VULKAN_Init_Ext2 failed with {:#010x}", static_cast<uint32_t>(result));
       return false;
     }
     const std::scoped_lock lock(vulkan_core_devices.mutex);
@@ -887,7 +892,7 @@ bool Snippet::AttachVulkanCore(const VulkanBinding& binding) {
   if (core_module_ != nullptr && config_.initialize_core_for_device) {
     const auto initialize = reinterpret_cast<VulkanInitExt2>(ResolveExport(core_module_, "NVSDK_NGX_VULKAN_Init_Ext2"));
     if (initialize == nullptr || !initialize_once(initialize)) {
-      Log(LogLevel::ERR, "无法为此 Vulkan 设备初始化已加载的 NGX 核心");
+      Log(LogLevel::ERR, "the loaded NGX core could not be initialised for this Vulkan device");
       ReleaseCore();
       return false;
     }
@@ -895,25 +900,25 @@ bool Snippet::AttachVulkanCore(const VulkanBinding& binding) {
 
   if (core_module_ == nullptr) {
     if (!config_.allow_core_force_load) {
-      Log(LogLevel::ERR, "已加载的 NGX 核心未导出 Vulkan 参数分配函数，且已禁用强制加载");
+      Log(LogLevel::ERR, "no loaded NGX core exports Vulkan parameter allocation, and force-loading is disabled");
       return false;
     }
     const auto core_file = FindNgxCore(config_.core_path_override);
     if (core_file.empty()) {
-      Log(LogLevel::ERR, "找不到已安装的 NVIDIA NGX 核心，无法强制加载");
+      Log(LogLevel::ERR, "could not locate an installed NVIDIA NGX core to force-load");
       return false;
     }
     ModuleReference core(LoadLibraryExW(core_file.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH));
     if (!core) {
       const DWORD load_error = GetLastError();
-      Logf(LogLevel::ERR, "LoadLibraryExW 加载 NGX 核心失败：{}（错误码 {}）", ToUtf8(core_file), load_error);
+      Logf(LogLevel::ERR, "LoadLibraryExW failed for NGX core {} ({})", ToUtf8(core_file), load_error);
       return false;
     }
     const auto initialize = reinterpret_cast<VulkanInitExt2>(ResolveExport(core.get(), "NVSDK_NGX_VULKAN_Init_Ext2"));
     void* const allocate = ResolveExport(core.get(), "NVSDK_NGX_VULKAN_AllocateParameters");
     void* const destroy = ResolveExport(core.get(), "NVSDK_NGX_VULKAN_DestroyParameters");
     if (initialize == nullptr || allocate == nullptr || destroy == nullptr) {
-      Logf(LogLevel::ERR, "NGX 核心 {} 缺少 Vulkan Init 或参数分配函数", ToUtf8(core_file));
+      Logf(LogLevel::ERR, "NGX core {} lacks Vulkan Init or parameter allocation", ToUtf8(core_file));
       return false;
     }
     if (!initialize_once(initialize)) return false;
@@ -930,7 +935,7 @@ bool Snippet::AttachVulkanCore(const VulkanBinding& binding) {
   if (length != 0u && length < module_path.size()) {
     core_path_ = std::filesystem::path(module_path.data(), module_path.data() + length);
   }
-  Logf(LogLevel::INFO, "{} NGX 核心：{}", (core_initialized_by_uplift_ ? "已强制加载" : "已接管已加载的"), ToUtf8(core_path_));
+  Logf(LogLevel::INFO, "{} NGX core {}", (core_initialized_by_uplift_ ? "force-loaded" : "adopted the loaded"), ToUtf8(core_path_));
   return true;
 }
 
@@ -947,13 +952,13 @@ void Snippet::ReleaseCore() {
 
 void Snippet::PrepareStats() {
   if (populate_parameters_ == nullptr) {
-    Logf(LogLevel::INFO, "统计信息不可用：未导出 NVSDK_NGX_{}_PopulateParameters_Impl",
+    Logf(LogLevel::INFO, "stats unavailable: no NVSDK_NGX_{}_PopulateParameters_Impl export",
          (api_ == SnippetApi::VULKAN ? "VULKAN" : "D3D12"));
     return;
   }
   NVSDK_NGX_Parameter* const parameters = AllocateParameters();
   if (parameters == nullptr) {
-    Log(LogLevel::INFO, "统计信息不可用：没有参数块");
+    Log(LogLevel::INFO, "stats unavailable: no parameter block");
     return;
   }
   void* callback = nullptr;
@@ -966,7 +971,7 @@ void Snippet::PrepareStats() {
   });
   if (NVSDK_NGX_FAILED(result) || callback == nullptr) {
     DestroyParameters(parameters);
-    Logf(LogLevel::INFO, "统计信息不可用（{:#010x}）", static_cast<uint32_t>(result));
+    Logf(LogLevel::INFO, "stats unavailable ({:#010x})", static_cast<uint32_t>(result));
     return;
   }
   stats_parameters_ = parameters;

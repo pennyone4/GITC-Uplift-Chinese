@@ -54,7 +54,7 @@ Recorded RecordRun(bridge::D3D12Side& side, addon::DeviceContext& context, addon
     wrote = bridge::RecordNr(context, point, list, targets);
   } catch (...) {
     // Half a recording never executes.
-    nr::Log(nr::LogLevel::ERR, "在辅助进程的 Direct3D 12 设备上记录 NR 命令时发生异常；本帧将不运行 NR");
+    nr::Log(nr::LogLevel::ERR, "NR's recording on the helper's Direct3D 12 device threw; this frame goes without NR");
     recorded = false;
   }
   after(list, recorded && wrote);
@@ -143,7 +143,7 @@ std::string MakeBlock(bridge::D3D12Side& side, std::string_view what, nr::Size s
                       SharedImage* image, BlockHandle* handle) {
   ID3D12Device* const device = side.Device();
   if (const HRESULT result = CreateTexture(device, size, format, &image->texture); FAILED(result)) {
-    return std::format("无法将 {} 复制到 Uplift 辅助进程（DXGI_FORMAT {}，目标纹理 HRESULT {:#010x}）", what,
+    return std::format("The {} could not be copied into Uplift's helper (DXGI_FORMAT {}, target texture HRESULT {:#010x})", what,
                        static_cast<int>(format), static_cast<uint32_t>(result));
   }
   const D3D12_RESOURCE_DESC description = image->texture->GetDesc();
@@ -152,17 +152,17 @@ std::string MakeBlock(bridge::D3D12Side& side, std::string_view what, nr::Size s
   const uint64_t heap_bytes = (total + BLOCK_ALIGN - 1u) & ~(BLOCK_ALIGN - 1u);
   ComPtr<ID3D12Device3> device3;
   if (FAILED(device->QueryInterface(IID_PPV_ARGS(&device3)))) {
-    return "通过内存共享画面需要 Windows 10 1703 或更高版本";
+    return "Uplift's helper needs Windows 10 1703 or newer to share frames through memory";
   }
   const HANDLE mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, static_cast<DWORD>(heap_bytes >> 32u),
                                             static_cast<DWORD>(heap_bytes & 0xFFFFFFFFu), nullptr);
   if (mapping == nullptr) {
-    return std::format("{} 数据块的内存不足（{} MiB，CreateFileMapping 错误 {:#010x}）", what, heap_bytes >> 20u,
+    return std::format("Not enough memory for the {} block ({} MiB, CreateFileMapping {:#010x})", what, heap_bytes >> 20u,
                        static_cast<uint32_t>(GetLastError()));
   }
   if (const HRESULT result = device3->OpenExistingHeapFromFileMapping(mapping, IID_PPV_ARGS(&image->heap)); FAILED(result)) {
     CloseHandle(mapping);
-    return std::format("无法将 {} 数据块作为 Direct3D 12 堆打开（HRESULT {:#010x}）", what, static_cast<uint32_t>(result));
+    return std::format("The {} block could not be opened as a Direct3D 12 heap (HRESULT {:#010x})", what, static_cast<uint32_t>(result));
   }
   const D3D12_HEAP_DESC heap_description = image->heap->GetDesc();
   D3D12_RESOURCE_DESC buffer_description = {
@@ -184,7 +184,7 @@ std::string MakeBlock(bridge::D3D12Side& side, std::string_view what, nr::Size s
                                                           nullptr, IID_PPV_ARGS(&image->buffer));
       FAILED(result)) {
     CloseHandle(mapping);
-    return std::format("无法将 {} 数据块放入堆中（HRESULT {:#010x}）", what, static_cast<uint32_t>(result));
+    return std::format("The {} block could not be placed in the heap (HRESULT {:#010x})", what, static_cast<uint32_t>(result));
   }
   image->size = size;
   image->format = format;
@@ -217,7 +217,7 @@ class CpuOrderedTransport : public Transport {
     ID3D12Resource* const target = Target();
     if (target == nullptr || !latch_.empty()) {
       reply->ok = 0u;
-      ipc::CopyText(reply->error, latch_.empty() ? std::string_view("辅助进程未收到共享帧") : std::string_view(latch_));
+      ipc::CopyText(reply->error, latch_.empty() ? std::string_view("no frame is shared with the helper") : std::string_view(latch_));
       return;
     }
     // A fresh UPLIFT_MASK, and this frame's UPLIFT_MV, when the add-on says it wrote them and they were shared.
@@ -258,12 +258,12 @@ class CpuOrderedTransport : public Transport {
     reply->submitted = 1u;
     if (mask != nullptr && !mask_logged_) {
       mask_logged_ = true;  // once per attach: the e2e case and the checklist read it as "the mask reached NR"
-      nr::Logf(nr::LogLevel::INFO, "蒙版：UPLIFT_MASK 已传递至 NR（{}x{}，DXGI_FORMAT {}）", mask->size.width, mask->size.height,
+      nr::Logf(nr::LogLevel::INFO, "mask: UPLIFT_MASK reached NR ({}x{}, DXGI_FORMAT {})", mask->size.width, mask->size.height,
                static_cast<int>(mask->format));
     }
     if (motion != nullptr && !motion_logged_) {
       motion_logged_ = true;
-      nr::Logf(nr::LogLevel::INFO, "运动矢量：UPLIFT_MV 已传递至 NR（{}x{}）", motion->size.width, motion->size.height);
+      nr::Logf(nr::LogLevel::INFO, "motion: UPLIFT_MV reached NR ({}x{})", motion->size.width, motion->size.height);
     }
     const uint64_t value = side_.LastSignalled() + 1u;  // `progress` only grows, whatever transport ran before this one
     const bool signalled = side_.SignalProgress(value);
@@ -289,7 +289,7 @@ class CpuOrderedTransport : public Transport {
     const std::optional<color::MaskFormatInfo> mask_format = (is_mask ? color::DescribeMaskFormat(format) : std::nullopt);
     if (!latch_.empty() || size.Empty() || (is_mask ? !mask_format : format != DXGI_FORMAT_R16G16_FLOAT)) {
       reply->ok = 0u;
-      ipc::CopyText(reply->error, latch_.empty() ? std::string_view("无法共享此图像") : std::string_view(latch_));
+      ipc::CopyText(reply->error, latch_.empty() ? std::string_view("this image cannot be shared") : std::string_view(latch_));
       return;
     }
     Retire(&image);
@@ -403,7 +403,7 @@ class BlockTransport final : public CpuOrderedTransport {
     failure_.reset();
   }
   [[nodiscard]] uint64_t SurfaceBytes() const override { return frame_.bytes + mask_.bytes + motion_.bytes; }
-  [[nodiscard]] std::string Line() const override { return "帧通过共享内存传输"; }
+  [[nodiscard]] std::string Line() const override { return "frames cross through shared memory"; }
 
  protected:
   [[nodiscard]] ID3D12Resource* Target() const override { return (frame_.buffer ? frame_.texture.Get() : nullptr); }
@@ -477,7 +477,7 @@ class KmtTransport final : public CpuOrderedTransport {
       if (FAILED(result)) {
         failure_ = Failure{.size = info.size,
                            .format = info.format,
-                           .text = std::format("无法将后备缓冲区共享至 Uplift 辅助进程（DXGI_FORMAT {}，HRESULT {:#010x}）",
+                           .text = std::format("The back buffer could not be shared with Uplift's helper (DXGI_FORMAT {}, HRESULT {:#010x})",
                                                target.dxgi_format, static_cast<uint32_t>(result))};
         nr::Log(nr::LogLevel::WARN, failure_->text);
         info.problem = failure_->text;
@@ -497,18 +497,18 @@ class KmtTransport final : public CpuOrderedTransport {
   }
   // The textures are the add-on's allocations; opening them here adds no video memory of its own.
   [[nodiscard]] uint64_t SurfaceBytes() const override { return 0u; }
-  [[nodiscard]] std::string Line() const override { return "共享纹理，按 CPU 顺序同步"; }
+  [[nodiscard]] std::string Line() const override { return "shared texture, CPU-ordered"; }
 
  protected:
   [[nodiscard]] ID3D12Resource* Target() const override { return opened_.Get(); }
   // The add-on's shared render-target texture, opened by the global handle it names.
   std::string Provide(const ipc::Share& share, std::string_view what, uint32_t /*bytes_per_pixel*/, SharedImage* image,
                       BlockHandle* /*handle*/) override {
-    if (share.kmt_handle == 0u) return std::format("{} 未关联共享纹理", what);
+    if (share.kmt_handle == 0u) return std::format("The {} names no shared texture", what);
     const HRESULT result = side_.Device()->OpenSharedHandle(reinterpret_cast<HANDLE>(static_cast<uintptr_t>(share.kmt_handle)),
                                                             IID_PPV_ARGS(&image->texture));
     if (FAILED(result)) {
-      return std::format("无法将 {} 共享至 Uplift 辅助进程（DXGI_FORMAT {}，HRESULT {:#010x}）", what,
+      return std::format("The {} could not be shared with Uplift's helper (DXGI_FORMAT {}, HRESULT {:#010x})", what,
                          static_cast<int>(share.dxgi_format), static_cast<uint32_t>(result));
     }
     image->size = {share.width, share.height};
@@ -549,7 +549,7 @@ class FencedTransport final : public Transport {
       : side_(side), cpu_ordered_(cpu_ordered), progress_base_(side.LastSignalled()) {
     if (cpu_ordered_) return;
     if (FAILED(side_.CreateSharedFence(&to12_, &to12_handle_)) || FAILED(side_.CreateSharedFence(&to11_, &to11_handle_))) {
-      *error = "无法创建共享栅栏";
+      *error = "the shared fences could not be created";
       to12_.Reset();
       to11_.Reset();
     }
@@ -602,7 +602,7 @@ class FencedTransport final : public Transport {
       if (FAILED(result)) {
         failure_ = Failure{.size = size,
                            .format = format,
-                           .text = std::format("无法将后备缓冲区共享至 Uplift 辅助进程（DXGI_FORMAT {}，HRESULT {:#010x}）",
+                           .text = std::format("The back buffer could not be shared with Uplift's helper (DXGI_FORMAT {}, HRESULT {:#010x})",
                                                static_cast<int>(format), static_cast<uint32_t>(result))};
         nr::Log(nr::LogLevel::WARN, failure_->text);
         info.problem = failure_->text;
@@ -709,7 +709,7 @@ class FencedTransport final : public Transport {
     const std::optional<color::MaskFormatInfo> mask_format = (is_mask ? color::DescribeMaskFormat(format) : std::nullopt);
     if (!latch_.empty() || size.Empty() || (is_mask ? !mask_format : format != DXGI_FORMAT_R16G16_FLOAT)) {
       reply->ok = 0u;
-      ipc::CopyText(reply->error, latch_.empty() ? std::string_view("无法共享此图像") : std::string_view(latch_));
+      ipc::CopyText(reply->error, latch_.empty() ? std::string_view("this image cannot be shared") : std::string_view(latch_));
       return;
     }
     Retire(&surface);
@@ -751,7 +751,7 @@ class FencedTransport final : public Transport {
   }
   [[nodiscard]] uint64_t SurfaceBytes() const override { return color_.bytes + mask_.bytes + motion_.bytes; }
   [[nodiscard]] std::string Line() const override {
-    return cpu_ordered_ ? "共享纹理，按 CPU 顺序同步" : "共享纹理和栅栏";
+    return cpu_ordered_ ? "shared textures, CPU-ordered" : "shared textures and fences";
   }
 
  private:
@@ -805,7 +805,7 @@ class FencedTransport final : public Transport {
 
 void Transport::Share(ipc::RequestKind /*kind*/, const ipc::Share& /*share*/, ipc::Reply* reply) {
   reply->ok = 0u;
-  ipc::CopyText(reply->error, "此传输方式不共享蒙版或运动矢量");
+  ipc::CopyText(reply->error, "this transport shares no mask or motion");
 }
 
 std::unique_ptr<Transport> MakeTransport(ipc::Transport kind, bridge::D3D12Side& side, std::string* error) {
@@ -822,7 +822,7 @@ std::unique_ptr<Transport> MakeTransport(ipc::Transport kind, bridge::D3D12Side&
     case ipc::Transport::NONE:
       break;
   }
-  *error = "未请求传输方式";
+  *error = "no transport was asked for";
   return nullptr;
 }
 

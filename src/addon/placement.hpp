@@ -43,7 +43,7 @@ struct StageProblems {
 // Plan 18 Task 12: the DLSS-off fallback's INFO lines, one per fallback per device (fix round 1, M-6: only when a DLSS stage really fell back, never with
 // Source = Present): the off line, and the "on again" line with what `resumed` (the placement the preference returns to) runs: "DLSS is on again on this
 // device: After DLSS resumes" ("Before upscaling resumes", "NR stays at Present", or "NR stays off (why)").
-inline constexpr std::string_view DLSS_OFF_LINE = "此设备上的 DLSS 已关闭（游戏释放了 DLSS 功能）：NR 将在后处理阶段运行";
+inline constexpr std::string_view DLSS_OFF_LINE = "DLSS is off on this device (the game released its DLSS): NR runs at Present";
 [[nodiscard]] std::string DlssOnAgainLine(const PlacementChoice& resumed);
 // v2 design §3.1 (plan amendment 11): DLSS counts as idle only after this long without a main evaluate, however short GraceSeconds is. With GraceSeconds = 0
 // every present would find DLSS idle, because the frame's evaluate always precedes it, and the After-DLSS placement would never run. Plan 18 Task 12 (fix

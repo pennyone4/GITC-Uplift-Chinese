@@ -82,8 +82,8 @@ bool HeaderMatches(const ControlBlock& block, std::string_view build_id, std::st
     return true;
   }
   *why = std::format(
-      "gitc-uplift-helper64.exe（构建 {}）与同目录下的 Uplift 插件（构建 {}）不匹配；请从同一次构建中复制这两个文件",
-      build_id, (block.magic == MAGIC ? theirs : std::string_view("未知")));
+      "gitc-uplift-helper64.exe (build {}) does not match the Uplift add-on next to it (build {}): copy both files from one Uplift build",
+      build_id, (block.magic == MAGIC ? theirs : std::string_view("unknown")));
   return false;
 }
 

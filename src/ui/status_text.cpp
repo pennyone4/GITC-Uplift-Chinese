@@ -27,7 +27,7 @@ SetupView ResolveSetup(const SetupFacts& facts) {
   OptionState& before = at(view.stage_options, SourcePick::BEFORE_UPSCALING);
   grey_for_dlss(&before);
   if (selectable(before) && facts.ray_reconstruction && facts.ray_reconstruction_after_dlss) {
-    before = {.why = "游戏使用 Ray Reconstruction，因此 NR 需在 DLSS 后运行", .temporary = true};
+    before = {.why = "The game's DLSS is Ray Reconstruction, which keeps NR after DLSS", .temporary = true};
   }
   view.before_upscaling_on_rr = (facts.ray_reconstruction && !facts.ray_reconstruction_after_dlss);
   // Plan 18: a stage whose image the Direct3D 11 bridge cannot share is a fixed cause for that stage alone; it beats the temporary ones.
@@ -41,7 +41,7 @@ SetupView ResolveSetup(const SetupFacts& facts) {
   if (!facts.present_fixed.empty()) {
     at(view.stage_options, SourcePick::PRESENT) = {.why = facts.present_fixed};  // a fixed cause beats the temporary one: it would not clear
   } else if (facts.frame_generation_blocks_present) {
-    at(view.stage_options, SourcePick::PRESENT) = {.why = "帧生成已开启：请在“高级”中启用“帧生成期间处理后处理”", .temporary = true};
+    at(view.stage_options, SourcePick::PRESENT) = {.why = "Frame generation is on: turn on Present with frame generation (Advanced)", .temporary = true};
   }
   // Plan 15: held after the game's NGX shutdown on Direct3D 12, no stage can run until the game's DLSS starts again. That beats the other temporary causes
   // (it is why nothing runs now); a fixed cause keeps its own text, since it would not clear with the hold.
@@ -72,7 +72,7 @@ SetupView ResolveSetup(const SetupFacts& facts) {
     if (!facts.dlss_motion_fixed.empty()) {
       dlss = {.why = facts.dlss_motion_fixed};
     } else if (selectable(dlss) && !facts.game_passes_motion) {
-      dlss = {.why = "游戏未向 DLSS 传递运动矢量", .temporary = true};
+      dlss = {.why = "The game passes DLSS no motion vectors", .temporary = true};
     }
   }
   OptionState& launchpad = at(view.motion_options, MotionPick::LAUNCHPAD);
@@ -81,9 +81,9 @@ SetupView ResolveSetup(const SetupFacts& facts) {
   } else if (view.stage != SourcePick::PRESENT && !facts.present_fixed.empty()) {
     launchpad = {.why = facts.present_fixed};  // Launchpad runs at Present only, which cannot run again
   } else if (view.stage != SourcePick::PRESENT) {
-    launchpad = {.why = "LaunchPad 仅能在后处理阶段为 NR 提供运动矢量", .temporary = true};
+    launchpad = {.why = "Launchpad feeds NR on the presented image only", .temporary = true};
   } else if (!facts.launchpad_ready) {
-    launchpad = {.why = "请启用 iMMERSE LaunchPad，并在其下方启用 Uplift.fx 的 Uplift 技术", .temporary = true};
+    launchpad = {.why = "Turn iMMERSE Launchpad on and enable Uplift.fx's Uplift technique below it", .temporary = true};
   }
   // 2026-10-08: Lumenite, as Launchpad.
   OptionState& lumenite = at(view.motion_options, MotionPick::LUMENITE);
@@ -92,9 +92,9 @@ SetupView ResolveSetup(const SetupFacts& facts) {
   } else if (view.stage != SourcePick::PRESENT && !facts.present_fixed.empty()) {
     lumenite = {.why = facts.present_fixed};
   } else if (view.stage != SourcePick::PRESENT) {
-    lumenite = {.why = "Lumenite 仅能在后处理阶段为 NR 提供运动矢量", .temporary = true};
+    lumenite = {.why = "Lumenite feeds NR on the presented image only", .temporary = true};
   } else if (!facts.lumenite_ready) {
-    lumenite = {.why = "请启用 LumeniteFX 的 Kernel，并在其下方启用 Uplift.fx 的 Uplift 技术", .temporary = true};
+    lumenite = {.why = "Turn LumeniteFX's Kernel on and enable Uplift.fx's Uplift technique below it", .temporary = true};
   }
   hold(&dlss);
   hold(&launchpad);
@@ -118,7 +118,7 @@ SetupView ResolveSetup(const SetupFacts& facts) {
   if (!facts.match_game_readable && facts.match_game_at_dlss_stages) {
     match_game = {.why = VULKAN_MATCH_GAME_REASON, .temporary = true};  // final review, minor 3: a DLSS stage here reads it
   } else if (!facts.match_game_readable) {
-    match_game = {.why = "“匹配游戏”需要游戏的 DLSS 渲染尺寸，但 Uplift 在此处无法读取"};
+    match_game = {.why = "Match game needs the game's DLSS render size, which Uplift cannot read here"};
   } else if (!facts.dlss_seen) {
     match_game = {.why = DLSS_NOT_SEEN_REASON, .temporary = true};
   } else if (facts.dlss_off) {
@@ -156,11 +156,11 @@ SetupView ResolveSetup(const SetupFacts& facts) {
   view.split_capable = facts.split_capable;
   const auto runs_at = [](SourcePick stage) -> std::string_view {
     switch (stage) {
-      case SourcePick::BEFORE_UPSCALING: return "DLSS 前";
-      case SourcePick::AFTER_DLSS:       return "DLSS 后";
+      case SourcePick::BEFORE_UPSCALING: return "before upscaling";
+      case SourcePick::AFTER_DLSS:       return "after DLSS";
       case SourcePick::PRESENT:          break;
     }
-    return "后处理阶段";
+    return "at Present";
   };
   for (uint32_t pass = 1u; pass < passes; ++pass) {
     PassStageRow& row = view.pass_stages[pass - 1u];
@@ -183,7 +183,7 @@ SetupView ResolveSetup(const SetupFacts& facts) {
       const auto pick = static_cast<SourcePick>(stage);
       const OptionState& setup_option = view.stage_options[stage];
       if (pick < pass_before) {
-        option = {.why = std::format("会导致叠层顺序倒置：第 {} 层将运行于{}", pass, runs_at(pass_before))};
+        option = {.why = std::format("Runs the chain backwards: pass {} runs {}", pass, runs_at(pass_before))};
       } else if (pick != pass_before && !setup_option.why.empty()) {
         option = {.why = std::string(setup_option.why), .temporary = setup_option.temporary};  // never the pass before's stage, which always takes it
       }
@@ -228,59 +228,59 @@ SetupView ResolveSetup(const SetupFacts& facts) {
   const bool motion_falls_back = (facts.preferred_motion == MotionPick::DLSS && view.motion != MotionPick::DLSS);
   const bool motion_waits = (motion_falls_back
                              && (motion_wish.why == DLSS_NOT_SEEN_REASON || (selectable(motion_wish) && facts.dlss_motion_gap == MotionGap::NONE)));
-  const std::string_view stage_name = (facts.preferred_stage == SourcePick::BEFORE_UPSCALING ? "DLSS 前" : "DLSS 后");
+  const std::string_view stage_name = (facts.preferred_stage == SourcePick::BEFORE_UPSCALING ? "Before upscaling" : "After DLSS");
   // Plan 18 Task 12: the game switched its DLSS off: what fell back returns when it is on again.
   const bool stage_off = (view.stage != facts.preferred_stage && facts.preferred_stage != SourcePick::PRESENT && stage_wish.why == DLSS_OFF_REASON);
   const bool motion_off = (motion_falls_back && motion_wish.why == DLSS_OFF_REASON);
   if (stage_off) {
-    add(motion_off ? std::format("{}阶段和 DLSS 运动矢量会在游戏重新启用 DLSS 后恢复。", stage_name)
-                   : std::format("{}阶段会在游戏重新启用 DLSS 后恢复。", stage_name));
+    add(motion_off ? std::format("{} and DLSS's motion vectors return when the game's DLSS is on again.", stage_name)
+                   : std::format("{} returns when the game's DLSS is on again.", stage_name));
   } else if (stage_waits) {
-    add(motion_waits ? std::format("{}阶段和 DLSS 运动矢量会在游戏使用 DLSS 渲染时启动。", stage_name)
-                     : std::format("{}阶段会在游戏使用 DLSS 渲染时启动。", stage_name));
+    add(motion_waits ? std::format("{} and DLSS's motion vectors start when the game renders with DLSS.", stage_name)
+                     : std::format("{} starts when the game renders with DLSS.", stage_name));
   } else if (view.stage != facts.preferred_stage && stage_wish.temporary && facts.preferred_stage == SourcePick::BEFORE_UPSCALING) {
-    add("游戏不再使用 Ray Reconstruction 时，DLSS 前阶段会恢复。");
+    add("Before upscaling returns when the game's DLSS is not Ray Reconstruction.");
   }
   if (motion_off) {
     if (!stage_off) {
-      add("游戏重新启用 DLSS 后，DLSS 运动矢量会恢复。");  // else said with the stage above
+      add("DLSS's motion vectors return when the game's DLSS is on again.");  // else said with the stage above
     }
   } else if (motion_waits && !stage_waits) {
-    add("游戏使用 DLSS 渲染时，DLSS 运动矢量会启用。");
+    add("DLSS's motion vectors start when the game renders with DLSS.");
   } else if (motion_falls_back && (facts.dlss_motion_gap == MotionGap::GAME_PASSED_NONE || (motion_wish.temporary && !motion_waits))) {
-    add("游戏未向 DLSS 传递运动矢量。");
+    add("the game passes DLSS no motion vectors.");
   } else if (motion_falls_back && selectable(motion_wish) && facts.dlss_motion_gap == MotionGap::NO_COPY) {
-    add("DLSS 运动矢量副本未能送达后处理路径（GPU 执行进度落后过多）。");
+    add("no copy of DLSS's motion vectors reaches the Present path (the GPU runs too far behind).");
   } else if (motion_falls_back && selectable(motion_wish) && facts.dlss_motion_gap == MotionGap::DLSS_PAUSED) {
-    add("游戏重新运行 DLSS 后，DLSS 运动矢量会恢复（菜单或加载画面等场景下，DLSS 可能会暂停运行）。");
+    add("DLSS's motion vectors return when the game's DLSS runs again (it is paused, as in a menu or a loading screen).");
   }
   if (facts.preferred_motion == MotionPick::LAUNCHPAD && view.motion != MotionPick::LAUNCHPAD) {
     if (motion_wish.temporary && view.stage != SourcePick::PRESENT) {
-      add("NR 在后处理阶段运行时会恢复使用 LaunchPad 的运动矢量；在游戏帧内运行时则使用游戏自己的运动矢量。");
+      add("Launchpad's vectors return when NR runs at Present; inside the game's frame NR uses the game's own.");
     } else if (motion_wish.temporary) {
-      add("启用 LaunchPad 和 Uplift.fx 的 Uplift 技术后，会恢复使用 LaunchPad 的运动矢量。");
+      add("Launchpad's vectors return when Launchpad and Uplift.fx's Uplift technique are on.");
     } else if (selectable(motion_wish) && facts.launchpad_gap == MotionGap::NO_UPLIFT_MV) {
-      add("未收到 UPLIFT_MV：请将 Uplift.fx 的 Uplift 技术放在 LaunchPad 下方。");
+      add("no UPLIFT_MV arrives: put Uplift.fx's Uplift technique below Launchpad.");
     }
   }
   if (facts.preferred_motion == MotionPick::LUMENITE && view.motion != MotionPick::LUMENITE) {
     if (motion_wish.temporary && view.stage != SourcePick::PRESENT) {
-      add("NR 在后处理阶段运行时会恢复使用 Lumenite 的运动矢量；在游戏帧内运行时则使用游戏自己的运动矢量。");
+      add("Lumenite's vectors return when NR runs at Present; inside the game's frame NR uses the game's own.");
     } else if (motion_wish.temporary) {
-      add("启用 Lumenite 的 Kernel 和 Uplift.fx 的 Uplift 技术后，会恢复使用 Lumenite 的运动矢量。");
+      add("Lumenite's vectors return when Lumenite's Kernel and Uplift.fx's Uplift technique are on.");
     } else if (selectable(motion_wish) && facts.launchpad_gap == MotionGap::NO_UPLIFT_MV) {
-      add("未收到 UPLIFT_MV：请将 Uplift.fx 的 Uplift 技术放在 Lumenite 的 Kernel 下方。");
+      add("no UPLIFT_MV arrives: put Uplift.fx's Uplift technique below Lumenite's Kernel.");
     }
   }
   if (view.resolution != facts.preferred_resolution && facts.preferred_resolution == ResolutionMode::MATCH_GAME
       && (selectable(resolution_wish) || resolution_wish.why == DLSS_NOT_SEEN_REASON)) {
-    add("游戏使用 DLSS 渲染时，“匹配游戏”设置会生效。");
+    add("Match game applies when the game renders with DLSS.");
   } else if (view.resolution != facts.preferred_resolution && facts.preferred_resolution == ResolutionMode::MATCH_GAME
              && resolution_wish.why == VULKAN_MATCH_GAME_REASON) {
-    add("NR 在 DLSS 后或 DLSS 前运行时，“匹配游戏”设置会生效。");
+    add("Match game applies when NR runs at After DLSS or Before upscaling.");
   } else if (view.resolution != facts.preferred_resolution && facts.preferred_resolution == ResolutionMode::MATCH_GAME
              && resolution_wish.why == DLSS_OFF_REASON) {
-    add("游戏重新启用 DLSS 后，“匹配游戏”设置会生效。");  // Plan 18 Task 12 (fix round 1, M-1)
+    add("Match game applies when the game's DLSS is on again.");  // Plan 18 Task 12 (fix round 1, M-1)
   }
   return view;
 }
@@ -288,42 +288,42 @@ SetupView ResolveSetup(const SetupFacts& facts) {
 LiveCard BuildLiveCard(const SetupFacts& facts, const SetupView& shown) {
   LiveCard card;
   switch (shown.stage) {
-    case SourcePick::BEFORE_UPSCALING: card.stage = "DLSS 前"; break;
-    case SourcePick::AFTER_DLSS:       card.stage = "DLSS 后"; break;
-    case SourcePick::PRESENT:          card.stage = "后处理"; break;
+    case SourcePick::BEFORE_UPSCALING: card.stage = "Before upscaling"; break;
+    case SourcePick::AFTER_DLSS:       card.stage = "After DLSS"; break;
+    case SourcePick::PRESENT:          card.stage = "Present"; break;
   }
   switch (shown.motion) {
-    case MotionPick::OFF:       card.motion = "不使用"; break;
-    case MotionPick::DLSS:      card.motion = (facts.motion_copied ? "DLSS（游戏提供，已复制至后处理）" : "DLSS（游戏提供）"); break;
-    case MotionPick::LAUNCHPAD: card.motion = "LaunchPad"; break;
+    case MotionPick::OFF:       card.motion = "none"; break;
+    case MotionPick::DLSS:      card.motion = (facts.motion_copied ? "DLSS (the game's, copied for Present)" : "DLSS (the game's)"); break;
+    case MotionPick::LAUNCHPAD: card.motion = "Launchpad"; break;
     case MotionPick::LUMENITE:  card.motion = "Lumenite"; break;
   }
   std::string mode;
   switch (shown.resolution) {
-    case ResolutionMode::FULL:        mode = "全分辨率"; break;
-    case ResolutionMode::QUALITY:     mode = "质量"; break;
-    case ResolutionMode::BALANCED:    mode = "均衡"; break;
-    case ResolutionMode::PERFORMANCE: mode = "性能"; break;
-    case ResolutionMode::MATCH_GAME:  mode = "匹配游戏"; break;
-    case ResolutionMode::CUSTOM:      mode = std::format("自定义 {:.0f} %", facts.custom_scale); break;
+    case ResolutionMode::FULL:        mode = "Full"; break;
+    case ResolutionMode::QUALITY:     mode = "Quality"; break;
+    case ResolutionMode::BALANCED:    mode = "Balanced"; break;
+    case ResolutionMode::PERFORMANCE: mode = "Performance"; break;
+    case ResolutionMode::MATCH_GAME:  mode = "Match game"; break;
+    case ResolutionMode::CUSTOM:      mode = std::format("Custom {:.0f} %", facts.custom_scale); break;
   }
-  const std::string_view upsampling = (facts.upsampling == color::Upsampling::CLASSIC ? "经典升采样" : "边缘感知升采样");
+  const std::string_view upsampling = (facts.upsampling == color::Upsampling::CLASSIC ? "Classic" : "Edge-aware");
   const nr::Size work = facts.work;
   const bool full_size = (facts.frame.Empty() || work == facts.frame);
   if (work.Empty()) {
     card.resolution = mode;
   } else if (shown.stage == SourcePick::BEFORE_UPSCALING) {
     if (!facts.canvas.Empty() && facts.canvas != work) {
-      card.resolution = std::format("{}x{}（{}，已将 {}x{} 渲染画面补齐）", facts.canvas.width, facts.canvas.height, mode, work.width, work.height);
+      card.resolution = std::format("{}x{} ({}, a {}x{} render padded)", facts.canvas.width, facts.canvas.height, mode, work.width, work.height);
     } else if (full_size) {
-      card.resolution = std::format("{}x{}（{}，渲染分辨率）", work.width, work.height, mode);
+      card.resolution = std::format("{}x{} ({}, the render size)", work.width, work.height, mode);
     } else {
-      card.resolution = std::format("{}x{} / {}x{} 渲染画面（{}，{}）", work.width, work.height, facts.frame.width, facts.frame.height, mode, upsampling);
+      card.resolution = std::format("{}x{} of the {}x{} render ({}, {})", work.width, work.height, facts.frame.width, facts.frame.height, mode, upsampling);
     }
   } else if (full_size) {
-    card.resolution = std::format("{}x{}（{}）", work.width, work.height, mode);
+    card.resolution = std::format("{}x{} ({})", work.width, work.height, mode);
   } else {
-    card.resolution = std::format("{}x{} / {}x{}（{}，{}）", work.width, work.height, facts.frame.width, facts.frame.height, mode, upsampling);
+    card.resolution = std::format("{}x{} of {}x{} ({}, {})", work.width, work.height, facts.frame.width, facts.frame.height, mode, upsampling);
   }
   for (const std::string_view note : {facts.latch_note, facts.passes_note, facts.chain_note, facts.frame_generation_line}) {
     if (!note.empty()) {
@@ -331,9 +331,9 @@ LiveCard BuildLiveCard(const SetupFacts& facts, const SetupView& shown) {
       break;
     }
   }
-  card.footer = std::format("{} · {}/{} 层", facts.api, facts.passes_run, facts.passes_requested);
+  card.footer = std::format("{} · {}/{} {}", facts.api, facts.passes_run, facts.passes_requested, (facts.passes_requested == 1u ? "pass" : "passes"));
   if (facts.vram_bytes > 0u) {
-    card.footer += std::format(" · 显存 {:.0f} MiB", static_cast<double>(facts.vram_bytes) / (1024.0 * 1024.0));
+    card.footer += std::format(" · VRAM {:.0f} MiB", static_cast<double>(facts.vram_bytes) / (1024.0 * 1024.0));
   }
   return card;
 }
@@ -418,26 +418,18 @@ void SetupSettle::ClickedBest(SetupRow row, uint32_t index, const SetupView& opt
 }
 
 std::string FormatStatusLine(const StatusView& view) {
-  std::string line;
-  switch (view.state) {
-    case nr::SessionState::OFF: line = "已关闭"; break;
-    case nr::SessionState::LOADING: line = "正在加载"; break;
-    case nr::SessionState::ACTIVE: line = "运行中"; break;
-    case nr::SessionState::GRACE: line = "等待释放显存"; break;
-    case nr::SessionState::DRAINING: line = "正在释放显存"; break;
-    case nr::SessionState::FAILED: line = "运行失败"; break;
-  }
+  std::string line(nr::SessionStateName(view.state));
   if (view.suspended) {
-    line += "（已暂停：游戏需要显存）";
+    line += " (suspended: game needs VRAM)";
   }
   if (view.state == nr::SessionState::GRACE) {
     // Round up to whole seconds: a caller must never see "released in 0 s" while still counting down.
     const auto seconds_left = (view.grace_remaining.count() + 999) / 1000;
-    line += std::format("：NR 将在 {} 秒后释放显存", seconds_left);
+    line += std::format(": NR memory is released in {} s", seconds_left);
     return line;
   }
   if (view.state != nr::SessionState::ACTIVE) return line;
-  line += std::format(" | 已运行 {}/{} 层", view.passes_run, view.passes_requested);
+  line += std::format(" | {}/{} passes", view.passes_run, view.passes_requested);
   if (!view.frame.Empty()) {
     line += std::format(" | {}x{}", view.frame.width, view.frame.height);
   }
@@ -447,71 +439,26 @@ std::string FormatStatusLine(const StatusView& view) {
   if (view.encoding) {
     line += std::format(" | {}", color::EncodingName(*view.encoding));
     if (*view.encoding != color::Encoding::SRGB && view.diffuse_white_nits > 0.f) {
-      line += std::format("，漫反射白 {} 尼特", view.diffuse_white_nits);
+      line += std::format(", diffuse white {} nits", view.diffuse_white_nits);
     }
   }
   return line;
 }
 
 std::string FormatFrameGenerationLine(bool active, uint32_t multiplier, bool from_ngx) {
-  if (!active) return "帧生成：关闭";
-  return std::format("帧生成：开启（{}x{}）", multiplier, (from_ngx ? "，NGX" : ""));
+  if (!active) return "Frame generation: off";
+  return std::format("Frame generation: on ({}x{})", multiplier, (from_ngx ? ", NGX" : ""));
 }
 
 std::optional<std::string> FrameGenerationWarning(bool active, uint32_t passes) {
   if (!active || passes <= 1u) return std::nullopt;
-  return std::format("帧生成已开启：运行 {} 层 NR 可能超出帧预算；建议使用 1 层", passes);
+  return std::format("Frame generation is on: {} NR passes can push it past its frame budget; one pass is safest", passes);
 }
 
 std::string_view KeepFacesUnavailable(const KeepFacesFacts& facts) {
-  if (!facts.nr_runs) return "NR 不会在此游戏中运行";
-  if (!facts.gpu_ready) return "此 GPU 无法运行“保护面部”（原因详见 ReShade.log）";
+  if (!facts.nr_runs) return "NR does not run in this game";
+  if (!facts.gpu_ready) return "Keep faces cannot run on this GPU (ReShade.log says why)";
   return {};
-}
-
-std::string_view LocalizeStatusReason(std::string_view reason) {
-  if (reason == "off") return "NR 已关闭";
-  if (reason == "loading") return "正在加载 NR";
-  if (reason == "grace") return "NR 处于宽限期";
-  if (reason == "draining") return "正在等待 NR 处理任务完成";
-  if (reason == "failed") return "NR 运行失败";
-  if (reason == "budget") return "可用显存不足";
-  if (reason == "frame too small") return "当前画面尺寸低于 NR 的最低要求";
-  if (reason == "resizing") return "正在等待画面尺寸调整完成";
-  if (reason == "evaluate failed") return "NR 评估失败";
-  if (reason == "create failed") return "NR 创建失败";
-  if (reason == "frame generation is on") return "帧生成已开启";
-  if (reason == "device removed") return "设备已移除";
-  if (reason == "not placed after DLSS") return "运动矢量仅能在 DLSS 后处理阶段使用";
-  if (reason == "NR is off") return "NR 已关闭";
-  if (reason == "invalid input") return "输入参数无效";
-  if (reason == "list state unknown") return "无法确认命令列表状态";
-  if (reason == "DLSS runs on a compute queue") return "DLSS 正在计算队列上运行";
-  if (reason == "unsupported format") return "不支持的格式";
-  if (reason == "intensity 0") return "处理强度为 0";
-  if (reason == "inactive") return "NR 当前未运行";
-  if (reason == "no pipeline for the target format") return "目标格式没有可用的处理管线";
-  if (reason == "already ran this frame") return "本帧已处理";
-  if (reason == "descriptors busy") return "资源描述符仍在使用中";
-  if (reason == "encode failed") return "编码失败";
-  if (reason == "decode failed") return "解码失败";
-  if (reason == "pipeline failed") return "处理管线创建失败";
-  if (reason == "out of memory") return "显存不足";
-  if (reason == "motion vectors outside their texture") return "运动矢量区域超出纹理范围";
-  if (reason == "not DLSS-SR or Ray Reconstruction") return "当前功能不是 DLSS-SR 或光线重建";
-  if (reason == "no Launchpad vectors this frame") return "本帧未收到 LaunchPad 运动矢量";
-  if (reason == "waiting for the earlier stages' NR") return "正在等待前序阶段的 NR 完成";
-  if (reason == "no readable motion vectors") return "未检测到可读取的运动矢量";
-  if (reason == "the game's present queue is still busy") return "游戏的呈现队列仍在执行命令";
-  if (reason == "a submission on the game's present queue failed") return "向游戏的呈现队列提交命令失败";
-  if (reason == "Uplift's command buffers are busy") return "Uplift 的命令缓冲区仍在 GPU 上执行";
-  if (reason == "Uplift's command buffer could not be begun") return "无法开始记录 Uplift 的命令缓冲区";
-  if (reason == "Uplift's command buffer could not be submitted") return "无法提交 Uplift 的命令缓冲区";
-  if (reason == "no DLSS colour to swap") return "没有可供替换的 DLSS 颜色缓冲区";
-  if (reason == "preparing the new format") return "正在准备新的格式";
-  if (reason == "NGX shut down") return "NGX 已关闭";
-  if (reason == "device lost") return "设备已丢失";
-  return reason;
 }
 
 StatusCard BuildStatusCard(const CardFacts& facts) {
@@ -521,126 +468,126 @@ StatusCard BuildStatusCard(const CardFacts& facts) {
                       .fixes = std::move(fixes), .button = button};
   };
   if (!facts.device_problem.empty()) {
-    return card(CardStage::DEVICE, "Uplift 未在此设备上运行", facts.device_problem, {}, CardButton::NONE);
+    return card(CardStage::DEVICE, "Uplift is not running on this device", facts.device_problem, {}, CardButton::NONE);
   }
   // Only while NR is on: a user who turned it off sees the normal off state, and the failure (remembered by the add-on) comes
   // back with Retry now when they turn it on again.
   // Plan 17: the 2-strike rule's second stop, for a bridge's private device and the helper alike.
   if (facts.private_stops_final) {
-    return card(CardStage::DEVICE, "NR 已停止两次", PRIVATE_DEVICE_STOPPED_TWICE_REASON, {"重启游戏后才能再次使用 NR。"}, CardButton::NONE);
+    return card(CardStage::DEVICE, "NR stopped twice", PRIVATE_DEVICE_STOPPED_TWICE_REASON, {"Restart the game to use NR again."}, CardButton::NONE);
   }
   // Test phase (review M-3): a stop on the adapter's shared device is final at once (no new device can be made while the game runs).
   if (facts.private_stop_unretryable && !facts.private_stopped.empty()) {
-    return card(CardStage::DEVICE, (facts.device_lost ? "GPU 设备已移除" : "NR 已停止"), facts.private_stopped,
-                {"重启游戏后才能再次使用 NR。"}, CardButton::NONE);
+    return card(CardStage::DEVICE, (facts.device_lost ? "The GPU device was removed" : "NR stopped"), facts.private_stopped,
+                {"Restart the game to use NR again."}, CardButton::NONE);
   }
   if (!facts.helper_problem.empty() && facts.enabled) {
-    return card(CardStage::DEVICE, "Uplift 的 64 位辅助进程已停止", facts.helper_problem, {"点击“立即重试”以重新启动辅助进程。"},
+    return card(CardStage::DEVICE, "Uplift's 64-bit helper stopped", facts.helper_problem, {"Retry now starts it again."},
                 CardButton::RETRY_NOW);
   }
   // Plan 17: a bridge's private device stopped (the first time this session): Retry now builds a new one, as the helper's card restarts the helper.
   if (!facts.private_stopped.empty() && facts.enabled) {
-    return card(CardStage::DEVICE, (facts.device_lost ? "GPU 设备已移除" : "NR 已停止"), facts.private_stopped,
-                {"点击“立即重试”，在新设备上重新启动 NR。"}, CardButton::RETRY_NOW);
+    return card(CardStage::DEVICE, (facts.device_lost ? "The GPU device was removed" : "NR stopped"), facts.private_stopped,
+                {"Retry now starts NR again on a new device."}, CardButton::RETRY_NOW);
   }
   if (facts.device_lost) {
-    return card(CardStage::DEVICE, "GPU 设备已移除", facts.output_problem, {"重启游戏后才能再次使用 NR。"},
+    return card(CardStage::DEVICE, "The GPU device was removed", facts.output_problem, {"Restart the game to use NR again."},
                 CardButton::NONE);
   }
   // Plan 15 fix round (minor 6): NR stopped on this device for the session (the game shut NVIDIA's NGX down while NR's work was still running).
-  if (!facts.stopped.empty()) return card(CardStage::DEVICE, "NR 已停止", facts.stopped, {"重启游戏后才能再次使用 NR。"}, CardButton::NONE);
+  if (!facts.stopped.empty()) return card(CardStage::DEVICE, "NR stopped", facts.stopped, {"Restart the game to use NR again."}, CardButton::NONE);
   if (facts.claimed_elsewhere) {
-    return card(CardStage::DEVICE, "NR 正在另一台设备上运行", "NR 正在此游戏中的另一台 D3D12 设备上运行。",
-                {"每个游戏仅有一台设备运行 NR；此设备将等待。"}, CardButton::NONE);
+    return card(CardStage::DEVICE, "NR runs on another device", "NR runs on another D3D12 device in this game.",
+                {"One device per game runs NR; this one waits."}, CardButton::NONE);
   }
   if (!facts.blocked.empty()) {
     if (facts.runtime_in_game_folder) {
-      return card(CardStage::RUNTIME, "移动 nvngx_dlssnr.dll", facts.blocked,
-                  {std::format("请将其移入与 {} 同级的 GITC-Uplift 文件夹，然后重启游戏。", facts.addon_file)}, CardButton::NONE);
+      return card(CardStage::RUNTIME, "Move nvngx_dlssnr.dll", facts.blocked,
+                  {std::format("Move it into the GITC-Uplift folder next to {}, then restart the game.", facts.addon_file)}, CardButton::NONE);
     }
     if (facts.blocked_stage == CardStage::RUNTIME) {
-      return card(CardStage::RUNTIME, "未找到 NR 运行时", facts.blocked,
-                  {std::format("请将 nvngx_dlssnr.dll 复制到与 {} 同级的 GITC-Uplift 文件夹，或在“高级”中设置“运行时路径”。", facts.addon_file)},
+      return card(CardStage::RUNTIME, "The NR runtime was not found", facts.blocked,
+                  {std::format("Copy nvngx_dlssnr.dll into the GITC-Uplift folder next to {}, or set Runtime path (Advanced).", facts.addon_file)},
                   CardButton::NONE);
     }
-    return card(CardStage::CONFLICTS, "检测到其他 NR 工具正在运行", facts.blocked,
-                {"请移除其他 NR 插件，或在“高级”中将“检测到其他 NR 处理程序时”设为“观察”。"},
+    return card(CardStage::CONFLICTS, "Another NR tool is running", facts.blocked,
+                {"Remove the other NR add-on, or set \"When another NR producer runs\" to Observe (Advanced)."},
                 CardButton::NONE);
   }
-  if (!facts.enabled) return card(CardStage::SWITCH, "NR 已关闭", "神经渲染当前处于关闭状态。", {}, CardButton::TURN_ON);
+  if (!facts.enabled) return card(CardStage::SWITCH, "NR is off", "Neural rendering is switched off.", {}, CardButton::TURN_ON);
   // Plan 15: after the game's NGX shutdown on Direct3D 12 NR waits for the game's DLSS, whatever the stage (a temporary cause; Setup greys with the same text).
-  if (!facts.held.empty()) return card(CardStage::PLACEMENT, "等待游戏启动 DLSS", facts.held, {}, CardButton::NONE);
+  if (!facts.held.empty()) return card(CardStage::PLACEMENT, "Waiting for the game's DLSS", facts.held, {}, CardButton::NONE);
   const nr::SessionStatus& session = facts.session;
   if (session.state == nr::SessionState::FAILED) {
-    std::string next = (session.retry_in ? std::format("将在 {} 秒后自动重试。", (session.retry_in->count() + 999) / 1000)
-                        : session.retries_exhausted ? std::string("已停止自动重试：请更改设置或立即重试。")
-                                                    : std::string("请立即重试或更改设置。"));
-    return card(CardStage::SESSION, "NR 运行失败", session.message, {std::move(next)}, CardButton::RETRY_NOW);
+    std::string next = (session.retry_in ? std::format("Retrying automatically in {} s.", (session.retry_in->count() + 999) / 1000)
+                        : session.retries_exhausted ? std::string("Automatic retries stopped: change a setting, or retry now.")
+                                                    : std::string("Retry now, or change a setting."));
+    return card(CardStage::SESSION, "NR failed", session.message, {std::move(next)}, CardButton::RETRY_NOW);
   }
   // 2026-10-09 (owner): the video memory cards also offer the looser Video memory checks there are.
   std::string_view looser_checks;
   switch (facts.vram_check) {
-    case nr::VramCheck::CAREFUL: looser_checks = "宽松或关闭"; break;
-    case nr::VramCheck::RELAXED: looser_checks = "关闭"; break;
+    case nr::VramCheck::CAREFUL: looser_checks = "Relaxed or Off"; break;
+    case nr::VramCheck::RELAXED: looser_checks = "Off"; break;
     case nr::VramCheck::OFF:     break;
   }
   if (session.suspended) {
-    std::string need_less = (looser_checks.empty() ? std::string("请降低“分辨率”或“层数”。")
-                             : std::format("请降低“分辨率”或“层数”，或在“高级”中将“显存检查”设为“{}”。", looser_checks));
-    return card(CardStage::SESSION, "已暂停：游戏需要更多显存", session.message,
-                {"释放显存后 NR 将自动恢复运行。", std::move(need_less)}, CardButton::NONE);
+    std::string need_less = (looser_checks.empty() ? std::string("Lower Resolution or Pass count to need less.")
+                             : std::format("Lower Resolution or Pass count to need less, or set Video memory check to {} (Advanced).", looser_checks));
+    return card(CardStage::SESSION, "Paused: the game needs video memory", session.message,
+                {"NR resumes when memory frees up (Resume when VRAM frees up).", std::move(need_less)}, CardButton::NONE);
   }
   if (!facts.output_problem.empty()) {
-    return card(CardStage::PLACEMENT, "NR 无法处理此画面", facts.output_problem, {}, CardButton::NONE);
+    return card(CardStage::PLACEMENT, "NR cannot run on this image", facts.output_problem, {}, CardButton::NONE);
   }
   if (!facts.placement_note.empty()) {
     if (facts.dlss_latched) {
-      return card(CardStage::PLACEMENT, "DLSS 后运行 NR 已停用", facts.placement_note,
-                  {"NR 在游戏帧内运行后不久，设备即被移除。",
-                   "清除锁定后，下次启动时将再次尝试。"},
+      return card(CardStage::PLACEMENT, "NR after DLSS is off", facts.placement_note,
+                  {"The device was removed soon after NR ran inside the game's frame.",
+                   "Clear the latch to try again from the next start."},
                   CardButton::CLEAR_LATCH);
     }
-    return card(CardStage::PLACEMENT, "正在等待", facts.placement_note, {}, CardButton::NONE);
+    return card(CardStage::PLACEMENT, "Waiting", facts.placement_note, {}, CardButton::NONE);
   }
   // FAILED already returned above: only ACTIVE falls through to the placement and skip checks below.
   switch (session.state) {
     case nr::SessionState::OFF:
     case nr::SessionState::LOADING:
-      return card(CardStage::SESSION, "正在启动 NR", "NR 将在下一帧加载。", {}, CardButton::NONE);
+      return card(CardStage::SESSION, "Starting NR", "NR loads with the next frame.", {}, CardButton::NONE);
     case nr::SessionState::GRACE:
     case nr::SessionState::DRAINING:
-      return card(CardStage::SESSION, "NR 正在释放显存", "释放完成后，NR 将重新启动。", {},
+      return card(CardStage::SESSION, "NR is releasing its memory", "NR starts again once the release finishes.", {},
                   CardButton::NONE);
     case nr::SessionState::ACTIVE:
     default: break;
   }
   if (!facts.nr_applied) {
-    const std::string_view reason = LocalizeStatusReason(
-        (facts.skip_from_session && !session.message.empty() ? std::string_view(session.message) : facts.skip_reason));
+    const std::string_view reason =
+        (facts.skip_from_session && !session.message.empty() ? std::string_view(session.message) : facts.skip_reason);
     if (facts.skip_reason == "budget") {
       std::string need_less =
-          (looser_checks.empty() ? std::string("请降低“分辨率”或“层数”，或关闭其他 GPU 程序。")
-           : std::format("请降低“分辨率”或“层数”、关闭其他 GPU 程序，或在“高级”中将“显存检查”设为“{}”。", looser_checks));
-      return card(CardStage::BUDGET, "NR 可用显存不足", reason, {std::move(need_less)}, CardButton::NONE);
+          (looser_checks.empty() ? std::string("Lower Resolution or Pass count, or close other GPU programs.")
+           : std::format("Lower Resolution or Pass count, close other GPU programs, or set Video memory check to {} (Advanced).", looser_checks));
+      return card(CardStage::BUDGET, "Not enough video memory for NR", reason, {std::move(need_less)}, CardButton::NONE);
     }
     if (facts.skip_reason == "frame too small" || facts.skip_reason == "resizing") {
-      return card(CardStage::FRAME, "等待可处理的画面", reason, {"NR 需要至少 " UPLIFT_NR_FLOOR_TEXT " 的画面尺寸。"}, CardButton::NONE);
+      return card(CardStage::FRAME, "Waiting for a usable frame", reason, {"NR needs at least " UPLIFT_NR_FLOOR_TEXT "."}, CardButton::NONE);
     }
     if (facts.skip_reason == "evaluate failed" || facts.skip_reason == "create failed") {
-      return card(CardStage::EVALUATE, "NR 处理失败", reason, {}, CardButton::NONE);
+      return card(CardStage::EVALUATE, "NR's evaluate failed", reason, {}, CardButton::NONE);
     }
     if (facts.skip_reason == "frame generation is on") {
-      return card(CardStage::PLACEMENT, "NR 已跳过此帧", reason,
-                  {"请选择“DLSS 后”，或在“高级”中启用“帧生成期间处理后处理”。"}, CardButton::NONE);
+      return card(CardStage::PLACEMENT, "NR skipped this frame", reason,
+                  {"Choose After DLSS, or turn on Present with frame generation (Advanced)."}, CardButton::NONE);
     }
-    if (reason.empty()) return card(CardStage::PLACEMENT, "等待画面", "NR 尚未运行。", {}, CardButton::NONE);
-    return card(CardStage::PLACEMENT, "NR 已跳过此帧", reason, {}, CardButton::NONE);
+    if (reason.empty()) return card(CardStage::PLACEMENT, "Waiting for a frame", "NR has not run yet.", {}, CardButton::NONE);
+    return card(CardStage::PLACEMENT, "NR skipped this frame", reason, {}, CardButton::NONE);
   }
-  StatusCard working = {.stage = CardStage::WORKING, .working = true, .title = "NR 正在运行",
+  StatusCard working = {.stage = CardStage::WORKING, .working = true, .title = "NR is working",
                         .reason = std::string(facts.working_line)};
   if (facts.passes_run < session.passes_requested) {
     working.fixes.push_back(session.message.empty()
-                                ? std::format("正在运行 {}/{} 层。", facts.passes_run, session.passes_requested)
+                                ? std::format("Running {} of {} passes.", facts.passes_run, session.passes_requested)
                                 : session.message);
   }
   if (!session.faces_note.empty()) {

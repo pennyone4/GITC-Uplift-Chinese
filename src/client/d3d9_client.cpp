@@ -58,8 +58,8 @@ void CopyRows(void* to, size_t to_pitch, const void* from, size_t from_pitch, si
 // The frame copy that could not be made for lack of memory: a 32-bit game runs out of address space first (its Plan 9 text, byte for
 // byte), a 64-bit one out of memory. `failed_call` names what failed.
 std::string NotEnoughMemory(std::string_view failed_call, uint32_t code) {
-  const std::string_view lacking = (IS_32_BIT ? "此 32 位游戏的地址空间" : "可用内存");
-  return std::format("帧复制所需的{}不足（{} {:#010x}）", lacking, failed_call, code);
+  const std::string_view lacking = (IS_32_BIT ? "address space in this 32-bit game" : "memory");
+  return std::format("Not enough {} for the frame copy ({} {:#010x})", lacking, failed_call, code);
 }
 
 // The helper's block, given as `mapping` (which this closes: the view keeps the section) and mapped: "" on success with `*view` set,
@@ -68,7 +68,7 @@ std::string MapBlock(std::string_view what, HANDLE mapping, uint64_t bytes, uint
                      std::byte** view) {
   std::string problem;
   if (pitch < row_bytes || uint64_t{pitch} * rows > bytes) {
-    problem = std::format("辅助进程创建的{}数据块大小不符合{}要求", what, what);
+    problem = std::format("The {} block the helper made does not fit the {}", what, what);
   } else {
     *view = static_cast<std::byte*>(MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0u, 0u, static_cast<SIZE_T>(bytes)));
     if (*view == nullptr) {
@@ -91,11 +91,11 @@ std::unique_ptr<D3D9Client> D3D9Client::Create(IDirect3DDevice9* device, std::st
   D3DADAPTER_IDENTIFIER9 identifier = {};
   if (FAILED(device->GetCreationParameters(&parameters)) || FAILED(device->GetDirect3D(&factory))
       || FAILED(factory->GetAdapterIdentifier(parameters.AdapterOrdinal, 0u, &identifier))) {
-    return fail("无法读取游戏的 Direct3D 9 显卡信息");
+    return fail("the game's Direct3D 9 adapter could not be read");
   }
   // WARP and other vendors are refused, as on D3D12 (addon::IsNvidiaDevice); cross-adapter sharing is out of scope.
   if (identifier.VendorId != addon::NVIDIA_VENDOR_ID) {
-    return fail("Uplift 需要 NVIDIA GPU；此游戏正在另一块显卡上渲染");
+    return fail("Uplift needs an NVIDIA GPU; this game renders on another adapter");
   }
   std::unique_ptr<D3D9Client> client(new D3D9Client());
   client->device_ = device;
@@ -111,7 +111,7 @@ std::unique_ptr<D3D9Client> D3D9Client::Create(IDirect3DDevice9* device, std::st
   ComPtr<IDirect3D9Ex> factory_ex;
   if (create_ex == nullptr || FAILED(create_ex(D3D_SDK_VERSION, &factory_ex))
       || FAILED(factory_ex->GetAdapterLUID(parameters.AdapterOrdinal, &client->luid_))) {
-    return fail("无法识别游戏使用的显卡（通过系统 d3d9.dll 中的 Direct3D 9Ex 获取）");
+    return fail("the game's adapter could not be identified (Direct3D 9Ex from the system d3d9.dll)");
   }
   ComPtr<IDirect3DDevice9Ex> device_ex;
   client->ex_ = SUCCEEDED(device->QueryInterface(IID_PPV_ARGS(&device_ex)));
@@ -188,7 +188,7 @@ ipc::Target D3D9Client::Describe(IDirect3DSurface9* source, bool running, bool a
   D3DSURFACE_DESC description = {};
   if (source == nullptr || FAILED(source->GetDesc(&description))) {
     ReleaseGameObjects();
-    ipc::CopyText(target.problem, "无法读取后备缓冲区");
+    ipc::CopyText(target.problem, "The back buffer could not be read");
     return target;
   }
   target.width = description.Width;
@@ -197,10 +197,10 @@ ipc::Target D3D9Client::Describe(IDirect3DSurface9* source, bool running, bool a
   target.dxgi_format = (map != nullptr ? static_cast<uint32_t>(map->dxgi) : 0u);
   std::string problem;
   if (map == nullptr) {
-    problem = std::format("不支持此后备缓冲区格式（D3DFMT {}）", static_cast<int>(description.Format));
+    problem = std::format("Unsupported back-buffer format (D3DFMT {})", static_cast<int>(description.Format));
   } else if (at_present && description.MultiSampleType != D3DMULTISAMPLE_NONE) {
     // GetRenderTargetData refuses these, and ReShade resolves them only for the effects: at the marker NR reads that copy.
-    problem = "Direct3D 9 的多重采样后备缓冲区需要启用 Uplift 技术；之后 NR 会处理 ReShade 解析后的副本";
+    problem = "Multisampled back buffers need the Uplift technique on Direct3D 9: NR then runs on ReShade's resolved copy";
   }
   const bool usable = (running && problem.empty());
   if (!usable) {
@@ -241,11 +241,11 @@ ipc::Target D3D9Client::Describe(IDirect3DSurface9* source, bool running, bool a
       if (result == D3DERR_DEVICELOST || result == D3DERR_DEVICENOTRESET) {
         // An Alt-Tab out of exclusive fullscreen: every creation fails until the game resets the device. Not a failure of this
         // size (nothing is cached, nothing is logged per frame): the next present tries again.
-        problem = "Direct3D 9 设备已丢失；游戏重置设备后，NR 将恢复运行";
+        problem = "The Direct3D 9 device is lost; NR resumes once the game resets it";
       } else {
         const bool memory = (result == E_OUTOFMEMORY || result == D3DERR_OUTOFVIDEOMEMORY);
-        problem = (memory ? NotEnoughMemory("Direct3D 9 错误", static_cast<uint32_t>(result))
-                          : std::format("无法将后备缓冲区复制到 Uplift 辅助进程（D3DFMT {}，HRESULT {:#010x}）",
+        problem = (memory ? NotEnoughMemory("Direct3D 9 error", static_cast<uint32_t>(result))
+                          : std::format("The back buffer cannot be copied for Uplift's helper (D3DFMT {}, HRESULT {:#010x})",
                                         static_cast<int>(description.Format), static_cast<uint32_t>(result)));
         failure_ = Failure{.width = description.Width, .height = description.Height, .format = description.Format, .text = problem};
         nr::Log(nr::LogLevel::WARN, problem);
@@ -302,7 +302,7 @@ void D3D9Client::Apply(const ipc::Reply& reply, NrLink& link) {
     UnmapViewOfFile(view_);
     view_ = nullptr;
   }
-  const std::string problem = MapBlock("帧", mapping, reply.handles.block_bytes, reply.handles.block_row_pitch,
+  const std::string problem = MapBlock("frame", mapping, reply.handles.block_bytes, reply.handles.block_row_pitch,
                                        uint64_t{width_} * bytes_per_pixel_, height_, &view_);
   if (!problem.empty()) {
     // Not retried for this size and format until NR is re-enabled; the next FRAME says so, and the helper drops its heap.
@@ -343,8 +343,8 @@ D3D9Client::Ensure D3D9Client::EnsureImage(Image* image, ipc::RequestKind kind, 
   std::string problem;
   if (FAILED(result)) {
     const bool memory = (result == E_OUTOFMEMORY || result == D3DERR_OUTOFVIDEOMEMORY);
-    problem = (memory ? NotEnoughMemory("Direct3D 9 错误", static_cast<uint32_t>(result))
-                      : std::format("无法为 Uplift 辅助进程复制{}（D3DFMT {}，HRESULT {:#010x}）", name,
+    problem = (memory ? NotEnoughMemory("Direct3D 9 error", static_cast<uint32_t>(result))
+                      : std::format("{} cannot be copied for Uplift's helper (D3DFMT {}, HRESULT {:#010x})", name,
                                     static_cast<int>(map.source), static_cast<uint32_t>(result)));
   } else {
     const std::optional<ipc::Reply> reply = link.Share(kind, share);
@@ -356,16 +356,16 @@ D3D9Client::Ensure D3D9Client::EnsureImage(Image* image, ipc::RequestKind kind, 
       return Ensure::LATE;
     }
     if (reply->ok == 0u) {
-      problem = std::format("无法将{}共享至 Uplift 辅助进程（D3DFMT {}：{}）", name, static_cast<int>(map.source),
+      problem = std::format("{} could not be shared with Uplift's helper (D3DFMT {}: {})", name, static_cast<int>(map.source),
                             ipc::TextOf(reply->error));
     } else if (!ex_) {
       HANDLE mapping = nullptr;
       const uint64_t remote = (is_mask ? reply->handles.mask : reply->handles.motion);
       if (remote == 0u || !link.Pull(remote, &mapping)) {
-        problem = std::format("无法将{}共享至 Uplift 辅助进程（D3DFMT {}：未收到数据块）", name, static_cast<int>(map.source));
+        problem = std::format("{} could not be shared with Uplift's helper (D3DFMT {}: no block came)", name, static_cast<int>(map.source));
       } else {
         image->pitch = (is_mask ? reply->handles.mask_row_pitch : reply->handles.motion_row_pitch);
-        problem = MapBlock((is_mask ? "蒙版" : "运动矢量"), mapping, (is_mask ? reply->handles.mask_bytes : reply->handles.motion_bytes),
+        problem = MapBlock((is_mask ? "mask" : "motion"), mapping, (is_mask ? reply->handles.mask_bytes : reply->handles.motion_bytes),
                            image->pitch, uint64_t{width} * map.bytes_per_pixel, height, &image->view);
       }
     }
@@ -537,10 +537,10 @@ bool D3D9Client::Run(IDirect3DSurface9* source, IDirect3DTexture9* motion, addon
 
 std::string D3D9Client::Line() const {
   if (ex_) {
-    return std::format("Direct3D 9（{} 位）：NR 在 Uplift 的 64 位辅助进程中运行（Direct3D 9Ex 共享纹理，{:.1f} MiB）", BITNESS,
+    return std::format("Direct3D 9 ({}): NR runs in Uplift's 64-bit helper (Direct3D 9Ex shared texture, {:.1f} MiB)", BITNESS,
                        static_cast<double>(vram_bytes_) / MIB);
   }
-  return std::format("Direct3D 9（{} 位）：NR 在 Uplift 的 64 位辅助进程中运行（帧通过共享内存传输，{:.1f} MiB）", BITNESS,
+  return std::format("Direct3D 9 ({}): NR runs in Uplift's 64-bit helper (frames cross through shared memory, {:.1f} MiB)", BITNESS,
                      static_cast<double>(view_bytes_) / MIB);
 }
 

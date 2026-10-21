@@ -27,7 +27,7 @@ NrCompletion::~NrCompletion() {
 
 std::unique_ptr<NrCompletion> NrCompletion::Create(const NrFunctions& functions, VkDevice device, QueueSignal signal, std::string* error) {
   if (device == VK_NULL_HANDLE || !signal) {
-    *error = "NrCompletion 需要有效的设备和信号函数";
+    *error = "NrCompletion needs a device and a signal function";
     return nullptr;
   }
   std::unique_ptr<NrCompletion> completion(new NrCompletion(functions, device, std::move(signal)));
@@ -38,7 +38,7 @@ std::unique_ptr<NrCompletion> NrCompletion::Create(const NrFunctions& functions,
   };
   const VkSemaphoreCreateInfo create = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, .pNext = &type};
   if (const VkResult result = functions.vkCreateSemaphore(device, &create, nullptr, &completion->semaphore_); result != VK_SUCCESS) {
-    *error = std::format("vkCreateSemaphore（时间线信号量）返回 VkResult {}", static_cast<int>(result));
+    *error = std::format("vkCreateSemaphore (timeline) returned VkResult {}", static_cast<int>(result));
     return nullptr;
   }
   NrCompletion* const self = completion.get();
@@ -61,7 +61,7 @@ std::unique_ptr<NrCompletion> NrCompletion::Create(const NrFunctions& functions,
         if (self->freed_.load(std::memory_order_acquire) || self->lost_.load(std::memory_order_acquire) || self->idle_.load(std::memory_order_acquire)) return;
         if (!self->signal_(nr::VkQueueOf(queue), self->semaphore_, value)) {
           if (!self->signal_failed_logged_.exchange(true)) {
-            Logf(nr::LogLevel::WARN, "无法提交 Vulkan 帧信号量信号（帧 {}）；标记将等待下一帧", value);
+            Logf(nr::LogLevel::WARN, "the Vulkan frame semaphore's signal could not be submitted (frame {}); marks wait for the next one", value);
           }
           return;
         }
@@ -128,7 +128,7 @@ VkEvent NrCompletion::EventFor(uint64_t token, std::chrono::steady_clock::time_p
   } else {
     const VkEventCreateInfo create = {.sType = VK_STRUCTURE_TYPE_EVENT_CREATE_INFO};
     if (const VkResult result = functions_.vkCreateEvent(device_, &create, nullptr, &event); result != VK_SUCCESS) {
-      Logf(nr::LogLevel::WARN, "vkCreateEvent 返回 VkResult {}；该令牌将保持未完成状态，直至因过期而被丢弃", static_cast<int>(result));
+      Logf(nr::LogLevel::WARN, "vkCreateEvent returned VkResult {}; the token stays outstanding until it is dropped as stale", static_cast<int>(result));
       event = VK_NULL_HANDLE;
     }
   }
@@ -144,7 +144,7 @@ void NrCompletion::Executed(std::span<const uint64_t> tokens) {
         // Batch 1 review, minor 6: R77's accepted gap. The token completed when it was dropped, so a release may have run before this submission:
         // a device removal soon after is traced here.
         late_submit_logged_ = true;
-        Log(nr::LogLevel::WARN, "Vulkan：令牌过期被丢弃后，对应的命令记录仍被提交（距离创建已超过 2 秒且 8 帧）");
+        Log(nr::LogLevel::WARN, "Vulkan: a recording was submitted after its token was dropped as stale (more than 2 s and 8 frames after it was made)");
       }
       found->second.executed = true;
     }
@@ -239,7 +239,7 @@ void NrCompletion::DropStale(std::chrono::steady_clock::time_point now, uint64_t
   timeline_->Drop(stale);
   if (!stale_logged_) {
     stale_logged_ = true;
-    Log(nr::LogLevel::INFO, "Vulkan：命令记录从未提交，其令牌已在 2 秒后丢弃");
+    Log(nr::LogLevel::INFO, "Vulkan: a recording was never submitted; its token was dropped after 2 s");
   }
 }
 

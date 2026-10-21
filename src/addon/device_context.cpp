@@ -22,8 +22,8 @@ constexpr auto DLSS_LATCH_WINDOW = std::chrono::seconds(10);
 constexpr auto DESCRIPTORS_BUSY_WARN_AGE = std::chrono::seconds(1);
 // Split chain (fix round 1, I1): why a later group cannot run at Present while the game's DLSS-stage NR goes to another queue than the presents. With
 // frame generation on, the presents come from its own queue (the owner's Onimusha check), so the card says that instead.
-constexpr std::string_view OTHER_QUEUE_REASON = "游戏的 DLSS 在另一个队列上运行";
-constexpr std::string_view FRAME_GEN_QUEUE_REASON = "帧生成已开启，呈现操作来自另一个队列";
+constexpr std::string_view OTHER_QUEUE_REASON = "the game's DLSS runs on another queue";
+constexpr std::string_view FRAME_GEN_QUEUE_REASON = "with frame generation on, the presents come from another queue";
 
 }  // namespace
 
@@ -65,7 +65,7 @@ std::unique_ptr<DeviceContext> DeviceContext::Create(ID3D12Device* device, nr::S
                                                      std::string* error, ContextOptions options) {
   std::unique_ptr<nr::Timeline> timeline = nr::Timeline::CreateD3D12(device);
   if (!timeline) {
-    *error = "无法创建帧栅栏";
+    *error = "could not create the frame fence";
     return nullptr;
   }
   // Plan 7: the bridge's private device is one an adopted NGX core has never seen.
@@ -103,7 +103,7 @@ DeviceContext::~DeviceContext() {
 void DeviceContext::SetBlockedReason(std::string reason) {
   if (reason == blocked_reason_) return;
   if (!reason.empty()) {
-    nr::Logf(nr::LogLevel::WARN, "NR 已阻止：{}", reason);
+    nr::Logf(nr::LogLevel::WARN, "NR blocked: {}", reason);
   }
   blocked_reason_ = std::move(reason);
 }
@@ -111,7 +111,7 @@ void DeviceContext::SetBlockedReason(std::string reason) {
 void DeviceContext::SetDlssUnavailableReason(std::string reason) {
   if ((bridged_ && !dlss_stages_) || reason == dlss_unavailable_reason_) return;  // Plan 7: a bridged context keeps its own (Plan 18: but Direct3D 11's)
   if (!reason.empty()) {
-    nr::Logf(nr::LogLevel::INFO, "DLSS 阶段不可用：{}", reason);
+    nr::Logf(nr::LogLevel::INFO, "DLSS placements unavailable: {}", reason);
   }
   dlss_unavailable_reason_ = std::move(reason);
 }
@@ -141,7 +141,7 @@ TriggerPoint DeviceContext::BeginFrame(ID3D12CommandQueue* queue, const FrameCon
   if (core_hold_.Resume(config.upscaler_creates)) {
     // Plan 15: the game created its DLSS on this device after its NGX shutdown, so it re-initialised NGX (a DLSS setting changed): NR may load again,
     // through the normal path (UpdateSession below), into the core the game initialised anew.
-    nr::Log(nr::LogLevel::INFO, "Direct3D 12：游戏已在其设备上重新启动 DLSS（创建了新的 DLSS 功能）；NR 可以重新加载");
+    nr::Log(nr::LogLevel::INFO, "Direct3D 12: the game's DLSS started again on its device (a new DLSS feature); NR may load again");
   }
   timeline_->BeginFrame(queue);
   timeline_->StampAged(now);
@@ -185,15 +185,15 @@ TriggerPoint DeviceContext::BeginFrame(ID3D12CommandQueue* queue, const FrameCon
       format = description.Format;
     }
     if (!color::DescribeFormat(format).has_value()) {
-      present_problem = std::format("不支持此后备缓冲区格式（DXGI_FORMAT {}）", static_cast<int>(format));
+      present_problem = std::format("Unsupported back-buffer format (DXGI_FORMAT {})", static_cast<int>(format));
     } else {
       present_encoding = color::ResolveEncoding(config.encoding, target.color_space, format);
       if (!present_encoding) {
-        present_problem = "不支持 HDR10 HLG 输出";
+        present_problem = "HDR10 HLG output is not supported";
       }
     }
   }
-  present_cannot_ = (!present_problem.empty() ? present_problem : (present_encoding ? std::string() : std::string("后备缓冲区的画面无法传递给 NR")));
+  present_cannot_ = (!present_problem.empty() ? present_problem : (present_encoding ? std::string() : std::string("the back buffer cannot reach NR")));
   UpdateChain();
   const bool dlss_placement =
       (placement_.placement == Placement::AFTER_DLSS || placement_.placement == Placement::BEFORE_UPSCALING);
@@ -306,14 +306,13 @@ sources::PresentResult DeviceContext::Run(FrameHost* host, D3D12_RESOURCE_STATES
     return {.reason = reason};
   };
   // Spec §11: on the Present path NR would also run on generated frames.
-  if (frame_generation_.State().active && !config_.present_with_frame_gen) return skip("帧生成已开启");
+  if (frame_generation_.State().active && !config_.present_with_frame_gen) return skip("frame generation is on");
   // Split chain: a later group the budget cut to no pass (or the Defaults view hides) skips before its source copy and encode.
   if (group > 0u && !session_->SliceRuns(slices_[group])) return skip(SliceSkipReason(group));
-  // Split chain (fix round 1, I1): two features of one NR runtime never run at once, and nothing ever makes a queue wait on the GPU (with the game's DLSS on
-  // an async queue that can deadlock). DLSS-stage NR on another queue latches Present off for later groups (UpdateChain); until that shows, a later Present
-  // group runs only once every earlier DLSS-stage recording off the present queue has completed, else it skips this frame. On the present queue itself the
-  // queue's order keeps them apart.
-  if (group > 0u && !timeline_->StageWorkDone(dlss_stage_token_, present_queue_)) return skip("waiting for the earlier stages' NR");
+  // Default: keep distinct queues apart until UpdateChain remaps Present. The experimental opt-in uses the game's existing image handoff; it adds no wait.
+  if (group > 0u && !config_.allow_cross_queue_passes && !timeline_->StageWorkDone(dlss_stage_token_, present_queue_)) {
+    return skip("waiting for the earlier stages' NR");
+  }
   host->FlushPending();
   ApplyLookConfig(last_present_.value_or(std::chrono::steady_clock::now()), group);
   host->TargetBarrier(entry_state, D3D12_RESOURCE_STATE_COPY_SOURCE);
@@ -352,13 +351,13 @@ sources::PresentResult DeviceContext::Run(FrameHost* host, D3D12_RESOURCE_STATES
     trigger_used_ = point;
     if (point != logged_trigger_) {
       logged_trigger_ = point;
-      nr::Logf(nr::LogLevel::INFO, "NR 触发阶段：{}", TriggerPointName(point));
+      nr::Logf(nr::LogLevel::INFO, "NR trigger: {}", TriggerPointName(point));
     }
   }
   if (trace_frames_ > 0u) {
     --trace_frames_;
-    nr::Logf(nr::LogLevel::TRACE, "第 {} 帧：NR {} 于 {} 触发，运行 {} 层；{}", timeline_->CurrentFrame(),
-             (result.nr_applied ? "已处理" : "已跳过"), TriggerPointName(point), result.passes_run, result.reason);
+    nr::Logf(nr::LogLevel::TRACE, "frame {}: NR {} at {}, {} pass(es) {}", timeline_->CurrentFrame(),
+             (result.nr_applied ? "applied" : "skipped"), TriggerPointName(point), result.passes_run, result.reason);
   }
   return result;
 }
@@ -382,7 +381,7 @@ bool DeviceContext::NoteMainEvaluate(const ngx_hooks::DlssFrame& frame, std::chr
   if (core_hold_.ResumeOnEvaluate(frame.serial)) {
     // Plan 15 fix round (minors 1 and 2): a successful evaluate of a feature the game created after its NGX shutdown proves the core serves this device
     // again. Before the catch-up below, so a game whose presents starve resumes here too.
-    nr::Log(nr::LogLevel::INFO, "Direct3D 12：游戏已在其设备上重新运行 DLSS（完成了一次 DLSS 评估）；NR 可以重新加载");
+    nr::Log(nr::LogLevel::INFO, "Direct3D 12: the game's DLSS started again on its device (a DLSS evaluate); NR may load again");
   }
   dlss_seen_ = true;
   last_main_evaluate_ = now;
@@ -531,7 +530,8 @@ sources::PipelineResult DeviceContext::RecordAfterDlss(const ngx_hooks::DlssFram
     } else if (!warned_descriptors_busy_ && now - *descriptors_busy_since_ > DESCRIPTORS_BUSY_WARN_AGE) {
       warned_descriptors_busy_ = true;
       nr::Log(nr::LogLevel::WARN,
-              "DLSS 后的 NR：描述符连续 1 秒处于占用状态；描述符环可能无法满足此线程的提交时序");
+              "NR after DLSS: descriptors busy for over 1 s in a row; the descriptor ring may be too small for "
+              "this thread's submission timing");
     }
   } else {
     descriptors_busy_since_.reset();
@@ -549,12 +549,12 @@ sources::PipelineResult DeviceContext::RecordAfterDlss(const ngx_hooks::DlssFram
     frame_size_ = frame.snapshot.output;
     if (result.nr_applied && !logged_after_dlss_) {
       logged_after_dlss_ = true;  // once per activation, as the Present path logs its trigger
-      nr::Log(nr::LogLevel::INFO, "NR 触发阶段：DLSS 后");
+      nr::Log(nr::LogLevel::INFO, "NR trigger: after DLSS");
     }
   }
   if (trace_frames_ > 0u) {
     --trace_frames_;
-    nr::Logf(nr::LogLevel::TRACE, "评估：DLSS 后的 NR {}，运行 {} 层；{}", (result.nr_applied ? "已处理" : "已跳过"),
+    nr::Logf(nr::LogLevel::TRACE, "evaluate: NR {} after DLSS, {} pass(es) {}", (result.nr_applied ? "applied" : "skipped"),
              result.passes_run, result.reason);
   }
   return result;
@@ -602,9 +602,9 @@ void DeviceContext::UpdateChain() {
   if (!dlss_unavailable_reason_.empty()) {
     dlss_cause = dlss_unavailable_reason_;
   } else if (!dlss_seen_) {
-    dlss_cause = "DLSS 尚未运行";
+    dlss_cause = "DLSS has not run yet";
   } else if (dlss_off) {
-    dlss_cause = "游戏中的 DLSS 已关闭";
+    dlss_cause = "the game's DLSS is off";
   }
   ChainFacts facts = {
       .pass1 = placement_.placement,
@@ -616,23 +616,21 @@ void DeviceContext::UpdateChain() {
   if (before_cause.empty()) {
     before_cause = (!before_upscaling_problem_.empty() ? std::string_view(before_upscaling_problem_)
                     : BeforeUpscaling()                ? std::string_view()
-                                                       : std::string_view("DLSS 前阶段已关闭"));
+                                                       : std::string_view("Before upscaling is off"));
   }
   facts.cannot[static_cast<size_t>(Stage::BEFORE_UPSCALING)] = before_cause;
   facts.cannot[static_cast<size_t>(Stage::AFTER_DLSS)] = (dlss_cause.empty() ? std::string_view(after_dlss_problem_) : dlss_cause);
-  // Fix round 1 (I1): DLSS-stage NR seen on another queue than the presents keeps Present off for later groups: their passes join the DLSS stage, so NR
-  // never runs on two queues at once (no GPU wait can order them safely). Checked only while a split is stored, against the queue presenting now: BeginFrame
-  // updated present_queue_ before this, so a later Present group never records on a new queue before this check. With frame generation the presents
-  // come from its own queue, and may come back to the game's when it stops; Present is allowed again only then (no DLSS-stage list ever went there).
+  // Observe the game's queues even while opted in, so disabling the experiment immediately restores the existing remap without waiting for a new recording.
   if (present_queue_ != nullptr && SplitStored()) {
     ID3D12CommandQueue* const other = timeline_->StageQueueOtherThan(present_queue_);
     if (other != other_dlss_queue_) {
       if (other != nullptr) {
-        nr::Logf(nr::LogLevel::INFO, "Direct3D 12：游戏的 DLSS 队列（{}）与呈现队列（{}）不同{}；设为后处理阶段运行的层将改在 DLSS 阶段运行",
+        nr::Logf(nr::LogLevel::INFO, "Direct3D 12: the game's DLSS runs on another queue ({}) than its presents ({}){}: {}",
                  static_cast<const void*>(other), static_cast<const void*>(present_queue_),
-                 (frame_generation_.State().active ? "（帧生成已开启）" : ""));
+                 (frame_generation_.State().active ? " with frame generation on" : ""),
+                 (config_.allow_cross_queue_passes ? "experimental cross-queue passes allowed" : "passes stored at Present run at the DLSS stage"));
       } else {
-        nr::Logf(nr::LogLevel::INFO, "Direct3D 12：呈现队列（{}）已重新与游戏的 DLSS 队列一致；设为后处理阶段的层将恢复在该队列运行",
+        nr::Logf(nr::LogLevel::INFO, "Direct3D 12: the presents ({}) are on the game's DLSS queue again: passes stored at Present run there again",
                  static_cast<const void*>(present_queue_));
       }
       other_dlss_queue_ = other;
@@ -642,8 +640,8 @@ void DeviceContext::UpdateChain() {
   if (!present_cannot_.empty()) {
     present_cause = present_cannot_;
   } else if (frame_generation_.State().active && !config_.present_with_frame_gen) {
-    present_cause = "帧生成已开启";
-  } else if (other_dlss_queue_ != nullptr) {
+    present_cause = "frame generation is on";
+  } else if (!config_.allow_cross_queue_passes && other_dlss_queue_ != nullptr) {
     present_cause = (frame_generation_.State().active ? FRAME_GEN_QUEUE_REASON : OTHER_QUEUE_REASON);
   }
   facts.cannot[static_cast<size_t>(Stage::PRESENT)] = present_cause;
@@ -661,9 +659,9 @@ void DeviceContext::UpdateChain() {
   if (!same_groups(chain, chain_)) {
     // Logged only around a split, so a one-group chain logs exactly what the placement line already says.
     if (chain.Split()) {
-      nr::Logf(nr::LogLevel::INFO, "NR 处理链：{}", FormatChainLine(chain, {}));
+      nr::Logf(nr::LogLevel::INFO, "NR chain: {}", FormatChainLine(chain, {}));
     } else if (chain_.Split()) {
-      nr::Log(nr::LogLevel::INFO, "NR 处理链：所有层均在同一阶段运行");
+      nr::Log(nr::LogLevel::INFO, "NR chain: every pass at one stage");
     }
     for (size_t stage = 0u; stage < STAGE_COUNT; ++stage) {
       const auto uses = [stage](const ChainPlan& plan) {
@@ -676,7 +674,7 @@ void DeviceContext::UpdateChain() {
     }
   }
   if (chain.note != chain_.note && !chain.note.empty()) {
-    nr::Logf(nr::LogLevel::INFO, "NR 处理链：{}", chain.note);
+    nr::Logf(nr::LogLevel::INFO, "NR chain: {}", chain.note);
   }
   if (chain.Split() && !chain_.Split() && last_dlss_token_ != 0u) {
     // Fix round 2 (I1): the DLSS-stage recording made under the one-group chain (unmarked) may still run on another queue when a later Present group first
@@ -851,7 +849,7 @@ sources::PipelineResult DeviceContext::RecordBeforeUpscaling(const ngx_hooks::Dl
   motion_scale_y_ = result.motion_scale_y;
   if (result.nr_applied && !logged_after_dlss_) {
     logged_after_dlss_ = true;  // once per activation, as After DLSS logs its trigger
-    nr::Log(nr::LogLevel::INFO, "NR 触发时机：DLSS 前");
+    nr::Log(nr::LogLevel::INFO, "NR trigger: before upscaling");
   }
   return result;
 }
@@ -965,8 +963,8 @@ bool DeviceContext::PresentRingWanted() const {
 void DeviceContext::NoteStageProblem(BridgedDlssWork stage, std::string problem) {
   std::string& slot = (stage == BridgedDlssWork::BEFORE_UPSCALING ? before_upscaling_problem_ : after_dlss_problem_);
   if (problem.empty() || slot == problem) return;
-  nr::Logf(nr::LogLevel::WARN, "{} 无法在此阶段运行：{}；{}", (stage == BridgedDlssWork::BEFORE_UPSCALING ? "DLSS 前的 NR" : "DLSS 后的 NR"),
-           problem, (stage == BridgedDlssWork::BEFORE_UPSCALING ? "NR 将改在 DLSS 后运行" : "自动模式将在后处理阶段运行"));
+  nr::Logf(nr::LogLevel::WARN, "{} cannot run here: {}; {}", (stage == BridgedDlssWork::BEFORE_UPSCALING ? "NR before upscaling" : "NR after DLSS"),
+           problem, (stage == BridgedDlssWork::BEFORE_UPSCALING ? "NR runs after DLSS instead" : "Auto runs at Present"));
   slot = std::move(problem);
 }
 
@@ -1000,8 +998,8 @@ bool DeviceContext::StageResetOwed(BridgedDlssWork stage) const {
 void DeviceContext::NoteGameDeviceRemoved(HRESULT reason, std::chrono::steady_clock::time_point now) {
   if (!bridged_ || dlss_latch_tripped_ || !last_game_list_recording_ || now - *last_game_list_recording_ > DLSS_LATCH_WINDOW) return;
   dlss_latch_tripped_ = true;
-  game_device_removed_ = std::format("游戏设备已移除（{:#010x}）：NR 在游戏帧内运行后不久发生设备丢失；游戏重启前，“DLSS 前”和“DLSS 后”阶段将保持关闭（点击“清除锁定”可再次尝试）",
-                                     static_cast<uint32_t>(reason));
+  game_device_removed_ = std::format("The game's device was removed ({:#010x}) soon after NR ran inside its frame: the DLSS placements stay off from the next "
+                                     "start (Clear latch to try again)", static_cast<uint32_t>(reason));
   nr::Log(nr::LogLevel::ERR, game_device_removed_);
 }
 
@@ -1081,7 +1079,7 @@ void DeviceContext::UpdateSession(std::chrono::steady_clock::time_point now) {
   const auto note_state = [this] {
     const nr::SessionState state = session_->State();
     if (state == logged_state_) return;
-    nr::Logf(nr::LogLevel::INFO, "会话状态 {} -> {}", nr::SessionStateName(logged_state_), nr::SessionStateName(state));
+    nr::Logf(nr::LogLevel::INFO, "session {} -> {}", nr::SessionStateName(logged_state_), nr::SessionStateName(state));
     logged_state_ = state;
     logged_trigger_ = TriggerPoint::NONE;  // each activation logs its trigger again
     logged_after_dlss_ = false;
@@ -1103,9 +1101,10 @@ bool DeviceContext::NoteDeviceRemoved(std::chrono::steady_clock::time_point now)
   // the game's device).
   dlss_latch_tripped_ = (!bridged_ && last_game_list_recording_.has_value() && now - *last_game_list_recording_ <= DLSS_LATCH_WINDOW);
   output_message_ = (dlss_latch_tripped_
-                         ? std::format("设备已移除（{:#010x}）：NR 在游戏帧内运行后不久发生设备丢失；游戏重启前，“DLSS 前”和“DLSS 后”阶段将保持关闭（点击“清除锁定”可再次尝试）",
+                         ? std::format("Device removed ({:#010x}) soon after NR ran inside the game's frame: the DLSS "
+                                       "placements stay off from the next start (Clear latch to try again)",
                                        static_cast<uint32_t>(removed))
-                         : std::format("设备已移除（{:#010x}）：NR 将在此设备上保持关闭", static_cast<uint32_t>(removed)));
+                         : std::format("Device removed ({:#010x}): NR stays off on this device", static_cast<uint32_t>(removed)));
   nr::Log(nr::LogLevel::ERR, output_message_);
   if (bridged_) {
     LogDred(device_.Get());  // Plan 17: Uplift's private device (a bridge's, or the helper's): what was in flight, and any page fault
@@ -1131,7 +1130,7 @@ void DeviceContext::Teardown() {
     // object without an NGX call and restores the snippet's IAT and log hooks (Plan 1's Snippet::Abandon),
     // so nothing points into this add-on after ReShade unloads it. The Session and RealHost are then
     // leaked on purpose, so no destructor can reach the snippet either.
-    nr::Log(nr::LogLevel::WARN, "GPU 设备已移除：正在放弃 NR 运行时");
+    nr::Log(nr::LogLevel::WARN, "device removed: abandoning the NR runtime");
     session_->OnDeviceLost();
     static_cast<void>(session_.release());
     static_cast<void>(host_.release());
@@ -1160,14 +1159,14 @@ void DeviceContext::OnCoreShutdown(std::chrono::milliseconds cap, uint64_t upsca
   motion_source_ = sources::MotionSource::NONE;
   // OFF (and LOADING, which loads nothing before its Tick, and which the next UpdateSession turns OFF) holds nothing of NGX's: no wait, no release.
   if (const nr::SessionState state = session_->State(); state == nr::SessionState::OFF || state == nr::SessionState::LOADING) {
-    nr::Log(nr::LogLevel::INFO, "Direct3D 12：游戏已关闭其设备上的 NGX；该设备上的 NR 也已关闭");
+    nr::Log(nr::LogLevel::INFO, "Direct3D 12: the game shut NGX down on its device; NR was off there");
     return;
   }
   // The Present path's work is in the frames the frame fence counts (the current one is signalled now, after ReShade's submissions at the last present), and
   // every recording inside the game's frame in a completion token on its queue's fence: together they say when the GPU is done with NR's features.
   if (const std::string_view late = timeline_->WaitIdle(cap); !late.empty()) {
     if (NoteDeviceRemoved(std::chrono::steady_clock::now())) return;  // a removal seen during the wait: Teardown abandons the runtime
-    nr::Logf(nr::LogLevel::WARN, "Direct3D 12：游戏关闭 NGX 后的 {} 毫秒内，NR 的最后几帧仍未完成（{}）；NR 运行时将保留至游戏退出",
+    nr::Logf(nr::LogLevel::WARN, "Direct3D 12: NR's last frames did not finish within {} ms of the game's NGX shutdown ({}); NR's runtime stays loaded until the game exits",
              cap.count(), late);
     core_hold_.Abandon();  // Status says so (ui::D3D12_NGX_ABANDONED_REASON) from now on
     session_->Abandon();   // no NGX call: the game's frames may still be running NR
@@ -1175,7 +1174,7 @@ void DeviceContext::OnCoreShutdown(std::chrono::milliseconds cap, uint64_t upsca
   }
   present_source_->ReleaseIntermediates();  // A, B and the private colour go with the flush below (the wait above found their marks complete)
   session_->OnDeviceDestroyed();  // the features' release, DestroyParameters, the snippet's Shutdown1, the unload: all before the core's Shutdown1
-  nr::Log(nr::LogLevel::INFO, "Direct3D 12：游戏已关闭其设备上的 NGX；NR 已先行释放");
+  nr::Log(nr::LogLevel::INFO, "Direct3D 12: the game shut NGX down on its device; NR released before it");
 }
 
 std::string DeviceContext::CreateFailure() const {
@@ -1194,8 +1193,8 @@ ContextStatus DeviceContext::Status() const {
   // Split chain: a later Present group runs on while the game's DLSS idles, so NR is not waiting then.
   if ((placement_.placement == Placement::AFTER_DLSS || placement_.placement == Placement::BEFORE_UPSCALING) && dlss_idle_
       && !GroupAt(Stage::PRESENT).has_value()) {
-    placement_note = (status.session.state == nr::SessionState::OFF ? "等待 DLSS：NR 显存已释放"
-                                                                    : "等待 DLSS：正在释放 NR 显存");
+    placement_note = (status.session.state == nr::SessionState::OFF ? "Waiting for DLSS: NR memory released"
+                                                                    : "Waiting for DLSS: releasing NR memory");
   }
   // Plan 15: after the game's NGX shutdown NR waits for the game's DLSS (temporary), or, abandoned there, stays off for the session (an output problem: no
   // BeginFrame clears it, unlike the target's own).
@@ -1212,7 +1211,7 @@ ContextStatus DeviceContext::Status() const {
   status.before_upscaling_problem = before_upscaling_problem_;
   const bool claimed_elsewhere = (!config_.nr_allowed && config_.session.enabled);
   status.message = ContextMessage({
-      .blocked = (blocked_reason_.empty() && claimed_elsewhere ? std::string_view("NR 正在此游戏的另一台 D3D12 设备上运行")
+      .blocked = (blocked_reason_.empty() && claimed_elsewhere ? std::string_view("NR runs on another D3D12 device in this game")
                                                                : std::string_view(blocked_reason_)),
       .output = output_problem,
       .placement = placement_note,
@@ -1275,15 +1274,15 @@ ContextStatus DeviceContext::Status() const {
   if (!work_size_.Empty()) {
     std::string detail;
     if (canvas_size_ != work_size_) {
-      detail = std::format("（{}x{} 渲染画面，已补齐）", work_size_.width, work_size_.height);
+      detail = std::format(" (a {}x{} render, padded)", work_size_.width, work_size_.height);
     } else if (work_size_ != frame_size_ && !frame_size_.Empty()) {
-      detail = std::format(" / {}x{}（{}）", frame_size_.width, frame_size_.height,
-                           (config_.upsampling == color::Upsampling::CLASSIC ? "经典升采样" : "边缘感知升采样"));
+      detail = std::format(" of {}x{} ({})", frame_size_.width, frame_size_.height,
+                           (config_.upsampling == color::Upsampling::CLASSIC ? "Classic" : "Edge-aware"));
     }
     if (match_game_unread) {
-      detail += (dlss_off_.Off() ? "（匹配游戏：游戏的 DLSS 已关闭）" : "（匹配游戏：正在等待 DLSS）");
+      detail += (dlss_off_.Off() ? " (Match game: the game's DLSS is off)" : " (Match game: waiting for DLSS)");
     }
-    status.work_line = std::format("处理尺寸：{}x{}{}", canvas_size_.width, canvas_size_.height, detail);
+    status.work_line = std::format("Working at {}x{}{}", canvas_size_.width, canvas_size_.height, detail);
   }
   if (nr_applied_) {
     status.exposure_line = sources::ExposureLine(present_source_->Pipeline().LastExposure());  // Plan 17
@@ -1294,7 +1293,7 @@ ContextStatus DeviceContext::Status() const {
     canvases[stage] = stages_[stage].canvas;
   }
   if (chain_.Split()) {
-    status.chain_line = std::format("处理链：{}", FormatChainLine(chain_, canvases));
+    status.chain_line = std::format("Chain: {}", FormatChainLine(chain_, canvases));
   }
   status.chain_note = chain_.note;
   status.group_count = chain_.group_count;
@@ -1314,64 +1313,64 @@ ContextStatus DeviceContext::Status() const {
       // UPLIFT_MV cannot bind -- this frame's vectors are the game's own DLSS ones, and the readout says why.
       const bool launchpad_would_run = (config_.motion_vectors_want_launchpad && placement_.placement != Placement::PRESENT);
       status.motion_line = (launchpad_would_run
-                                ? std::format("运动矢量：DLSS（{} 仅供最终呈现画面使用）", UpliftMvName(config_))
-                                : std::format("运动矢量：DLSS（游戏提供，缩放比例 {} x {}）", motion_scale_x_,
+                                ? std::format("Motion vectors: DLSS ({} feeds the presented image only)", UpliftMvName(config_))
+                                : std::format("Motion vectors: DLSS (the game's own, scale {} x {})", motion_scale_x_,
                                               motion_scale_y_));
       break;
     }
     case sources::MotionSource::PRESENT_COPY:
-      status.motion_line = "运动矢量：DLSS（已复制至后处理）";
+      status.motion_line = "Motion vectors: DLSS (copied for Present)";
       break;
     case sources::MotionSource::LAUNCHPAD:
       status.motion_line =
-          std::format("运动矢量：{}（UPLIFT_MV，缩放比例 {} x {}）", UpliftMvName(config_), config_.motion_scale_x, config_.motion_scale_y);
+          std::format("Motion vectors: {} (UPLIFT_MV, scale {} x {})", UpliftMvName(config_), config_.motion_scale_x, config_.motion_scale_y);
       break;
     case sources::MotionSource::NONE: {
-      std::string_view reason = "游戏未传递运动矢量";
+      std::string_view reason = "the game passed no motion vectors";
       if (!config_.motion_vectors && !config_.launchpad_motion) {
-        reason = "已设为“关闭”";
+        reason = "set to Off";
       } else if (!config_.motion_vectors) {
         reason = (placement_.placement == Placement::PRESENT ? NoUpliftMvReason(config_)
-                                                              : (config_.uplift_mv_lumenite ? "Lumenite 仅适用于最终呈现画面"
-                                                                                            : "LaunchPad 仅适用于最终呈现画面"));
+                                                              : (config_.uplift_mv_lumenite ? "Lumenite works on the presented image only"
+                                                                                            : "Launchpad works on the presented image only"));
       } else if (placement_.placement == Placement::PRESENT) {
         if (bridged_ && (config_.vulkan || dlss_stages_)) {
           // Plan 14: on Vulkan DLSS's vectors reach the Present path through the native context's copies, while the add-on asks for them. Plan 18: Direct3D
           // 11's ring is the same copy for the Present path's reasons.
-          reason = (config_.present_motion_copy ? "本帧未能复制 DLSS 运动矢量"
+          reason = (config_.present_motion_copy ? "no copy of DLSS's vectors this frame"
                     : config_.launchpad_motion  ? NoUpliftMvReason(config_)
-                                                : "此设备上的 DLSS 运动矢量无法送达后处理路径");
+                                                : "DLSS's vectors do not reach the Present path on this device");
         } else if (bridged_) {
           // Plan 8: a bridged context never sees the game's DLSS, so only Launchpad can feed it.
           reason = (config_.launchpad_motion ? NoUpliftMvReason(config_)
-                                             : "DLSS 运动矢量需要 64 位 Direct3D 11、Direct3D 12 或 Vulkan 游戏");
+                                             : "DLSS vectors need a 64-bit Direct3D 11, Direct3D 12 or Vulkan game");
         } else if (!dlss_seen_) {
           // Auto is only ever transiently on Present while it waits for DLSS to show up; Source = Present
           // forced has nothing to wait for, so it reads as a plain description instead.
-          reason = (config_.source == ui::PlacementSource::PRESENT ? "后处理阶段未使用 DLSS" : "DLSS 尚未运行");
+          reason = (config_.source == ui::PlacementSource::PRESENT ? "Present without DLSS" : "no DLSS running yet");
         } else if (!last_motion_vectors_missing_) {
           // Batch 1 re-review R2: DLSS is running and passes motion vectors -- this present's own copy
           // simply did not land -- so this must not read as "Present without DLSS" (no DLSS at all).
-          reason = "本帧未能复制";
+          reason = "no copy this frame";
         }
       }
-      status.motion_line = std::format("运动矢量：未使用（{}）", reason);
+      status.motion_line = std::format("Motion vectors: none ({})", reason);
       break;
     }
   }
   if (config_.pre_upscale && placement_.placement == Placement::AFTER_DLSS && !BeforeUpscaling()) {
-    status.placement_line += "（Ray Reconstruction 会使 NR 保持在 DLSS 后运行）";  // v2 design §3.9: the status says so
+    status.placement_line += " (Ray Reconstruction keeps NR after DLSS)";  // v2 design §3.9: the status says so
   }
   if (placement_.placement == Placement::BEFORE_UPSCALING && main_feature_ == NVSDK_NGX_Feature_RayReconstruction) {
-    status.placement_line += "（Ray Reconstruction 的输入画面）";  // split-chain design 11: NR runs before RR denoises and upscales
+    status.placement_line += " (Ray Reconstruction's input)";  // split-chain design 11: NR runs before RR denoises and upscales
   }
   switch (placement_.placement) {
     case Placement::AFTER_DLSS:
     case Placement::BEFORE_UPSCALING:
-      status.ui_correction_note = "此处无需校正：HUD 在 NR 处理后绘制";
+      status.ui_correction_note = "Not needed here: the HUD is drawn after NR";
       break;
     case Placement::PRESENT:
-      status.ui_correction_note = "此处无法校正：画面已包含 HUD；请使用 NR 蒙版";
+      status.ui_correction_note = "Unavailable here: the HUD is already in this image; use the NR mask";
       break;
     case Placement::NONE: break;
   }

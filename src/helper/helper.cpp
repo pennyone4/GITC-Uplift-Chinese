@@ -105,7 +105,7 @@ int Helper::Loop() {
     }
     if (waited == WAIT_TIMEOUT) {
       if (std::chrono::steady_clock::now() - last_request >= IDLE_EXIT) {
-        nr::Log(nr::LogLevel::INFO, "30 秒内未收到请求；辅助进程即将退出");
+        nr::Log(nr::LogLevel::INFO, "no request for 30 s; the helper exits");
         Teardown();
         return 0;
       }
@@ -139,7 +139,7 @@ int Helper::Loop() {
           if (transport_) {
             transport_->Share(request.kind, request.share, &reply);
           } else {
-            ipc::CopyText(reply.error, "辅助进程尚未连接");
+            ipc::CopyText(reply.error, "not attached");
           }
           break;
         case ipc::RequestKind::STOP:
@@ -164,8 +164,8 @@ int Helper::Loop() {
     } catch (...) {
       // Never let a request take the helper down: the add-on sees the failure and decides.
       reply.ok = 0u;
-      ipc::CopyText(reply.error, "辅助进程处理请求时发生异常");
-      nr::Log(nr::LogLevel::ERR, "辅助进程处理请求时发生异常");
+      ipc::CopyText(reply.error, "the helper threw while handling the request");
+      nr::Log(nr::LogLevel::ERR, "the helper threw while handling a request");
       deferred = false;
     }
     heartbeat_.EndLongHandler();
@@ -188,7 +188,7 @@ int Helper::Loop() {
 void Helper::Attach(const ipc::Request& request, ipc::Reply* reply) {
   const ipc::Attach& attach = request.attach;
   if (attach.luid_low != block_->luid_low || attach.luid_high != block_->luid_high) {
-    ipc::CopyText(reply->error, "游戏已切换至另一块显卡");
+    ipc::CopyText(reply->error, "the game moved to another adapter");
     return;
   }
   if (!context_) {
@@ -216,7 +216,7 @@ void Helper::Attach(const ipc::Request& request, ipc::Reply* reply) {
     snippet_found_ = true;  // the stand-in has no runtime file to find
 #else
     if (!snippet_found_) {
-      context_->SetBlockedReason(std::format("在插件目录（{}）或游戏目录中找不到 nvngx_dlssnr.dll；请将其复制到其中一个目录，或设置“运行库路径”",
+      context_->SetBlockedReason(std::format("nvngx_dlssnr.dll not found next to {} or the game; copy it there or set Runtime path",
                                              ipc::TextOf(attach.addon_file)));
     }
 #endif
@@ -237,8 +237,8 @@ void Helper::Attach(const ipc::Request& request, ipc::Reply* reply) {
                            : attach.api == ipc::Api::VULKAN  ? "Vulkan"
                            : attach.api == ipc::Api::OPENGL  ? "OpenGL"
                            : attach.api == ipc::Api::D3D12   ? "Direct3D 12"
-                                                             : "未知 API");
-  nr::Logf(nr::LogLevel::INFO, "已连接：{}（{}）", transport_->Line(), api);
+                                                             : "an unknown API");
+  nr::Logf(nr::LogLevel::INFO, "attached: {} ({})", transport_->Line(), api);
   reply->ok = 1u;
 }
 
@@ -246,7 +246,7 @@ void Helper::ApplySettings(uint64_t generation) {
   std::vector<std::string> warnings;
   settings_ = ui::LoadSettings(ipc::TextConfigStore::Parse(ipc::TextOf(block_->settings_text)), &warnings);
   for (const std::string& warning : warnings) {
-    nr::Logf(nr::LogLevel::WARN, "设置：{}", warning);
+    nr::Logf(nr::LogLevel::WARN, "settings: {}", warning);
   }
   // What addon.cpp's ApplyProcessSettings applies in the process that loads NR: the log level, and the NGX runtime's
   // indicator, which it reads when the snippet next loads.
@@ -272,7 +272,7 @@ void Helper::ReplayPoint(uint32_t point) {
 
 void Helper::Frame(const ipc::Request& request, ipc::Reply* reply) {
   if (!context_ || !transport_) {
-    ipc::CopyText(reply->error, "辅助进程尚未连接");
+    ipc::CopyText(reply->error, "not attached");
     return;
   }
   const ipc::Frame& frame = request.frame;
@@ -299,7 +299,7 @@ void Helper::Frame(const ipc::Request& request, ipc::Reply* reply) {
     nr::Log(nr::LogLevel::INFO, addon::HeartbeatLine(lead, figures, addon::ProcessPrivateMiB(), nr_vram_.MiB(side_->Device()->GetAdapterLuid())));
   };
   if (const std::optional<addon::NrHeartbeat::Figures> figures = nr_heartbeat_.Note(context_->NrRecordings(), context_->LatestMotionSource(), now)) {
-    log_figures("NR 运行中", *figures);
+    log_figures("NR running:", *figures);
   }
   const addon::TargetInfo target = transport_->Describe(frame.target, settings_.enabled, running, &reply->handles);
   addon::FrameConfig config = addon::BuildFrameConfig(
@@ -319,7 +319,7 @@ void Helper::Frame(const ipc::Request& request, ipc::Reply* reply) {
   context_->BeginFrame(side_->Queue(), config, target, frame.marker_expected != 0u, now);
   if (context_->DeviceLost()) {
     if (const std::optional<addon::NrHeartbeat::Figures> figures = nr_heartbeat_.Stop(now)) {
-      log_figures("NR 已停止", *figures);
+      log_figures("NR stopped after", *figures);
     }
   }
   reply->ok = 1u;
@@ -330,7 +330,7 @@ void Helper::Frame(const ipc::Request& request, ipc::Reply* reply) {
 
 void Helper::Run(const ipc::Request& request, ipc::Reply* reply, bool* deferred) {
   if (!context_ || !transport_) {
-    ipc::CopyText(reply->error, "辅助进程尚未连接");
+    ipc::CopyText(reply->error, "not attached");
     return;
   }
   ReplayPoint(request.run.point);
