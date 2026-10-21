@@ -19,7 +19,7 @@ constexpr uint32_t MAX_CONSECUTIVE_TIMEOUTS = 3u;
 constexpr double MIB = 1024.0 * 1024.0;
 
 std::string ShareFailureText(const char* what, DXGI_FORMAT format, std::string_view failure) {
-  return std::format("{}无法与 Uplift 辅助进程共享（DXGI_FORMAT {}，{}）", what, static_cast<int>(format), failure);
+  return std::format("{} could not be shared with Uplift's helper (DXGI_FORMAT {}, {})", what, static_cast<int>(format), failure);
 }
 
 }  // namespace
@@ -30,9 +30,9 @@ GlClient::GlClient(gl::Functions functions, LUID luid, bool allow_fences) : inte
   // textures, ordered on the CPU.
   fenced_ = (allow_fences && gl.semaphores);
   if (!fenced_) {
-    cpu_reason_ = (!allow_fences                ? std::string("栅栏同步已关闭")
+    cpu_reason_ = (!allow_fences                ? std::string("fences were turned off")
                    : !gl.cpu_reason.empty()     ? gl.cpu_reason
-                                                : std::string("此驱动不支持 GL_EXT_semaphore_win32"));
+                                                : std::string("this driver does not offer GL_EXT_semaphore_win32"));
   }
 }
 
@@ -100,7 +100,7 @@ void GlClient::ForgetGl() {
 
 void GlClient::Stop(std::string_view reason, NrLink& link, gl::GameHost& host) {
   if (latch_.empty()) {
-    latch_ = std::format("OpenGL 中继已停止：{}。请重启游戏以再次使用 NR", reason);
+    latch_ = std::format("The OpenGL bridge stopped: {}. Restart the game to use NR again", reason);
     nr::Log(nr::LogLevel::ERR, latch_);
   }
   link.Stop(waited11_, latch_);
@@ -109,23 +109,23 @@ void GlClient::Stop(std::string_view reason, NrLink& link, gl::GameHost& host) {
 
 void GlClient::NoteTimeout(uint32_t* consecutive, std::string_view what, NrLink& link, gl::GameHost& host) {
   if (++*consecutive >= MAX_CONSECUTIVE_TIMEOUTS) {
-    Stop(std::format("{}连续 {} 次未能在 2 秒内完成", what, MAX_CONSECUTIVE_TIMEOUTS), link, host);
+    Stop(std::format("{} did not finish within 2 s, {} times in a row", what, MAX_CONSECUTIVE_TIMEOUTS), link, host);
   }
 }
 
 bool GlClient::Import(gl::GameHost& host, HANDLE handle, uint64_t allocation_bytes, nr::Size size, DXGI_FORMAT format, uint32_t bytes_per_pixel, Shared* shared,
                       std::string* failure) {
   if (!host.Valid()) {
-    *failure = "纹理到达时，OpenGL 上下文并非 ReShade 当前使用的上下文";
+    *failure = "the OpenGL context was not the runtime's when the texture arrived";
     return false;
   }
   if (allocation_bytes == 0u) {
-    *failure = "辅助进程未提供纹理分配大小";
+    *failure = "the helper did not say how large the texture's allocation is";
     return false;
   }
   const gl::ImportResult imported = interop_.ImportTexture(handle, allocation_bytes, format, size);
   if (imported.error != GL_NO_ERROR) {
-    *failure = std::format("{}：设置 GL 错误码 {:#06x}", imported.step, imported.error);
+    *failure = std::format("{} set GL error {:#06x}", imported.step, imported.error);
     return false;
   }
   Retire(host, shared);  // a newer texture of this kind replaces the older
@@ -148,7 +148,7 @@ ipc::Target GlClient::Describe(gl::GameHost& host, const gl::ImageInfo& back_buf
   if (!latch_.empty()) {
     problem = latch_;
   } else if (back_buffer.handle == 0u) {
-    problem = "后备缓冲区不是 OpenGL 图像";
+    problem = "The back buffer is not an OpenGL image";
   } else {
     problem = gl::BackBufferProblem(back_buffer, at_present);
   }
@@ -159,7 +159,7 @@ ipc::Target GlClient::Describe(gl::GameHost& host, const gl::ImageInfo& back_buf
     ReleaseShared(host);  // NR is off, or this image cannot go: the shared surfaces go with it (Plan 7's final review C-1)
   }
   if (problem.empty() && color_failure_ && color_failure_->Matches(back_buffer.size, back_buffer.format)) {
-    problem = ShareFailureText("后备缓冲区", back_buffer.format, color_failure_->what);
+    problem = ShareFailureText("The back buffer", back_buffer.format, color_failure_->what);
   }
   if (problem != problem_) {
     if (!problem.empty()) {
@@ -217,9 +217,10 @@ bool GlClient::Apply(const ipc::Reply& reply, NrLink& link, gl::GameHost& host) 
       // The caller re-attaches the helper with SHARED_CPU (Plan 9 M-4's lesson).
       interop_.DeleteSemaphore(&to12_gl_);
       interop_.DeleteSemaphore(&to11_gl_);
-      cpu_reason_ = std::format("驱动拒绝导入栅栏（glImportSemaphoreWin32HandleEXT 返回 GL 错误 {:#06x}）", second);
+      cpu_reason_ = std::format("the driver refused the fence import (glImportSemaphoreWin32HandleEXT set GL error {:#06x})", second);
       nr::Logf(nr::LogLevel::WARN,
-               "OpenGL 上下文无法导入辅助进程共享的栅栏（glImportSemaphoreWin32HandleEXT 返回 GL 错误 {:#06x}）；帧将改为通过 CPU 排序的共享纹理传递",
+               "The OpenGL context could not import the helper's shared fences (glImportSemaphoreWin32HandleEXT set GL error {:#06x}); frames cross through "
+               "CPU-ordered shared textures instead",
                second);
       fenced_ = false;
       fell_back = true;
@@ -235,7 +236,7 @@ bool GlClient::Apply(const ipc::Reply& reply, NrLink& link, gl::GameHost& host) 
         color_failure_.reset();
       } else {
         color_failure_ = ShareFailure{.size = color_ask_.size, .format = color_ask_.format, .what = failure};
-        nr::Log(nr::LogLevel::WARN, ShareFailureText("后备缓冲区", color_ask_.format, failure));
+        nr::Log(nr::LogLevel::WARN, ShareFailureText("The back buffer", color_ask_.format, failure));
       }
     }
     if (mask != nullptr && latch_.empty()) {
@@ -293,7 +294,7 @@ gl::ImageInfo GlClient::PrepareMotion(gl::GameHost& host, const gl::ImageInfo& m
         return {};
       }
       HANDLE handle = nullptr;
-      std::string failure = "辅助进程拒绝了请求";
+      std::string failure = "the helper refused";
       const bool opened = (shared->ok != 0u && shared->handles.motion != 0u && link.Pull(shared->handles.motion, &handle)
                            && Import(host, handle, shared->handles.motion_bytes, motion.size, DXGI_FORMAT_R16G16_FLOAT, 4u, &motion_, &failure));
       if (handle != nullptr) {
@@ -302,7 +303,7 @@ gl::ImageInfo GlClient::PrepareMotion(gl::GameHost& host, const gl::ImageInfo& m
       if (!opened) {
         // Logged once: not retried for this size (Plan 7's final review Minor 3).
         motion_failure_ = ShareFailure{.size = motion.size, .format = DXGI_FORMAT_R16G16_FLOAT, .what = failure};
-        nr::Logf(nr::LogLevel::WARN, "无法向 Uplift 辅助进程共享 UPLIFT_MV（{}）；NR 将不使用 LaunchPad 提供的运动矢量", failure);
+        nr::Logf(nr::LogLevel::WARN, "UPLIFT_MV could not be shared with Uplift's helper ({}); NR runs without LaunchPad's motion", failure);
       }
     }
   }
@@ -428,7 +429,7 @@ bool GlClient::RunFenced(gl::GameHost& host, const gl::ImageInfo& frame, const g
     if (steps.sent) {
       pending_out_ = out;
       in_flight_ = true;
-      nr::Log(nr::LogLevel::WARN, "Uplift 的 64 位辅助进程在 2 秒内未响应；在其恢复响应前，后续帧将不运行 NR");
+      nr::Log(nr::LogLevel::WARN, "Uplift's 64-bit helper did not answer within 2 s; frames go without NR until it does");
     }
     return false;
   }
@@ -464,11 +465,11 @@ bool GlClient::RunCpuOrdered(gl::GameHost& host, const gl::ImageInfo& frame, con
   switch (interop_.FlushAndWait(WAIT_CAP_MS)) {
     case gl::WaitResult::DONE: break;
     case gl::WaitResult::TIMEOUT:
-      NoteTimeout(&cpu_timeouts_, "游戏的 OpenGL 上下文", link, host);
+      NoteTimeout(&cpu_timeouts_, "the game's GL context", link, host);
       return false;
     case gl::WaitResult::BUSY: return false;
     case gl::WaitResult::FAILED:
-      Stop("OpenGL 等待失败", link, host);
+      Stop("an OpenGL wait failed", link, host);
       return false;
   }
   run.motion = (shared_motion_source.handle != 0u ? 1u : 0u);
@@ -513,7 +514,7 @@ MaskCopy GlClient::CopyMask(gl::GameHost& host, const gl::ImageInfo& mask, NrLin
       return {.busy = true};
     }
     HANDLE handle = nullptr;
-    std::string failure = "辅助进程拒绝了请求";
+    std::string failure = "the helper refused";
     const bool opened = (shared->ok != 0u && shared->handles.mask != 0u && link.Pull(shared->handles.mask, &handle)
                          && Import(host, handle, shared->handles.mask_bytes, mask.size, format->view_format, format->bytes_per_pixel, &mask_, &failure));
     if (handle != nullptr) {
@@ -522,7 +523,7 @@ MaskCopy GlClient::CopyMask(gl::GameHost& host, const gl::ImageInfo& mask, NrLin
     if (!opened) {
       // Logged once: not retried for this size and format (final review Minor 3).
       mask_failure_ = ShareFailure{.size = mask.size, .format = format->view_format, .what = failure};
-      nr::Logf(nr::LogLevel::WARN, "无法向 Uplift 辅助进程共享 UPLIFT_MASK（DXGI_FORMAT {}，{}）", static_cast<int>(format->view_format), failure);
+      nr::Logf(nr::LogLevel::WARN, "UPLIFT_MASK could not be shared with Uplift's helper (DXGI_FORMAT {}, {})", static_cast<int>(format->view_format), failure);
       return {};
     }
     mask_failure_.reset();
@@ -534,8 +535,8 @@ MaskCopy GlClient::CopyMask(gl::GameHost& host, const gl::ImageInfo& mask, NrLin
 
 std::string GlClient::Line() const {
   const double mib = static_cast<double>(ImportedBytes()) / MIB;
-  return (fenced_ ? std::format("OpenGL（{} 位）：NR 在 Uplift 的 64 位辅助进程中运行（共享纹理和栅栏，{:.1f} MiB）", BITNESS, mib)
-                  : std::format("OpenGL（{} 位）：NR 在 Uplift 的 64 位辅助进程中运行（共享纹理，按 CPU 顺序同步，{:.1f} MiB）：{}", BITNESS, mib, cpu_reason_));
+  return (fenced_ ? std::format("OpenGL ({}): NR runs in Uplift's 64-bit helper (shared textures and fences, {:.1f} MiB)", BITNESS, mib)
+                  : std::format("OpenGL ({}): NR runs in Uplift's 64-bit helper (shared textures, CPU-ordered, {:.1f} MiB): {}", BITNESS, mib, cpu_reason_));
 }
 
 }  // namespace uplift::client

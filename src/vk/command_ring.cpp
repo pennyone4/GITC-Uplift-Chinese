@@ -36,7 +36,7 @@ std::unique_ptr<CommandRing> CommandRing::Create(const NrFunctions& functions, V
   }
   if (!made) {
     ring->Destroy();  // nothing was submitted yet
-    *error = std::format("无法在效果队列族 {} 上创建 Uplift 的命令缓冲区", family);
+    *error = std::format("Uplift's own command buffers could not be made on the effect queue's family {}", family);
     return nullptr;
   }
   return ring;

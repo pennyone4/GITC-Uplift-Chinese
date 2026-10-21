@@ -20,7 +20,7 @@ struct ImageInfo {
 
 // Design §3.6, R63: the card's text when the present event's context is not the one ReShade's effect runtime runs on.
 inline constexpr char WRONG_CONTEXT_PROBLEM[] =
-    "游戏使用的 OpenGL 上下文与 ReShade 效果运行时的上下文不同；NR 将保持关闭";
+    "The game presents from another OpenGL context than the one ReShade's effects run on; NR stays off";
 
 // What one context's GL work needs from its host. The add-on's host is ReShade's API on the effect runtime's queue (on OpenGL that queue's immediate
 // list is the context itself); the smokes' is a native one that copies the way ReShade does. No GL call is ever made while Valid() is false.

@@ -33,14 +33,14 @@ std::unique_ptr<VkBridge> VkBridge::Create(vk::Device device, LUID luid, ComPtr<
     for (size_t index = 0u; index < 2u && bridge->cpu_reason_.empty(); ++index) {
       HANDLE handle = nullptr;
       if (const HRESULT result = bridge->side_->CreateSharedFence(fences[index], &handle); FAILED(result)) {
-        bridge->cpu_reason_ = std::format("无法创建共享栅栏（HRESULT {:#010x}）", static_cast<uint32_t>(result));
+        bridge->cpu_reason_ = std::format("the shared fence could not be created (HRESULT {:#010x})", static_cast<uint32_t>(result));
         break;
       }
       const char* step = "";
       const VkResult imported = bridge->interop_.ImportTimeline(handle, semaphores[index], &step);
       CloseHandle(handle);  // the imported semaphore keeps the fence alive
       if (imported != VK_SUCCESS) {
-        bridge->cpu_reason_ = std::format("驱动拒绝导入栅栏（{} 返回 VkResult {}）", step, static_cast<int>(imported));
+        bridge->cpu_reason_ = std::format("the driver refused the fence import ({} returned VkResult {})", step, static_cast<int>(imported));
       }
     }
     if (bridge->cpu_reason_.empty()) {
@@ -52,12 +52,12 @@ std::unique_ptr<VkBridge> VkBridge::Create(vk::Device device, LUID luid, ComPtr<
       bridge->to11_.Reset();
     }
   } else {
-    bridge->cpu_reason_ = (record.not_adjusted.empty() ? std::string("设备缺少 VK_KHR_external_memory_win32 扩展") : record.not_adjusted);
+    bridge->cpu_reason_ = (record.not_adjusted.empty() ? std::string("the device lacks VK_KHR_external_memory_win32") : record.not_adjusted);
   }
   if (bridge->gpu_ordered_) {
-    nr::Log(nr::LogLevel::INFO, "Vulkan：NR 在专用 Direct3D 12 设备上运行");
+    nr::Log(nr::LogLevel::INFO, "Vulkan: NR runs on a private Direct3D 12 device");
   } else {
-    nr::Logf(nr::LogLevel::INFO, "Vulkan：NR 在专用 Direct3D 12 设备上运行（按 CPU 顺序同步：{}）", bridge->cpu_reason_);
+    nr::Logf(nr::LogLevel::INFO, "Vulkan: NR runs on a private Direct3D 12 device (CPU-ordered: {})", bridge->cpu_reason_);
   }
   return bridge;
 }
@@ -80,13 +80,13 @@ bool VkBridge::CreateShared(nr::Size size, DXGI_FORMAT format, D3D12_RESOURCE_FL
   Shared created = {.size = size, .format = format, .bytes = size.Pixels() * bytes_per_pixel};
   HANDLE handle = nullptr;
   if (const HRESULT result = side_->CreateShared(size, format, flags, name, &created.d3d12, &handle); FAILED(result)) {
-    *failure = std::format("Direct3D 12 返回 HRESULT {:#010x}", static_cast<uint32_t>(result));
+    *failure = std::format("Direct3D 12 returned HRESULT {:#010x}", static_cast<uint32_t>(result));
     return false;
   }
   vk::ImportResult imported = interop_.ImportImage(handle, format, size);
   CloseHandle(handle);  // the imported memory keeps the allocation
   if (imported.result != VK_SUCCESS) {
-    *failure = std::format("{} 返回 VkResult {}", imported.step, static_cast<int>(imported.result));
+    *failure = std::format("{} returned VkResult {}", imported.step, static_cast<int>(imported.result));
     return false;
   }
   created.vulkan = imported.image;
@@ -105,8 +105,8 @@ void VkBridge::Retire(vk::GameHost& host, Shared* shared) {
 
 void VkBridge::LatchVulkan(std::string_view failure) {
   if (!latch_.empty()) return;
-  std::string reason = std::format("Vulkan 中继已停止：{}",
-                                   (interop_.DeviceLost() ? std::string_view("游戏的 Vulkan 设备已丢失") : failure));
+  std::string reason = std::format("The Vulkan bridge stopped: {}",
+                                   (interop_.DeviceLost() ? std::string_view("the game's Vulkan device was lost") : failure));
   nr::Log(nr::LogLevel::ERR, reason);
   // Batch 2 review, minor 1: after a failed Vulkan wait on a lost device the private queue would otherwise wait on `to12` until destroy_device.
   Stop(std::move(reason));
@@ -114,7 +114,7 @@ void VkBridge::LatchVulkan(std::string_view failure) {
 
 void VkBridge::NoteTimeout(uint32_t* consecutive, std::string_view what) {
   if (++*consecutive >= MAX_CONSECUTIVE_TIMEOUTS) {
-    LatchVulkan(std::format("{}连续 {} 次未能在 2 秒内完成", what, MAX_CONSECUTIVE_TIMEOUTS));
+    LatchVulkan(std::format("{} did not finish within 2 s, {} times in a row", what, MAX_CONSECUTIVE_TIMEOUTS));
   }
 }
 
@@ -127,7 +127,7 @@ BridgeFrame VkBridge::BeginFrame(vk::GameHost& host, const VkImageInfo& back_buf
     // Both directions count as progress, so a frame shows two steps: the game's work up to the copy-in, then NR's.
     const uint64_t completed = to11_->GetCompletedValue();
     if (const std::optional<std::string_view> stopped = watchdog_.Check(completed, completed + to12_->GetCompletedValue(), now)) {
-      std::string reason = std::format("Vulkan 中继已停止：{}", *stopped);
+      std::string reason = std::format("The Vulkan bridge stopped: {}", *stopped);
       nr::Log(nr::LogLevel::ERR, reason);
       Stop(std::move(reason));
     }
@@ -165,7 +165,7 @@ BridgeFrame VkBridge::BeginFrame(vk::GameHost& host, const VkImageInfo& back_buf
     }
     // Reported while NR is off too, so the Session does not load for a back buffer the bridge cannot share.
     if (color_failure_ && color_failure_->Matches(back_buffer.size, back_buffer.format)) {
-      problem = std::format("无法将后备缓冲区共享至专用 Direct3D 12 设备（DXGI_FORMAT {}，{}）",
+      problem = std::format("The back buffer could not be shared with the private Direct3D 12 device (DXGI_FORMAT {}, {})",
                             static_cast<int>(back_buffer.format), color_failure_->what);
     }
   }
@@ -205,7 +205,7 @@ bool VkBridge::RecordAndExecute(const Recorder& record, ID3D12Resource* motion12
     *wrote = record(list, targets);
   } catch (...) {
     // Half a recording never executes; the queue still signals, so the game never waits in vain.
-    nr::Log(nr::LogLevel::ERR, "在专用 Direct3D 12 设备上记录 NR 命令时发生异常；本帧将不运行 NR");
+    nr::Log(nr::LogLevel::ERR, "NR's recording on the private Direct3D 12 device threw; this frame goes without NR");
     recorded = false;
     *wrote = false;
   }
@@ -254,11 +254,11 @@ bool VkBridge::Run(vk::GameHost& host, const VkImageInfo& back_buffer, vk::Usage
         present_synced_ = true;
         break;
       case vk::WaitResult::TIMEOUT:
-        NoteTimeout(&present_queue_timeouts_, "游戏的呈现队列");  // this frame goes without NR
+        NoteTimeout(&present_queue_timeouts_, "the game's present queue");  // this frame goes without NR
         return false;
       case vk::WaitResult::BUSY: return false;
       case vk::WaitResult::FAILED:
-        LatchVulkan("游戏的 Vulkan 呈现队列提交失败");
+        LatchVulkan("a Vulkan submission on the game's present queue failed");
         return false;
     }
   }
@@ -276,7 +276,7 @@ bool VkBridge::Run(vk::GameHost& host, const VkImageInfo& back_buffer, vk::Usage
         } else {
           // Logged once: not retried for this size (Plan 7 Minor 3).
           motion_failure_ = ShareFailure{.size = motion.size, .format = DXGI_FORMAT_R16G16_FLOAT, .what = failure};
-          nr::Logf(nr::LogLevel::WARN, "无法向专用 Direct3D 12 设备共享 {}（{}）；NR 将不使用 {} 提供的运动矢量",
+          nr::Logf(nr::LogLevel::WARN, "{} could not be shared with the private Direct3D 12 device ({}); NR runs without {} motion",
                    (motion_is_dlss ? "DLSS's motion vectors" : "UPLIFT_MV"), failure, (motion_is_dlss ? "DLSS's" : "LaunchPad's"));
         }
       }
@@ -293,7 +293,7 @@ bool VkBridge::Run(vk::GameHost& host, const VkImageInfo& back_buffer, vk::Usage
   if (wrote && !ran_logged_) {
     // Once per enable (BeginFrame clears it when NR goes off): the e2e cases and the checklist read it as "a frame came back through the bridge".
     ran_logged_ = true;
-    nr::Log(nr::LogLevel::INFO, "NR 已在游戏帧中运行（Vulkan，64 位）");
+    nr::Log(nr::LogLevel::INFO, "NR ran on the game's frame (Vulkan, 64-bit)");
   }
   return wrote;
 }
@@ -323,7 +323,7 @@ bool VkBridge::RunGpuOrdered(vk::GameHost& host, const VkImageInfo& back_buffer,
     bool SignalD3D11(uint64_t value) override {
       if (host_.Signal(bridge_.to12_vk_, value)) return true;
       bridge_.interop_.Counter(bridge_.to12_vk_);  // notes a lost device
-      vulkan_failure = "Vulkan 时间线信号量发出信号失败";
+      vulkan_failure = "the Vulkan timeline semaphore signal failed";
       return false;
     }
     bool WaitD3D12(uint64_t value) override {
@@ -342,7 +342,7 @@ bool VkBridge::RunGpuOrdered(vk::GameHost& host, const VkImageInfo& back_buffer,
       bridge_.waited11_ = value;  // for Stop, whether or not the queue took it
       if (host_.Wait(bridge_.to11_vk_, value)) return true;
       bridge_.interop_.Counter(bridge_.to11_vk_);
-      vulkan_failure = "Vulkan 时间线信号量等待失败";
+      vulkan_failure = "the Vulkan timeline semaphore wait failed";
       return false;
     }
     void CopyOut() override { vk::RecordCopyOut(host_, back_buffer_.image, entry_state_, bridge_.color_.vulkan.image); }
@@ -384,11 +384,11 @@ bool VkBridge::RunCpuOrdered(vk::GameHost& host, const VkImageInfo& back_buffer,
   switch (interop_.FlushAndWait(vk::WaitSlot::CPU_ORDER, host, WAIT_CAP_MS)) {
     case vk::WaitResult::DONE: break;
     case vk::WaitResult::TIMEOUT:
-      NoteTimeout(&cpu_timeouts_, "游戏的 Vulkan 队列");
+      NoteTimeout(&cpu_timeouts_, "the game's queue");
       return false;
     case vk::WaitResult::BUSY: return false;
     case vk::WaitResult::FAILED:
-      LatchVulkan("Vulkan 提交或等待失败");
+      LatchVulkan("a Vulkan submission or wait failed");
       return false;
   }
   const uint64_t value = ++last_value_;
@@ -400,7 +400,7 @@ bool VkBridge::RunCpuOrdered(vk::GameHost& host, const VkImageInfo& back_buffer,
     StampUsed(value, used_mask, motion12 != nullptr);
   }
   if (!signalled) {
-    LatchVulkan("专用 Direct3D 12 队列未能发出信号");
+    LatchVulkan("the private Direct3D 12 queue refused to signal");
     return false;
   }
   if (progress_event_ == nullptr) {
@@ -410,13 +410,13 @@ bool VkBridge::RunCpuOrdered(vk::GameHost& host, const VkImageInfo& back_buffer,
   // check above guarantees that nothing was in flight, so no completion of an older value can still arrive.
   if (progress_event_ == nullptr || ResetEvent(progress_event_) == FALSE
       || FAILED(side_->Progress()->SetEventOnCompletion(value, progress_event_))) {
-    LatchVulkan("无法等待专用 Direct3D 12 队列完成处理");
+    LatchVulkan("the private Direct3D 12 queue's completion could not be waited for");
     return false;
   }
   // Batch 2 re-review, minor 3: the event is set later (from the interrupt path) than the fence's value reaches the GPU, so a stale completion of an
   // older recording could still end this wait early; the fence's own value, which only `value` reaching it can satisfy, decides.
   if (WaitForSingleObject(progress_event_, WAIT_CAP_MS) != WAIT_OBJECT_0 || side_->Completed() < value) {
-    NoteTimeout(&cpu_timeouts_, "专用 Direct3D 12 队列上的 NR");  // the surfaces stay stamped; Run skips frames until it ends
+    NoteTimeout(&cpu_timeouts_, "NR on the private Direct3D 12 queue");  // the surfaces stay stamped; Run skips frames until it ends
     return false;
   }
   cpu_timeouts_ = 0u;
@@ -443,7 +443,7 @@ MaskCopy VkBridge::CopyMask(vk::GameHost& host, const VkImageInfo& mask) {
                       format->bytes_per_pixel, L"Uplift shared mask", &mask_, &failure)) {
       // Logged once: not retried for this size and format (Plan 7 Minor 3).
       mask_failure_ = ShareFailure{.size = mask.size, .format = format->view_format, .what = failure};
-      nr::Logf(nr::LogLevel::WARN, "无法向专用 Direct3D 12 设备共享 UPLIFT_MASK（DXGI_FORMAT {}，{}）",
+      nr::Logf(nr::LogLevel::WARN, "UPLIFT_MASK could not be shared with the private Direct3D 12 device (DXGI_FORMAT {}, {})",
                static_cast<int>(format->view_format), failure);
       return {};
     }
@@ -509,15 +509,15 @@ uint64_t VkBridge::SharedBytes() const {
 
 std::string VkBridge::StatusLine(std::string_view route_reason) const {
   const double mib = static_cast<double>(SharedBytes()) / (1024.0 * 1024.0);
-  const std::string device = (route_reason.empty() ? std::string("专用 Direct3D 12 设备")
-                                                   : std::format("专用 Direct3D 12 设备：{}", route_reason));
-  std::string line = (gpu_ordered_ ? std::format("Vulkan：NR 在{}上运行（共享纹理和围栏，{:.1f} MiB）", device, mib)
-                                   : std::format("Vulkan：NR 在{}上运行（共享纹理、CPU 排序，{:.1f} MiB）：{}", device, mib, cpu_reason_));
+  const std::string device = (route_reason.empty() ? std::string("a private Direct3D 12 device")
+                                                   : std::format("a private Direct3D 12 device: {}", route_reason));
+  std::string line = (gpu_ordered_ ? std::format("Vulkan: NR runs on {} (shared textures and fences, {:.1f} MiB)", device, mib)
+                                   : std::format("Vulkan: NR runs on {} (shared textures, CPU-ordered, {:.1f} MiB): {}", device, mib, cpu_reason_));
   if (busy_skips_ > 0u) {
-    line += std::format("；桥接繁忙期间有 {} 帧未运行 NR", busy_skips_);
+    line += std::format(", {} frame(s) without NR while the bridge was busy", busy_skips_);
   }
   if (second_queue_) {
-    line += "；游戏从第二个队列呈现画面";
+    line += ", presents from a second queue";
   }
   return line;
 }

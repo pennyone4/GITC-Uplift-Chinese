@@ -60,7 +60,7 @@ struct State {
   // Plan 13 (64-bit): each physical device's instance, from the enumerate detours (the latest call wins), and why those detours or the
   // vkDestroyDevice one are not in (empty once all three are).
   std::unordered_map<VkPhysicalDevice, VkInstance> instances;
-  std::string native_hooks_error = "Vulkan 设备挂钩尚未安装";
+  std::string native_hooks_error = "the Vulkan device hook is not installed";
   uint32_t instance_api_version = 0u;  // Plan 19: the latest create_device(vulkan)'s, as ReShade codes it; 0 = none seen
 };
 
@@ -89,14 +89,14 @@ std::string NgxLacks(std::span<const char* const> names, bool push_from_reshade,
     const bool listed = std::ranges::any_of(names, [extension](const char* name) { return std::string_view(name) == extension; })
                         || (push_from_reshade && std::string_view(extension) == "VK_KHR_push_descriptor");
     if (!listed) {
-      lacks += std::format("{}{}", (lacks.empty() ? "" : "、"), extension);
+      lacks += std::format("{}{}", (lacks.empty() ? "" : ", "), extension);
     }
   }
   if (!buffer_device_address) {
-    lacks += std::format("{}bufferDeviceAddress", (lacks.empty() ? "" : "、"));
+    lacks += std::format("{}bufferDeviceAddress", (lacks.empty() ? "" : ", "));
   }
   if (!timeline) {
-    lacks += std::format("{}时间线信号量", (lacks.empty() ? "" : "、"));
+    lacks += std::format("{}timeline semaphores", (lacks.empty() ? "" : ", "));
   }
   return lacks;
 }
@@ -108,11 +108,11 @@ void LogBeforeCreate(const VkDeviceCreateInfo& request, std::string_view additio
   try {
     std::string chain;
     for (const auto* link = static_cast<const VkBaseInStructure*>(request.pNext); link != nullptr; link = link->pNext) {
-      chain += std::format("{}{}", (chain.empty() ? "" : "、"), static_cast<uint32_t>(link->sType));
+      chain += std::format("{}{}", (chain.empty() ? "" : ", "), static_cast<uint32_t>(link->sType));
     }
-    const std::string api = (api_version == 0u ? std::string("未知") : std::format("{}.{}", api_version >> 12u, (api_version >> 8u) & 0xFu));
-    nr::Logf(nr::LogLevel::INFO, "Vulkan：正在为游戏创建设备并添加 Uplift 扩展：{}；功能链：{}；API 版本 {}", additions,
-             (chain.empty() ? std::string("无") : chain), api);
+    const std::string api = (api_version == 0u ? std::string("unknown") : std::format("{}.{}", api_version >> 12u, (api_version >> 8u) & 0xFu));
+    nr::Logf(nr::LogLevel::INFO, "Vulkan: creating the game's device with Uplift's additions: {}; feature chain: {}; apiVersion {}", additions,
+             (chain.empty() ? std::string("none") : chain), api);
   } catch (...) {
     // No-op: the game's device is created whether or not the line was written.
   }
@@ -120,7 +120,7 @@ void LogBeforeCreate(const VkDeviceCreateInfo& request, std::string_view additio
 
 void LogAfterCreate(VkResult result) noexcept {
   try {
-    nr::Logf(nr::LogLevel::INFO, "Vulkan：驱动返回 VkResult {}", static_cast<int>(result));
+    nr::Logf(nr::LogLevel::INFO, "Vulkan: the driver returned VkResult {}", static_cast<int>(result));
   } catch (...) {
     // No-op: as LogBeforeCreate.
   }
@@ -210,7 +210,7 @@ VkResult VKAPI_CALL CreateDeviceDetour(VkPhysicalDevice physical, const VkDevice
 #endif
     }
     const Loader* const loader = Loader::Get();
-    if (loader == nullptr) throw std::logic_error("未加载 vulkan-1.dll");  // caught below: the game's own request goes through
+    if (loader == nullptr) throw std::logic_error("vulkan-1.dll is not loaded");  // caught below: the game's own request goes through
     uint32_t count = 0u;
     loader->enumerate_device_extensions(physical, nullptr, &count, nullptr);
     std::vector<VkExtensionProperties> properties(count);
@@ -287,14 +287,14 @@ VkResult VKAPI_CALL CreateDeviceDetour(VkPhysicalDevice physical, const VkDevice
     names.insert(names.end(), plan.ngx_added.begin(), plan.ngx_added.end());
 #endif
     for (const char* name : plan.added) {
-      added_text += (added_text.empty() ? "" : "、");
+      added_text += (added_text.empty() ? "" : ", ");
       added_text += name;
     }
     if (plan.chain_timeline_features) {
       timeline.pNext = const_cast<void*>(info->pNext);
       adjusted.pNext = &timeline;
-      added_text += (added_text.empty() ? "" : "、");
-      added_text += "时间线信号量";
+      added_text += (added_text.empty() ? "" : ", ");
+      added_text += "timeline semaphores";
     }
 #if defined(_WIN64)
     without_ngx.pNext = adjusted.pNext;
@@ -321,13 +321,13 @@ VkResult VKAPI_CALL CreateDeviceDetour(VkPhysicalDevice physical, const VkDevice
     record.adjusted = (adjusted_without_ngx || ngx_added);  // Plan 19: NGX's additions count toward the pending marker too
 #endif
     if (!(plan.semaphore_win32 && plan.timeline)) {
-      const char* const missing = (!plan.semaphore_win32 ? "VK_KHR_external_semaphore_win32" : "时间线信号量");
-      const char* cause = "此驱动不支持该功能";
+      const char* const missing = (!plan.semaphore_win32 ? "VK_KHR_external_semaphore_win32" : "timeline semaphores");
+      const char* cause = "this driver does not offer it";
       if (!config.adjust) {
-        cause = (config.turned_off_by_marker ? "Uplift 已关闭设备调整：上次启用时游戏未能显示首帧（可在 [Uplift] 中将 AdjustVulkanDevices 设为 1 后重试）"
-                                             : "ReShade.ini 中的 AdjustVulkanDevices 为 0");
+        cause = (config.turned_off_by_marker ? "Uplift turned its adjustment off: the last start with it did not reach its first frame (set AdjustVulkanDevices=1 under [Uplift] to try again)"
+                                             : "AdjustVulkanDevices is 0 in ReShade.ini");
       }
-      record.not_adjusted = std::format("游戏设备创建时未启用 {}，原因：{}", missing, cause);
+      record.not_adjusted = std::format("the game's device was created without {} because {}", missing, cause);
     }
 #if defined(_WIN64)
     // Plan 13 (design §3.6): native NR's facts, from the request as it goes to the driver: NGX's extensions and bufferDeviceAddress (the game's own;
@@ -338,32 +338,32 @@ VkResult VKAPI_CALL CreateDeviceDetour(VkPhysicalDevice physical, const VkDevice
     record.ngx_ready = ngx_missing.empty();
     if (!record.ngx_ready && config.adjust && !config.adjust_ngx) {
       // T1b: why Uplift added none of it (the native route's reason names it).
-      ngx_missing += (config.ngx_turned_off_by_marker ? "；Uplift 已关闭 NGX 设备扩展：上次启用扩展后，游戏未能显示首帧"
-                                                        "（可在 ReShade.ini 的 [Uplift] 中将 AdjustVulkanDevicesForNgx 设为 1 后重试）"
-                                                      : "；ReShade.ini 中的 AdjustVulkanDevicesForNgx 为 0");
+      ngx_missing += (config.ngx_turned_off_by_marker ? "; Uplift turned NGX's device additions off: the last start with them did not reach its first frame "
+                                                        "(set AdjustVulkanDevicesForNgx=1 under [Uplift] to try again)"
+                                                      : "; AdjustVulkanDevicesForNgx is 0 in ReShade.ini");
     } else if (!record.ngx_ready && config.adjust && !config.native_nr_chosen) {
       // T5: the panel greys Native with this, and the choice returns after a restart with Native.
-      ngx_missing += "；游戏启动时，Vulkan 后处理阶段 NR 未设为“原生”，因此 Uplift 未添加这些扩展；原生模式需要重启游戏";
+      ngx_missing += "; Vulkan NR at Present was not Native when the game started, so Uplift added none of them: Native needs a game restart";
     } else if (!record.ngx_ready && config.adjust && config.native_nr_latched) {
       // T6 fix round (M-2): Uplift's own latch, which a restart alone does not lift.
-      ngx_missing += "；游戏启动时，原生 Vulkan NR 处于关闭状态（VulkanNativeNr = 0），因此 Uplift 未添加这些扩展；请点击“清除锁定”，或在 "
-                     "ReShade.ini 的 [Uplift] 中将 VulkanNativeNr 设为 1，然后重启游戏";
+      ngx_missing += "; native Vulkan NR was off when the game started (VulkanNativeNr = 0), so Uplift added none of them: press Clear latch, or set "
+                     "VulkanNativeNr=1 under [Uplift], and restart the game";
     }
     record.ngx_missing = std::move(ngx_missing);
     // What NGX needs that the game's own request lacks, and which of those extensions the driver offers (one line for every device).
     if (const std::string lacks = NgxLacks(game_names, false, buffer_device_address, (vulkan12_features || timeline_features)); lacks.empty()) {
       game_ngx_ready = true;
-      ngx_line = "Vulkan：游戏的设备请求已包含 NGX 所需的全部功能";
+      ngx_line = "Vulkan: the game's device request has everything NGX needs";
     } else {
       std::string offered_text;
       for (const char* extension : NGX_EXTENSIONS) {
         const bool listed = std::ranges::any_of(game_names, [extension](const char* name) { return std::string_view(name) == extension; });
         if (!listed && std::ranges::find(offered, std::string_view(extension)) != offered.end()) {
-          offered_text += std::format("{}{}", (offered_text.empty() ? "" : "、"), extension);
+          offered_text += std::format("{}{}", (offered_text.empty() ? "" : ", "), extension);
         }
       }
-      ngx_line = std::format("Vulkan：游戏的设备请求缺少 NGX 所需的{}；驱动提供了{}", lacks,
-                             (offered_text.empty() ? std::string("均未提供这些扩展") : offered_text));
+      ngx_line = std::format("Vulkan: for NGX the game's device request lacks {}; the driver offers {}", lacks,
+                             (offered_text.empty() ? std::string("none of those extensions") : offered_text));
     }
     {
       const std::shared_lock lock(Shared().mutex);
@@ -386,7 +386,7 @@ VkResult VKAPI_CALL CreateDeviceDetour(VkPhysicalDevice physical, const VkDevice
       adjusted.pEnabledFeatures = &features;
       record.storage_extended_enabled = true;
       features_added = true;
-      added_text += (added_text.empty() ? "" : "、");
+      added_text += (added_text.empty() ? "" : ", ");
       added_text += "shaderStorageImageExtendedFormats";
     }
     // Plan 19: the request without NGX's additions (R49's first retry), and what the device has then. The extended storage formats stay in it only
@@ -403,35 +403,35 @@ VkResult VKAPI_CALL CreateDeviceDetour(VkPhysicalDevice physical, const VkDevice
       without_ngx_added_text = added_text;
       if (features_added && !without_ngx_features) {
         without_ngx_added_text.resize(without_ngx_added_text.size() - std::string_view("shaderStorageImageExtendedFormats").size());
-        if (without_ngx_added_text.ends_with("、")) {
+        if (without_ngx_added_text.ends_with(", ")) {
           without_ngx_added_text.resize(without_ngx_added_text.size() - 2u);
         }
       }
     }
     // Uplift's NGX additions join the "added" line (after what the request without them has), and the notes say why one was not made.
     for (const char* name : plan.ngx_added) {
-      added_text += std::format("{}{}", (added_text.empty() ? "" : "、"), name);
+      added_text += std::format("{}{}", (added_text.empty() ? "" : ", "), name);
     }
     if (plan.chain_buffer_device_address) {
-      added_text += std::format("{}bufferDeviceAddress", (added_text.empty() ? "" : "、"));
+      added_text += std::format("{}bufferDeviceAddress", (added_text.empty() ? "" : ", "));
     }
     const auto game_lists = [&game_names](std::string_view extension) {
       return std::ranges::any_of(game_names, [extension](const char* name) { return std::string_view(name) == extension; });
     };
     const auto note = [&ngx_notes](std::string_view why) { ngx_notes += std::format("{}{}", (ngx_notes.empty() ? "" : "; "), why); };
     if (!config.adjust) {
-      note(config.turned_off_by_marker ? "上次启用 Vulkan 设备调整后，游戏未能进入第一帧；Uplift 已自动关闭设备调整"
-                                       : "ReShade.ini 中的 AdjustVulkanDevices 为 0");
+      note(config.turned_off_by_marker ? "Uplift turned the device adjustment off (the last start with it did not reach its first frame)"
+                                       : "AdjustVulkanDevices is 0 in ReShade.ini");
     } else if (config.adjust_ngx && config.native_nr_chosen && !config.native_nr_latched) {  // otherwise `ngx_missing` names why nothing of NGX's was added
       if (game_lists(VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME)) {
-        note("游戏启用了 VK_EXT_buffer_device_address，因此不能同时启用 VK_KHR_buffer_device_address 及其功能结构体");
+        note("the game lists VK_EXT_buffer_device_address, which excludes VK_KHR_buffer_device_address and its feature struct");
       } else if ((vulkan12_features || buffer_device_address_features) && !buffer_device_address) {
-        note("游戏自己的功能结构体未启用 bufferDeviceAddress；Uplift 不会修改游戏的内存");
+        note("the game's own feature struct has bufferDeviceAddress off, and Uplift never writes the game's memory");
       } else if (!vulkan12_features && !buffer_device_address_features && !address_supported) {
-        note("驱动未报告支持 bufferDeviceAddress");
+        note("the driver does not report bufferDeviceAddress");
       }
       if (reshade_push && !game_lists(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME)) {
-        note("ReShade 会自行追加 VK_KHR_push_descriptor");
+        note("ReShade appends VK_KHR_push_descriptor itself");
       }
     }
 #endif
@@ -510,7 +510,7 @@ VkResult VKAPI_CALL CreateDeviceDetour(VkPhysicalDevice physical, const VkDevice
     record.semaphore_win32 = false;
     record.timeline = false;
     record.ngx_ready = false;  // Plan 13: without the timeline feature it may have added, native NR is not known to work here
-    record.ngx_missing = "Uplift 的设备调整（驱动拒绝了该请求）";
+    record.ngx_missing = "Uplift's device adjustment (the driver refused it)";
     record.storage_extended_enabled = false;
   }
   if (reservation.counted) {
@@ -518,9 +518,9 @@ VkResult VKAPI_CALL CreateDeviceDetour(VkPhysicalDevice physical, const VkDevice
   }
   try {
     if (failed) {
-      record.not_adjusted = "Uplift 设备调整失败";
+      record.not_adjusted = "Uplift's adjustment failed";
     } else if (refused) {
-      record.not_adjusted = "驱动拒绝了 Uplift 请求的扩展";
+      record.not_adjusted = "the driver refused Uplift's additions";
       added_text.clear();
     }
     const bool exists = (result >= VK_SUCCESS && device != nullptr);
@@ -541,11 +541,11 @@ VkResult VKAPI_CALL CreateDeviceDetour(VkPhysicalDevice physical, const VkDevice
     }
     if (exists) {
       if (!added_text.empty()) {
-        nr::Logf(nr::LogLevel::INFO, "Vulkan：已向游戏设备添加{}", added_text);
+        nr::Logf(nr::LogLevel::INFO, "Vulkan: added {} to the game's device", added_text);
       } else if (record.semaphore_win32 && record.timeline) {
-        nr::Log(nr::LogLevel::INFO, "Vulkan：游戏设备已包含共享扩展");
+        nr::Log(nr::LogLevel::INFO, "Vulkan: the game's device already has the sharing extensions");
       } else {
-        nr::Logf(nr::LogLevel::INFO, "Vulkan：设备未应用 Uplift 调整（{}）", record.not_adjusted);
+        nr::Logf(nr::LogLevel::INFO, "Vulkan: device created without Uplift's adjustment ({})", record.not_adjusted);
       }
     }
 #if defined(_WIN64)
@@ -554,17 +554,17 @@ VkResult VKAPI_CALL CreateDeviceDetour(VkPhysicalDevice physical, const VkDevice
     }
     if (exists && !failed) {
       if (ngx_refusal != VK_SUCCESS) {
-        nr::Logf(nr::LogLevel::WARN, "Vulkan：驱动拒绝了包含 NGX 扩展的设备创建请求（VkResult {}）；{}", static_cast<int>(ngx_refusal),
-                 (refused ? "不添加这些扩展时驱动同样会拒绝，因此已按游戏原请求创建设备" : "已在不添加这些扩展的情况下创建设备"));
+        nr::Logf(nr::LogLevel::WARN, "Vulkan: the driver refused the device with NGX's additions (VkResult {}); {}", static_cast<int>(ngx_refusal),
+                 (refused ? "it refused it without them too, so the device was created as the game asked" : "it was created without them"));
       }
       // What the device has for NGX, unless the game's own request already had everything and the device kept it; the notes say why one of
       // Uplift's additions was not made, when the request went through as planned.
       if (!game_ngx_ready || !record.ngx_ready) {
         const std::string why = ((ngx_notes.empty() || refused || ngx_refusal != VK_SUCCESS) ? std::string() : std::format(" ({})", ngx_notes));
         if (record.ngx_ready) {
-          nr::Logf(nr::LogLevel::INFO, "Vulkan：设备已具备 NGX 所需的全部功能{}", why);
+          nr::Logf(nr::LogLevel::INFO, "Vulkan: the device has everything NGX needs{}", why);
         } else {
-          nr::Logf(nr::LogLevel::INFO, "Vulkan：设备缺少 NGX 所需的{}{}", record.ngx_missing, why);
+          nr::Logf(nr::LogLevel::INFO, "Vulkan: for NGX the device lacks {}{}", record.ngx_missing, why);
         }
       }
     }
@@ -640,7 +640,7 @@ std::optional<std::string> DeviceHook::Install() {
   const std::scoped_lock lock(install_mutex);
   if (g_installed.load(std::memory_order_acquire)) return std::nullopt;
   const Loader* const loader = Loader::Get();
-  if (loader == nullptr) return "未加载 vulkan-1.dll";
+  if (loader == nullptr) return "vulkan-1.dll is not loaded";
   // Final review I-1: the loader is pinned before anything is patched. DXVK loads vulkan-1.dll with LoadLibrary for each of its instances and
   // frees it with the last one (a probe instance, an adapter check, a game that recreates its IDirect3D9), and the Khronos loader never pins
   // itself: the image, the detour in it and Loader's cached export pointers would go, and a later mapping of the DLL at another base would leave
@@ -649,26 +649,26 @@ std::optional<std::string> DeviceHook::Install() {
   if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN, reinterpret_cast<LPCWSTR>(loader->create_device),
                          &loader_module)
       == FALSE) {
-    return std::format("无法固定 vulkan-1.dll（错误码 {}）", GetLastError());
+    return std::format("could not pin vulkan-1.dll (error {})", GetLastError());
   }
   // Key decision b: the detour lives in this module, and ReShade unloads its add-ons when the last instance or device goes.
   HMODULE self = nullptr;
   if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN, reinterpret_cast<LPCWSTR>(&CreateDeviceDetour), &self)
       == FALSE) {
-    return std::format("无法固定 Uplift 模块（错误码 {}）", GetLastError());
+    return std::format("could not pin Uplift's module (error {})", GetLastError());
   }
-  if (const MH_STATUS status = hooks::EnsureMinHook(); status != MH_OK) return std::format("MinHook 启动失败：{}", MH_StatusToString(status));
+  if (const MH_STATUS status = hooks::EnsureMinHook(); status != MH_OK) return std::format("MinHook failed to start: {}", MH_StatusToString(status));
   void* const target = reinterpret_cast<void*>(loader->create_device);
   PFN_vkCreateDevice original = nullptr;
   if (const MH_STATUS status = MH_CreateHook(target, reinterpret_cast<void*>(&CreateDeviceDetour), reinterpret_cast<void**>(&original));
       status != MH_OK) {
-    return std::format("MinHook 无法挂接 vkCreateDevice：{}", MH_StatusToString(status));
+    return std::format("MinHook could not hook vkCreateDevice: {}", MH_StatusToString(status));
   }
   g_original.store(original, std::memory_order_release);  // before the hook is live: a device made on another thread must find it
   if (const MH_STATUS status = MH_EnableHook(target); status != MH_OK) {
     MH_RemoveHook(target);
     g_original.store(nullptr, std::memory_order_release);
-    return std::format("MinHook 无法启用 vkCreateDevice 挂钩：{}", MH_StatusToString(status));
+    return std::format("MinHook could not enable the vkCreateDevice hook: {}", MH_StatusToString(status));
   }
   hooks::HoldMinHook();  // the hook and the pinned module live for the process: nothing may MH_Uninitialize now
 #if defined(_WIN64)
@@ -678,19 +678,19 @@ std::optional<std::string> DeviceHook::Install() {
   const auto hook_export = [&native_error](void* target, void* detour, const char* name, const auto& publish) {
     if (!native_error.empty()) return;
     if (target == nullptr) {
-      native_error = std::format("vulkan-1.dll 未导出 {}", name);
+      native_error = std::format("vulkan-1.dll does not export {}", name);
       return;
     }
     void* original = nullptr;
     if (const MH_STATUS status = MH_CreateHook(target, detour, &original); status != MH_OK) {
-      native_error = std::format("MinHook 无法挂接 {}：{}", name, MH_StatusToString(status));
+      native_error = std::format("MinHook could not hook {}: {}", name, MH_StatusToString(status));
       return;
     }
     publish(original);  // before the hook is live
     if (const MH_STATUS status = MH_EnableHook(target); status != MH_OK) {
       MH_RemoveHook(target);
       publish(nullptr);
-      native_error = std::format("MinHook 无法启用 {} 挂钩：{}", name, MH_StatusToString(status));
+      native_error = std::format("MinHook could not enable the {} hook: {}", name, MH_StatusToString(status));
     }
   };
   hook_export(reinterpret_cast<void*>(loader->enumerate_physical_devices), reinterpret_cast<void*>(&EnumeratePhysicalDevicesDetour),
@@ -708,7 +708,7 @@ std::optional<std::string> DeviceHook::Install() {
     Shared().native_hooks_error = native_error;
   }
   if (!native_error.empty()) {
-    nr::Logf(nr::LogLevel::WARN, "Vulkan：此游戏无法在 DLSS 后运行 NR：{}", native_error);
+    nr::Logf(nr::LogLevel::WARN, "Vulkan: NR after DLSS is unavailable in this game: {}", native_error);
   }
 #endif
   g_installed.store(true, std::memory_order_release);

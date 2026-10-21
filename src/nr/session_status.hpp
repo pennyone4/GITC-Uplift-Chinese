@@ -62,17 +62,17 @@ struct SessionStatus {
   uint32_t group_count = 0u;
 };
 
-// State label for logs and the overlay.
+// Upper-case state name for logs and the overlay.
 [[nodiscard]] inline std::string_view SessionStateName(SessionState state) {
   switch (state) {
-    case SessionState::OFF:      return "已关闭";
-    case SessionState::LOADING:  return "正在加载";
-    case SessionState::ACTIVE:   return "运行中";
-    case SessionState::GRACE:    return "宽限期";
-    case SessionState::DRAINING: return "正在释放";
-    case SessionState::FAILED:   return "失败";
+    case SessionState::OFF:      return "OFF";
+    case SessionState::LOADING:  return "LOADING";
+    case SessionState::ACTIVE:   return "ACTIVE";
+    case SessionState::GRACE:    return "GRACE";
+    case SessionState::DRAINING: return "DRAINING";
+    case SessionState::FAILED:   return "FAILED";
   }
-  return "已关闭";
+  return "OFF";
 }
 
 }  // namespace uplift::nr

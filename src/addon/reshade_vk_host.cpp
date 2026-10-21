@@ -43,7 +43,7 @@ vk::ImageInfo VulkanImageInfo(api::device* device, api::resource resource) {
 bool VulkanAdapterLuid(api::device* device, LUID* luid, std::string* error) {
   uint32_t vendor_id = 0u;
   if (!device->get_property(api::device_properties::vendor_id, &vendor_id) || vendor_id != NVIDIA_VENDOR_ID) {
-    *error = "Uplift 需要 NVIDIA GPU；此游戏正在另一块显卡上渲染";
+    *error = "Uplift needs an NVIDIA GPU; this game renders on another adapter";
     return false;
   }
   bool found = device->get_property(static_cast<api::device_properties>(9), luid);
@@ -61,7 +61,7 @@ bool VulkanAdapterLuid(api::device* device, LUID* luid, std::string* error) {
     }
   }
   if (!found) {
-    *error = "无法识别此游戏使用的显卡";
+    *error = "the game's adapter could not be identified";
   }
   return found;
 }

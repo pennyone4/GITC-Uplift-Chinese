@@ -211,7 +211,7 @@ bool NrPipeline::EnsureFaces(nr::Size canvas) {
   };
   if (!created.twin || !created.detail || !created.atlas || !created.fill) {
     if (!allocation_failure_logged_) {
-      nr::Logf(nr::LogLevel::ERR, "无法分配 {}x{} 的保护面部表面", canvas.width, canvas.height);
+      nr::Logf(nr::LogLevel::ERR, "could not allocate the {}x{} Keep faces surfaces", canvas.width, canvas.height);
       allocation_failure_logged_ = true;
     }
     return false;  // `created` was never used by the GPU: freed here
@@ -314,10 +314,6 @@ std::string_view NrPipeline::EnsureIntermediates(const SetPlan& plan) {
   RetireSet(set_);
   constexpr D3D12_RESOURCE_FLAGS UAV = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
   const bool pre_sr = (plan.kind == TargetKind::PRE_SR);
-  // I-1 (Plan 4 fix round 4): pre-SR always gets the image-sized change texture, whatever plan.output
-  // is this set -- a dynamic-resolution game's per-frame render region no longer keys the set at all
-  // (RecordPreSr below), so whether a frame needs the change path can no longer be read off the set.
-  const bool reduced = (plan.image != plan.output) || pre_sr;
   Intermediates created = {
       .source_copy = (plan.copy_format == DXGI_FORMAT_UNKNOWN
                           ? Texture()
@@ -327,8 +323,7 @@ std::string_view NrPipeline::EnsureIntermediates(const SetPlan& plan) {
       .model_a = CreateTexture(plan.canvas, DXGI_FORMAT_R16G16B16A16_FLOAT, UAV, COMPUTE_READ, L"Uplift model A"),
       .model_b = CreateTexture(plan.canvas, DXGI_FORMAT_R16G16B16A16_FLOAT, UAV, COMPUTE_READ, L"Uplift model B"),
       .zero_motion = CreateTexture(plan.canvas, DXGI_FORMAT_R16G16_FLOAT, UAV, COMPUTE_READ, L"Uplift zero motion"),
-      .change = (reduced ? CreateTexture(plan.image, DXGI_FORMAT_R16G16B16A16_FLOAT, UAV, COMPUTE_READ, L"Uplift change field")
-                         : Texture()),
+      .change = CreateTexture(plan.image, DXGI_FORMAT_R16G16B16A16_FLOAT, UAV, COMPUTE_READ, L"Uplift change field"),
       .canvas_motion = (plan.canvas_motion
                             ? CreateTexture(plan.canvas, DXGI_FORMAT_R16G16_FLOAT, UAV, COMPUTE_READ, L"Uplift canvas motion")
                             : Texture()),
@@ -338,16 +333,16 @@ std::string_view NrPipeline::EnsureIntermediates(const SetPlan& plan) {
       .plan = plan,
       .bytes = plan.output.Pixels() * plan.source_bytes_per_pixel
                + plan.canvas.Pixels() * (2u * MODEL_BYTES_PER_PIXEL + MOTION_BYTES_PER_PIXEL)
-               + (reduced ? plan.image.Pixels() * MODEL_BYTES_PER_PIXEL : 0u)
+               + plan.image.Pixels() * MODEL_BYTES_PER_PIXEL
                + (plan.canvas_motion ? plan.canvas.Pixels() * MOTION_BYTES_PER_PIXEL : 0u)
                + plan.private_color.Pixels() * MODEL_BYTES_PER_PIXEL,
   };
   const bool complete = created.model_a && created.model_b && created.zero_motion
-                        && (plan.copy_format == DXGI_FORMAT_UNKNOWN || created.source_copy) && (!reduced || created.change)
+                        && (plan.copy_format == DXGI_FORMAT_UNKNOWN || created.source_copy) && created.change
                         && (!plan.canvas_motion || created.canvas_motion) && (!pre_sr || created.private_color);
   if (!complete) {
     if (!allocation_failure_logged_) {
-      nr::Logf(nr::LogLevel::ERR, "无法分配 {}x{} 的 NR 表面", plan.canvas.width, plan.canvas.height);
+      nr::Logf(nr::LogLevel::ERR, "could not allocate the {}x{} NR surfaces", plan.canvas.width, plan.canvas.height);
       allocation_failure_logged_ = true;
     }
     return "out of memory";
@@ -361,20 +356,16 @@ void NrPipeline::SetLookConfig(const LookConfig& config) {
   // v2 design §3.12: a new Detail radius or Stabilize mode starts the stabiliser afresh. Split chain: in every set.
   const bool restart_stabilizer = (config.look.detail_radius != config_.look.detail_radius || config.look.stabilize != config_.look.stabilize
                                    || config.look.stabilize_detail != config_.look.stabilize_detail);
-  const bool snap_meter = (config.fixes != config_.fixes);  // v2 design §3.14: the governor snaps on a settings change
   for (StageSet& set : sets_) {
     if (restart_stabilizer) {
       set.look.history_valid = false;
-    }
-    if (snap_meter) {
-      set.exposure.snap = true;
     }
   }
   config_ = config;
 }
 
-LookPlan NrPipeline::LookPlanFor(nr::Size image, bool reduced) const {
-  return PlanLook(config_, image, reduced, static_cast<bool>(set_->intermediates.change), mask_.copied, color_.SupportsUavLoads());
+LookPlan NrPipeline::LookPlanFor(nr::Size image) const {
+  return PlanLook(config_, image, color_.SupportsUavLoads());
 }
 
 bool NrPipeline::EnsureLook(const LookPlan& plan) {
@@ -387,7 +378,6 @@ bool NrPipeline::EnsureLook(const LookPlan& plan) {
     created.bytes += size.Pixels() * bytes_per_pixel;
     return CreateTexture(size, format, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, COMPUTE_READ, name);
   };
-  created.change = make(plan.own_change, plan.image, DXGI_FORMAT_R16G16B16A16_FLOAT, 8u, L"Uplift change field (output size)");
   created.basis = make(plan.shape, plan.image, DXGI_FORMAT_R16G16_FLOAT, 4u, L"Uplift look basis");
   created.gauss = make(plan.shape, created.atlas.size, DXGI_FORMAT_R16G16B16A16_FLOAT, 8u, L"Uplift look pyramid");
   created.peaks = make(plan.shape, created.atlas.size, DXGI_FORMAT_R16_FLOAT, 2u, L"Uplift look peaks");
@@ -398,12 +388,12 @@ bool NrPipeline::EnsureLook(const LookPlan& plan) {
     history = make(plan.detail, plan.image, DXGI_FORMAT_R16G16B16A16_FLOAT, 8u, L"Uplift look detail history");
   }
   created.state = make(plan.stabilize, {1u, 1u}, DXGI_FORMAT_R32G32B32A32_FLOAT, static_cast<uint32_t>(STATE_BYTES), L"Uplift look state");
-  const bool complete = (!plan.own_change || created.change) && (!plan.shape || (created.basis && created.gauss && created.peaks))
+  const bool complete = (!plan.shape || (created.basis && created.gauss && created.peaks))
                         && (!plan.stabilize || (created.history[0] && created.history[1] && created.state))
                         && (!plan.detail || (created.detail_history[0] && created.detail_history[1]));
   if (!complete) {
     if (!allocation_failure_logged_) {
-      nr::Logf(nr::LogLevel::ERR, "无法分配 {}x{} 的处理结果调整表面", plan.image.width, plan.image.height);
+      nr::Logf(nr::LogLevel::ERR, "could not allocate the {}x{} look surfaces", plan.image.width, plan.image.height);
       allocation_failure_logged_ = true;
     }
     return false;  // `created` was never used by the GPU: freed here
@@ -417,6 +407,14 @@ uint32_t NrPipeline::ShaderOptions() const {
   return static_cast<uint32_t>(config_.fixes.primaries)  // the shaders resolve AUTO per encoding
          | (config_.fixes.near_black_guard ? color::shader_options::NEAR_BLACK_GUARD : 0u)
          | (config_.fixes.transfer == color::NeuralTransfer::CONSISTENT ? color::shader_options::CONSISTENT : 0u);
+}
+
+void NrPipeline::NoteMeterBasis(uint8_t stage, color::Encoding encoding, float input_scale) {
+  const MeterBasis basis = {.stage = stage, .encoding = encoding, .primaries = color::ResolvePrimaries(config_.fixes.primaries, encoding), .input_scale = input_scale};
+  if (set_->exposure.basis == basis) return;
+  set_->exposure.basis = basis;
+  set_->exposure.snap = true;
+  RetireExposureCheck(set_);
 }
 
 NrPipeline::ExposureChoice NrPipeline::ChooseExposure(color::Encoding encoding, ID3D12Resource* game_texture, float game_factor) {
@@ -509,7 +507,7 @@ void NrPipeline::PollExposureChecks() {
 void NrPipeline::RecordMeter(ID3D12GraphicsCommandList* list, uint32_t slot, color::MeterPass pass, const ExposureChoice& exposure) {
   ID3D12Resource* const state = set_->exposure.state.Get();
   pass.state = state;
-  pass.snap = (set_->exposure.snap || set_->intermediates.reset_pending);  // the first frame, a settings change, a rebuild
+  pass.snap = set_->exposure.snap;
   pass.smooth = config_.fixes.smooth_adapt;
   pass.brighter_rate = config_.fixes.adapt_brighter;
   pass.darker_rate = config_.fixes.adapt_darker;
@@ -605,14 +603,12 @@ void NrPipeline::ResolvePass(ID3D12GraphicsCommandList* list, uint32_t index, ID
 }
 
 NrPipeline::AfterNr NrPipeline::RecordAfterNr(ID3D12GraphicsCommandList* list, uint32_t slot, const color::EncodePass& encode,
-                                              ID3D12Resource* nr_output, bool reduced, bool look_ready,
+                                              ID3D12Resource* nr_output, uint32_t passes_run, bool reduced, bool look_ready,
                                               color::Upsampling upsampling, const color::StabilizeMotion& motion, bool reset) {
-  // At the output size with nothing acting on NR's change: Plan 4's restore, bit for bit (key decision 3).
-  if (!reduced && !(look_ready && NeedsChangePath(config_, mask_.copied, color_.SupportsUavLoads()))) return {.texture = nr_output};
   if (set_->look.plan != LookPlan{}) {
     set_->look.last_use = slot_marks_[slot];
   }
-  ID3D12Resource* const change = (set_->intermediates.change ? set_->intermediates.change.Get() : set_->look.change.Get());
+  ID3D12Resource* const change = set_->intermediates.change.Get();
   const bool shape = (look_ready && set_->look.plan.shape);
   ID3D12Resource* const basis = (shape ? set_->look.basis.Get() : nullptr);
   // 1. NR's change field (v2 design §3.7) and, for the look, NR's input chroma κ_M.
@@ -620,14 +616,15 @@ NrPipeline::AfterNr NrPipeline::RecordAfterNr(ID3D12GraphicsCommandList* list, u
   if (basis != nullptr) {
     Transition(list, basis, COMPUTE_READ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
   }
-  const bool changed = color_.RecordChange(list, slot, {.encode = encode, .nr_output = nr_output, .change = change, .basis = basis});
+  // A still holds the original FP16 input after one pass; later passes overwrite it through ping-pong.
+  const bool changed = color_.RecordChange(list, slot, {.encode = encode, .nr_output = nr_output, .change = change, .basis = basis,
+                                                       .model_input = (passes_run == 1u ? set_->intermediates.model_a.Get() : nullptr)});
   Transition(list, change, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, COMPUTE_READ);
   if (basis != nullptr) {
     Transition(list, basis, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, COMPUTE_READ);
   }
   if (!changed) return {.ok = false};
-  // At the output size the compose reads C texel for texel: Classic at 1:1 samples each texel exactly.
-  const AfterNr after = {.texture = change, .upsampling = (reduced ? upsampling : color::Upsampling::CLASSIC)};
+  const AfterNr after = {.texture = change, .upsampling = (reduced ? std::optional{upsampling} : std::nullopt)};
   if (!shape) return after;
   // 2. The pyramids.
   const look::Atlas& atlas = set_->look.atlas;
@@ -792,12 +789,13 @@ PipelineResult NrPipeline::RecordPresent(ID3D12GraphicsCommandList* list, const 
   }
   last_present_frame_ = frame;
   const bool reduced = (work.image != size);
-  const bool look_ready = EnsureLook(LookPlanFor(work.image, reduced));  // before the fit, like the set
+  const bool look_ready = EnsureLook(LookPlanFor(work.image));  // before the fit, like the set
   CommitSlot(slot);
   const float input_scale = color::InputScale(target.encoding, target.diffuse_white_nits, config_.fixes.linear_unit_nits);
   NoteEncoding(target.encoding, input_scale);
   const uint32_t options = ShaderOptions();
   // v2 design §3.14, key decision 10: the Present path never has the game's own exposure.
+  NoteMeterBasis(part.slice.stage, target.encoding, input_scale);
   const ExposureChoice exposure = ChooseExposure(target.encoding, nullptr, 1.f);
   ID3D12Resource* const source_copy = set_->intermediates.source_copy.Get();
   // Amendment 7, deepened by I-2: the copy of the game's motion vectors made for this very frame, when
@@ -859,8 +857,7 @@ PipelineResult NrPipeline::RecordPresent(ID3D12GraphicsCommandList* list, const 
     if (counters.since == std::chrono::steady_clock::time_point{}) {
       counters.since = now;
     } else if (now - counters.since >= std::chrono::seconds(1)) {
-      nr::Logf(nr::LogLevel::TRACE, "Direct3D 12：后处理阶段运动矢量：{} 次复制尝试对应 {} 次呈现；复制 {} 次，跳过 {} 次（输入无效）、{} 次（环形槽位繁忙）、{} 次（槽位仍在使用）；"
-                             "已绑定的呈现帧：当前帧 {} 个、较旧帧 {} 个、缺失 {} 个；最大复制年龄 {} 帧，最大 GPU 延迟 {} 帧；流水线重置提示 {} 次；最近一次抖动校正量 {} x {} 像素",
+      nr::Logf(nr::LogLevel::TRACE, "Direct3D 12: Present motion: {} copy attempts for {} presents; {} copies, skipped {} (input) {} (ring slot) {} (slot's last use); presents bound {} own, {} older, {} none; max copy age {}, max GPU lag {}; {} pipeline reset hints; latest jitter correction {} x {} px",
                counters.evaluates, counters.presents, counters.copies, counters.skipped_input, counters.skipped_ring, counters.skipped_slot,
                counters.own, counters.older, counters.missed, counters.age_max, counters.lag_max, counters.resets, counters.offset_x, counters.offset_y);
       counters = {.since = now};
@@ -901,9 +898,9 @@ PipelineResult NrPipeline::RecordPresent(ID3D12GraphicsCommandList* list, const 
     return {.recorded = true, .reason = evaluated.reason, .from_session = SessionWroteMessage(evaluated.reason),
             .motion_source = motion_source};
   }
-  // 4. Plan 5: the change field and the look stage, or NR's own output for the full-size restore. The Present
+  // 4. The change field and optional look stage. The Present
   //    copy is in its own pixels with the full rect: scale (1, 1).
-  const AfterNr after = RecordAfterNr(list, slot, encode, evaluated.output, reduced, look_ready, work.upsampling,
+  const AfterNr after = RecordAfterNr(list, slot, encode, evaluated.output, evaluated.passes_run, reduced, look_ready, work.upsampling,
                                       StabilizeMotionOf(inputs.motion, inputs.motion_scale_x, inputs.motion_scale_y), look_reset);
   if (!after.ok) {
     return {.recorded = true, .reason = "encode failed", .motion_source = motion_source};
@@ -961,11 +958,12 @@ PipelineResult NrPipeline::RecordUav(ID3D12GraphicsCommandList* list, const UavT
     return {.reason = problem};
   }
   const bool reduced = (work.image != size);
-  const bool look_ready = EnsureLook(LookPlanFor(work.image, reduced));  // before the fit, like the set
+  const bool look_ready = EnsureLook(LookPlanFor(work.image));  // before the fit, like the set
   CommitSlot(slot);
   const float input_scale = color::InputScale(target.encoding, target.diffuse_white_nits, config_.fixes.linear_unit_nits);
   NoteEncoding(target.encoding, input_scale);
   const uint32_t options = ShaderOptions();
+  NoteMeterBasis(part.slice.stage, target.encoding, input_scale);
   const ExposureChoice exposure = ChooseExposure(target.encoding, target.exposure, target.exposure_factor);
   ID3D12Resource* const source_copy = set_->intermediates.source_copy.Get();
   const MotionSource motion_source = (inputs.motion.resource != nullptr ? MotionSource::DIRECT : MotionSource::NONE);
@@ -1011,8 +1009,8 @@ PipelineResult NrPipeline::RecordUav(ID3D12GraphicsCommandList* list, const UavT
     return {.recorded = true, .reason = evaluated.reason, .from_session = SessionWroteMessage(evaluated.reason),
             .motion_source = motion_source, .motion_scale_x = inputs.motion_scale_x, .motion_scale_y = inputs.motion_scale_y};
   }
-  // 4. Plan 5: the change field and the look stage, or NR's own output for the full-size restore.
-  const AfterNr after = RecordAfterNr(list, slot, encode, evaluated.output, reduced, look_ready, work.upsampling,
+  // 4. The change field and optional look stage.
+  const AfterNr after = RecordAfterNr(list, slot, encode, evaluated.output, evaluated.passes_run, reduced, look_ready, work.upsampling,
                                       StabilizeMotionOf(inputs.motion, inputs.motion_scale_x, inputs.motion_scale_y), look_reset);
   if (!after.ok) {
     return {.recorded = true, .reason = "encode failed", .motion_source = motion_source,
@@ -1080,11 +1078,12 @@ PipelineResult NrPipeline::RecordPreSr(ID3D12GraphicsCommandList* list, const Ua
     return {.reason = problem};
   }
   const bool reduced = (work.image != size);
-  const bool look_ready = EnsureLook(LookPlanFor(work.image, reduced));  // before the fit, like the set; I-1: C stays main-set
+  const bool look_ready = EnsureLook(LookPlanFor(work.image));  // before the fit, like the set; I-1: C stays main-set
   CommitSlot(slot);
   const float input_scale = color::InputScale(color.encoding, color.diffuse_white_nits, config_.fixes.linear_unit_nits);
   NoteEncoding(color.encoding, input_scale);
   const uint32_t options = ShaderOptions();
+  NoteMeterBasis(part.slice.stage, color.encoding, input_scale);
   const ExposureChoice exposure = ChooseExposure(color.encoding, color.exposure, color.exposure_factor);
   if (exposure.metered || exposure.probe) {
     RecordMeter(list, slot,
@@ -1146,9 +1145,9 @@ PipelineResult NrPipeline::RecordPreSr(ID3D12GraphicsCommandList* list, const Ua
     return {.recorded = true, .reason = evaluated.reason, .from_session = SessionWroteMessage(evaluated.reason),
             .motion_source = motion_source, .motion_scale_x = inputs.motion_scale_x, .motion_scale_y = inputs.motion_scale_y};
   }
-  // 4. Plan 5: the change field and the look stage, or NR's own output for the full-size restore. The stabiliser
+  // 4. The change field and optional look stage. The stabiliser
   // runs on the game's own vectors (`inputs`, not `nr_inputs`), since it acts on the image, not the canvas.
-  const AfterNr after = RecordAfterNr(list, slot, encode, evaluated.output, reduced, look_ready, work.upsampling,
+  const AfterNr after = RecordAfterNr(list, slot, encode, evaluated.output, evaluated.passes_run, reduced, look_ready, work.upsampling,
                                       StabilizeMotionOf(inputs.motion, inputs.motion_scale_x, inputs.motion_scale_y), look_reset);
   if (!after.ok) {
     return {.recorded = true, .reason = "encode failed", .motion_source = motion_source,
@@ -1240,7 +1239,7 @@ bool NrPipeline::RecordMotionCopy(ID3D12GraphicsCommandList* list, const nr::Bou
     // Fix round 1 (M6): the GPU runs too far behind for four slots (a lag past 3): the ring grows once, its new copies made beside the first ones (none of those is freed or
     // moved). This frame goes without its copy; its present binds an older one.
     if (PresentMotionGrows(motion_copies_.slots, PresentMotionWrite::SLOT_BUSY) && MakeMotionCopies(motion_copies_.slots, MOTION_COPY_SLOTS, size)) {
-      nr::Logf(nr::LogLevel::INFO, "Direct3D 12：GPU 处理延迟过大，4 个槽位已不足；后处理阶段的 DLSS 运动矢量副本槽位从 {} 个增至 {} 个",
+      nr::Logf(nr::LogLevel::INFO, "Direct3D 12: the GPU runs too far behind for four slots: DLSS's motion copies for Present grow from {} to {} slots",
                motion_copies_.slots, MOTION_COPY_SLOTS);
       motion_copies_.slots = MOTION_COPY_SLOTS;
     }
@@ -1283,7 +1282,7 @@ nr::BoundResource NrPipeline::ConvertDlssMotion(ID3D12GraphicsCommandList* list,
   if (dlss_present_motion_.size != size || !dlss_present_motion_.texture) {
     RetireDlssPresentMotion();
     dlss_present_motion_.texture = CreateTexture(size, DXGI_FORMAT_R16G16_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, COMPUTE_READ,
-                                                 L"Uplift DLSS 后处理运动矢量副本");
+                                                 L"Uplift DLSS motion for Present");
     if (!dlss_present_motion_.texture) {
       dlss_present_motion_ = {};
       return {};

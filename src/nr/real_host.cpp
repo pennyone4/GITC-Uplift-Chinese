@@ -16,13 +16,13 @@ RealHost::RealHost(ID3D12Device* device, SnippetConfig config, std::function<std
     : device_(device), config_(std::move(config)), game_memory_(std::move(game_memory)) {
   Microsoft::WRL::ComPtr<IDXGIFactory4> factory;
   if (const HRESULT factory_result = CreateDXGIFactory2(0u, IID_PPV_ARGS(&factory)); FAILED(factory_result)) {
-    Logf(LogLevel::WARN, "CreateDXGIFactory2 调用失败：{:#010x}；QueryMemory 将报告可用显存不受限",
+    Logf(LogLevel::WARN, "CreateDXGIFactory2 failed with {:#010x}; QueryMemory will report unlimited headroom",
          static_cast<uint32_t>(factory_result));
     return;
   }
   const HRESULT result = factory->EnumAdapterByLuid(device->GetAdapterLuid(), IID_PPV_ARGS(&adapter_));
   if (FAILED(result)) {
-    Logf(LogLevel::WARN, "EnumAdapterByLuid 调用失败：{:#010x}；QueryMemory 将报告可用显存不受限",
+    Logf(LogLevel::WARN, "EnumAdapterByLuid failed with {:#010x}; QueryMemory will report unlimited headroom",
          static_cast<uint32_t>(result));
   }
 }
@@ -64,7 +64,7 @@ MemoryInfo RealHost::QueryMemory() {
   const HRESULT result = adapter_->QueryVideoMemoryInfo(0u, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &info);
   if (FAILED(result)) {
     if (!query_memory_failed_logged_) {
-      Logf(LogLevel::WARN, "QueryVideoMemoryInfo 调用失败：{:#010x}；将报告可用显存不受限",
+      Logf(LogLevel::WARN, "QueryVideoMemoryInfo failed with {:#010x}; reporting unlimited headroom",
            static_cast<uint32_t>(result));
       query_memory_failed_logged_ = true;
     }

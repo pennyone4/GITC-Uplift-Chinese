@@ -29,7 +29,7 @@ gl::ImageInfo GlImageInfo(api::device* device, api::resource resource) {
 bool GlAdapterLuid(const gl::Functions& gl, LUID* luid, std::string* error) {
   const auto* const vendor = reinterpret_cast<const char*>(gl.GetString(GL_VENDOR));
   if (vendor == nullptr || std::string_view(vendor).find("NVIDIA") == std::string_view::npos) {
-    *error = "Uplift 需要 NVIDIA GPU；此游戏正在另一块显卡上渲染";
+    *error = "Uplift needs an NVIDIA GPU; this game renders on another adapter";
     return false;
   }
   bool found = false;
@@ -58,7 +58,7 @@ bool GlAdapterLuid(const gl::Functions& gl, LUID* luid, std::string* error) {
     }
   }
   if (!found) {
-    *error = "无法识别此游戏使用的显卡";
+    *error = "the game's adapter could not be identified";
   }
   return found;
 }
